@@ -3687,6 +3687,7 @@ export function useAppController() {
     handleSendWA,
     openEmailPreview,
     StarRating,
+    renderCandidateStars,
     affinedCandidatiMemo,
     getAffinedCandidati
   };
