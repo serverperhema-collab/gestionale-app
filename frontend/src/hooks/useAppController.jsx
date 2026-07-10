@@ -407,6 +407,47 @@ export function useAppController() {
     }
   };
 
+  const handleLinkAnnuncio = async (id_annuncio) => {
+    if (!selectedRicercaId) return;
+    try {
+      showStatus('loading', 'Collegamento...', 'Sto collegando l\'annuncio...');
+      const res = await fetch(`${API_BASE}/ricerche/${selectedRicercaId}/annunci-link`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id_annuncio })
+      });
+      const json = await res.json();
+      if (json.success) {
+        showStatus('success', 'Collegato!', 'Annuncio collegato al mandato con successo.');
+        fetchRicercaDetail(selectedRicercaId);
+      } else {
+        showStatus('error', 'Errore', json.error);
+      }
+    } catch (err) {
+      showStatus('error', 'Connessione fallita', err.message);
+    }
+  };
+
+  const handleUnlinkAnnuncio = async (id_annuncio) => {
+    if (!selectedRicercaId) return;
+    if (!window.confirm("Sei sicuro di voler scollegare questo annuncio dal mandato?")) return;
+    try {
+      showStatus('loading', 'Scollegamento...', 'Sto scollegando l\'annuncio...');
+      const res = await fetch(`${API_BASE}/ricerche/${selectedRicercaId}/annunci-link/${id_annuncio}`, {
+        method: 'DELETE'
+      });
+      const json = await res.json();
+      if (json.success) {
+        showStatus('success', 'Scollegato!', 'Annuncio scollegato dal mandato con successo.');
+        fetchRicercaDetail(selectedRicercaId);
+      } else {
+        showStatus('error', 'Errore', json.error);
+      }
+    } catch (err) {
+      showStatus('error', 'Connessione fallita', err.message);
+    }
+  };
+
   // ----------------- CRUD HANDLERS -----------------
 
   const handleApprovalAction = async (id, action) => {

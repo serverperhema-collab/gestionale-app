@@ -257,6 +257,63 @@ app.post('/api/annunci', async (req, res) => {
   }
 });
 
+app.post('/api/ricerche/:id/annunci-link', async (req, res) => {
+  try {
+    const { id_annuncio } = req.body;
+    const id_ricerca = req.params.id;
+    if (!id_annuncio) return res.status(400).json({ success: false, error: 'id_annuncio mancante' });
+
+    // Controlla se  gi collegato
+    const existing = await db.get('SELECT * FROM ricerche_annunci WHERE id_ricerca = ? AND id_annuncio = ?', [id_ricerca, id_annuncio]);
+    if (existing) {
+      return res.json({ success: true, message: 'Annuncio gi collegato' });
+    }
+
+    await db.run('INSERT INTO ricerche_annunci (id_ricerca, id_annuncio, data_collegamento) VALUES (?, ?, ?)', [id_ricerca, id_annuncio, new Date().toISOString()]);
+
+    const ricerca = await db.get('SELECT azienda FROM ricerche WHERE id = ?', [id_ricerca]);
+    const ann = await db.get('SELECT portali_annuncio FROM annunci WHERE id = ?', [id_annuncio]);
+
+    if (ricerca) {
+      await logActivity(
+        'RICERCA', id_ricerca, ricerca.azienda, 
+        'Collegamento Annuncio', 
+        `Collegato annuncio esistente (${id_annuncio}). Portali: ${ann?.portali_annuncio || 'N/D'}`, 
+        id_ricerca, id_annuncio
+      );
+    }
+    
+    res.json({ success: true, message: 'Annuncio collegato con successo' });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.delete('/api/ricerche/:id/annunci-link/:id_annuncio', async (req, res) => {
+  try {
+    const id_ricerca = req.params.id;
+    const id_annuncio = req.params.id_annuncio;
+
+    await db.run('DELETE FROM ricerche_annunci WHERE id_ricerca = ? AND id_annuncio = ?', [id_ricerca, id_annuncio]);
+
+    const ricerca = await db.get('SELECT azienda FROM ricerche WHERE id = ?', [id_ricerca]);
+    const ann = await db.get('SELECT portali_annuncio FROM annunci WHERE id = ?', [id_annuncio]);
+
+    if (ricerca) {
+      await logActivity(
+        'RICERCA', id_ricerca, ricerca.azienda, 
+        'Scollegamento Annuncio', 
+        `Scollegato annuncio (${id_annuncio}). Portali: ${ann?.portali_annuncio || 'N/D'}`, 
+        id_ricerca, id_annuncio
+      );
+    }
+
+    res.json({ success: true, message: 'Annuncio scollegato con successo' });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 app.post('/api/ricerche/:id/annunci', async (req, res) => {
   try {
     const { testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, note } = req.body;
