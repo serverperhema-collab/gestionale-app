@@ -2,7 +2,7 @@ services:
   - type: web
     name: gestionale-backend
     env: node
-    plan: free
+    plan: starter
     rootDir: backend
     buildCommand: npm install
     startCommand: npm start
