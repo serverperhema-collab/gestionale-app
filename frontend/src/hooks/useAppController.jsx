@@ -327,9 +327,14 @@ export function useAppController() {
           const updated = json.data.candidatiCollegati.find(c => c.idCandidato === prev.idCandidato);
           return updated || null;
         });
+      } else {
+        showStatus('error', 'Errore Caricamento Mandato', 'Dettagli: ' + (json.error || 'Errore sconosciuto del server. Assicurati di aver riavviato il server backend.'));
+        setSelectedRicercaId(null);
       }
     } catch (e) {
       console.error(e);
+      showStatus('error', 'Errore di Rete', e.message);
+      setSelectedRicercaId(null);
     }
   };
   const handleUpdateAdStatus = async e => {
