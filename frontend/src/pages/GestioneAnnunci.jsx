@@ -93,8 +93,7 @@ export default function GestioneAnnunci({ ctrl }) {
                   )}
                 </td>
                 <td style={{ padding: '12px', fontSize: '13px' }}>
-                  Inizio: {a.data_inserimento_annuncio || 'N/D'}<br/>
-                  Scad.: {a.data_scadenza_annuncio || 'N/D'}
+                  Inizio: {a.data_inserimento_annuncio || 'N/D'}
                 </td>
                 <td style={{ padding: '12px' }}>
                   <span className={`badge ${a.stato_annuncio === 'Chiuso' ? 'badge-secondary' : 'badge-primary'}`}>{a.stato_annuncio}</span>
@@ -127,8 +126,8 @@ export default function GestioneAnnunci({ ctrl }) {
             <form onSubmit={handleSave}>
               <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div className="form-group">
-                  <label>Testo Annuncio</label>
-                  <textarea className="form-control" rows="5" value={formData.testo_annuncio || ''} onChange={e => setFormData({...formData, testo_annuncio: e.target.value})}></textarea>
+                  <label>Testo Annuncio *</label>
+                  <textarea className="form-control" rows="5" required value={formData.testo_annuncio || ''} onChange={e => setFormData({...formData, testo_annuncio: e.target.value})}></textarea>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <div className="form-group">
@@ -140,12 +139,8 @@ export default function GestioneAnnunci({ ctrl }) {
                     <input type="url" className="form-control" value={formData.link_annuncio || ''} onChange={e => setFormData({...formData, link_annuncio: e.target.value})} />
                   </div>
                   <div className="form-group">
-                    <label>Data Inserimento</label>
-                    <input type="date" className="form-control" value={formData.data_inserimento_annuncio || ''} onChange={e => setFormData({...formData, data_inserimento_annuncio: e.target.value})} />
-                  </div>
-                  <div className="form-group">
-                    <label>Data Scadenza</label>
-                    <input type="date" className="form-control" value={formData.data_scadenza_annuncio || ''} onChange={e => setFormData({...formData, data_scadenza_annuncio: e.target.value})} />
+                    <label>Data Pubblicazione *</label>
+                    <input type="date" className="form-control" required value={formData.data_inserimento_annuncio || ''} onChange={e => setFormData({...formData, data_inserimento_annuncio: e.target.value})} />
                   </div>
                 </div>
                 <div className="form-group">

@@ -249,7 +249,7 @@ app.post('/api/annunci', async (req, res) => {
     await db.run(`
       INSERT INTO annunci (id, id_ricerca, testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio, note)
       VALUES (?, '', ?, ?, ?, ?, ?, 'Attivo', ?)
-    `, [id, testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, note || '']);
+    `, [id, testo_annuncio || '', portali_annuncio || '', link_annuncio || '', data_inserimento_annuncio || '', data_scadenza_annuncio || '', note || '']);
     
     res.json({ success: true, message: 'Annuncio creato con successo', id });
   } catch (e) {
@@ -440,7 +440,16 @@ app.put('/api/annunci/:id', async (req, res) => {
           stato_annuncio = COALESCE(?, stato_annuncio),
           note = COALESCE(?, note)
       WHERE id = ?
-    `, [testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio, note, req.params.id]);
+    `, [
+      testo_annuncio !== undefined ? testo_annuncio : null, 
+      portali_annuncio !== undefined ? portali_annuncio : null, 
+      link_annuncio !== undefined ? link_annuncio : null, 
+      data_inserimento_annuncio !== undefined ? data_inserimento_annuncio : null, 
+      data_scadenza_annuncio !== undefined ? data_scadenza_annuncio : null, 
+      stato_annuncio !== undefined ? stato_annuncio : null, 
+      note !== undefined ? note : null, 
+      req.params.id
+    ]);
     
     res.json({ success: true, message: 'Annuncio aggiornato con successo' });
   } catch (e) {
