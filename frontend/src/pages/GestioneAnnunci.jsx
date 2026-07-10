@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useGlobalState } from '../contexts/GlobalStateContext';
+import { API_BASE } from '../utils';
 
 export default function GestioneAnnunci({ ctrl }) {
   const { annunci, fetchAnnunci } = useGlobalState();
@@ -20,7 +21,7 @@ export default function GestioneAnnunci({ ctrl }) {
     e.preventDefault();
     try {
       ctrl.showStatus('loading', 'Salvataggio in corso...');
-      const url = formData.id ? `${ctrl.API_BASE}/annunci/${formData.id}` : `${ctrl.API_BASE}/annunci`;
+      const url = formData.id ? `${API_BASE}/annunci/${formData.id}` : `${API_BASE}/annunci`;
       const method = formData.id ? 'PUT' : 'POST';
       
       const res = await fetch(url, {
@@ -47,7 +48,7 @@ export default function GestioneAnnunci({ ctrl }) {
     
     try {
       ctrl.showStatus('loading', 'Eliminazione in corso...');
-      const res = await fetch(`${ctrl.API_BASE}/annunci/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_BASE}/annunci/${id}`, { method: 'DELETE' });
       const json = await res.json();
       if (json.success) {
         ctrl.showStatus('success', 'Eliminato', 'Annuncio eliminato.');
