@@ -17,7 +17,7 @@ import TerminaProvaModal from './TerminaProvaModal';
 
 export default function GlobalModals(props) {
   const {
-    showValutazioneModal, setShowValutazioneModal, currentCandidato, setCurrentCandidato, evalForm, evalActiveTab, setEvalActiveTab,
+    showValutazioneModal, setShowValutazioneModal, currentCandidato, setCurrentCandidato, evalForm, setEvalForm, evalActiveTab, setEvalActiveTab,
     evalCandidateId, evalCandidateName, loadingEvalStorico, evalStorico, timeline, handleSaveValutazione, handleEvalFormChange,
     calculateRealtimeScore, renderCandidateStars, API_BASE, handlePrintScheda, handleEditCandidato,
     selectedInterviewForManagement, setSelectedInterviewForManagement, handleEditInterviewDetails, handleDeleteInterview,
