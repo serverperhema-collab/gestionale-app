@@ -505,9 +505,6 @@ export default function RicercaDetail({
                             <button className="btn btn-secondary btn-sm" onClick={() => setShowLinkAnnuncioModal(true)}>
                               🔗 Collega Annuncio Esistente
                             </button>
-                            <button className="btn btn-primary btn-sm" onClick={() => setShowNewAnnuncioFormModal(true)}>
-                              ➕ Pubblica Nuovo Annuncio
-                            </button>
                           </div>
                         </div>
                         <div className="table-container">
@@ -545,14 +542,6 @@ export default function RicercaDetail({
                                             }}
                                           >
                                             🔌 Scollega
-                                          </button>
-                                          <button 
-                                            className="btn btn-secondary btn-sm" 
-                                            onClick={() => {
-                                              setSelectedAnnuncio(ann);
-                                            }}
-                                          >
-                                            ⚙️ Gestisci
                                           </button>
                                         </div>
                                       </td>
