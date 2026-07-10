@@ -47,3 +47,11 @@ export const apiFetchPendingChecklist = async () => {
   if (!json.success) throw new Error(json.message || 'Errore fetch pending checklist');
   return json.pending;
 };
+
+export const apiFetchAnnunci = async () => {
+  const res = await fetch(`${API_BASE}/annunci`);
+  if (!res.ok) throw new Error('Network response was not ok');
+  const json = await res.json();
+  if (!json.success) throw new Error(json.message || 'Errore fetch annunci');
+  return json.annunci;
+};

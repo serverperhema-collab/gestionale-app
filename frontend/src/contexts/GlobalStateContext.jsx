@@ -6,7 +6,8 @@ import {
   apiFetchClienti, 
   apiFetchCommerciali, 
   apiFetchOperatori, 
-  apiFetchPendingChecklist 
+  apiFetchPendingChecklist,
+  apiFetchAnnunci
 } from '../api';
 import { API_BASE } from '../utils';
 
@@ -58,6 +59,13 @@ export const GlobalStateProvider = ({ children }) => {
   const { data: pendingChecklistData = [], refetch: fetchPendingChecklist } = useQuery({
     queryKey: ['pendingChecklist'],
     queryFn: apiFetchPendingChecklist,
+    refetchInterval: 10000,
+  });
+
+  // Annunci
+  const { data: annunciData = [], refetch: fetchAnnunci } = useQuery({
+    queryKey: ['annunci'],
+    queryFn: apiFetchAnnunci,
   });
 
   // Email Config
@@ -129,6 +137,7 @@ export const GlobalStateProvider = ({ children }) => {
       clienti: clientiData, setClienti, fetchClienti,
       commerciali: commercialiData, setCommerciali, fetchCommerciali, fetchCommercialiSilent,
       operatori: operatoriData, setOperatori, fetchOperatori,
+      annunci: annunciData, fetchAnnunci,
       pendingChecklist: pendingChecklistData, setPendingChecklist, fetchPendingChecklist,
       emailConfig, setEmailConfig, fetchEmailConfig,
       newMandatePopup, setNewMandatePopup,

@@ -95,8 +95,14 @@ export default function RicercaDetail({
   hiringFormData, 
   setHiringFormData, 
   fetchRicercaDetail, 
-  handleSendWA, openEmailPreview, handlePrintReport
+  handleSendWA, openEmailPreview, handlePrintReport,
+  showLinkAnnuncioModal,
+  setShowLinkAnnuncioModal,
+  handleLinkAnnuncio,
+  handleUnlinkAnnuncio
 }) {
+  const { annunci: annunciGlobali } = useGlobalState();
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                {ricercaDetail.ricerca.stato_approvazione_tl === 'In attesa di approvazione' && (
@@ -442,13 +448,67 @@ export default function RicercaDetail({
                         </div>
                       )}
 
+                      {showLinkAnnuncioModal && (
+                        <div className="modal-overlay" style={{ zIndex: 1100 }}>
+                          <div className="modal-container" style={{ maxWidth: '700px', width: '95%', maxHeight: '80vh', overflowY: 'auto' }}>
+                            <div className="modal-header flex-between-center">
+                              <h2 style={{ margin: 0 }}>🔗 Collega Annuncio Esistente</h2>
+                              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowLinkAnnuncioModal(false)}>✕</button>
+                            </div>
+                            <div className="modal-body" style={{ padding: '20px' }}>
+                              <p>Seleziona un annuncio dalla bacheca globale da collegare a questo mandato:</p>
+                              {annunciGlobali && annunciGlobali.length > 0 ? (
+                                <table className="data-table" style={{ width: '100%', marginTop: '10px' }}>
+                                  <thead>
+                                    <tr>
+                                      <th>Portali</th>
+                                      <th>Stato</th>
+                                      <th>Azioni</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {annunciGlobali.map(a => {
+                                      // Controlla se è già collegato
+                                      const isLinked = annunci.some(linkedAnn => linkedAnn.id === a.id);
+                                      return (
+                                        <tr key={a.id}>
+                                          <td><strong>{a.portali_annuncio || 'N/D'}</strong><br/><small>{a.testo_annuncio ? a.testo_annuncio.substring(0,30)+'...' : ''}</small></td>
+                                          <td><span className={`badge ${a.stato_annuncio === 'Attivo' ? 'badge-success' : 'badge-secondary'}`}>{a.stato_annuncio}</span></td>
+                                          <td style={{ textAlign: 'right' }}>
+                                            {isLinked ? (
+                                              <span style={{ color: 'var(--success)' }}>✓ Già collegato</span>
+                                            ) : (
+                                              <button className="btn btn-primary btn-sm" onClick={() => {
+                                                handleLinkAnnuncio(a.id);
+                                                setShowLinkAnnuncioModal(false);
+                                              }}>Collega</button>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              ) : (
+                                <p>Nessun annuncio disponibile nella bacheca globale.</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Tabella degli Annunci Salvati */}
                       <div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                          <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>📋 Annunci Pubblicati</h3>
-                          <button className="btn btn-primary btn-sm" onClick={() => setShowNewAnnuncioFormModal(true)}>
-                            ➕ Pubblica Nuovo Annuncio
-                          </button>
+                          <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0 }}>📋 Annunci Collegati</h3>
+                          <div style={{ display: 'flex', gap: '10px' }}>
+                            <button className="btn btn-secondary btn-sm" onClick={() => setShowLinkAnnuncioModal(true)}>
+                              🔗 Collega Annuncio Esistente
+                            </button>
+                            <button className="btn btn-primary btn-sm" onClick={() => setShowNewAnnuncioFormModal(true)}>
+                              ➕ Pubblica Nuovo Annuncio
+                            </button>
+                          </div>
                         </div>
                         <div className="table-container">
                             <table className="data-table">
@@ -478,6 +538,14 @@ export default function RicercaDetail({
                                       </td>
                                       <td>
                                         <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                          <button 
+                                            className="btn btn-secondary btn-sm" 
+                                            onClick={() => {
+                                              handleUnlinkAnnuncio(ann.id);
+                                            }}
+                                          >
+                                            🔌 Scollega
+                                          </button>
                                           <button 
                                             className="btn btn-secondary btn-sm" 
                                             onClick={() => {

@@ -15,6 +15,7 @@ import Candidati from './pages/GestioneCandidati';
 import Clienti from './pages/GestioneClienti';
 import RicercaDetail from './pages/RicercaDetail';
 import PostaElettronica from './pages/PostaElettronica';
+import GestioneAnnunci from './pages/GestioneAnnunci';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -94,6 +95,9 @@ export default function App() {
             <button className={`menu-item ${ctrl.currentPage === 'candidati' ? 'active' : ''}`} onClick={() => { ctrl.setCurrentPage('candidati'); ctrl.setSelectedRicercaId(null); }}>👥 Database Candidati</button>
           </li>
           <li>
+            <button className={`menu-item ${ctrl.currentPage === 'annunci' ? 'active' : ''}`} onClick={() => { ctrl.setCurrentPage('annunci'); ctrl.setSelectedRicercaId(null); }}>📢 Bacheca Annunci</button>
+          </li>
+          <li>
             <button className={`menu-item ${ctrl.currentPage === 'clienti' ? 'active' : ''}`} onClick={() => { ctrl.setCurrentPage('clienti'); ctrl.setSelectedRicercaId(null); }}>🏢 Anagrafica Clienti</button>
           </li>
           <li>
@@ -130,6 +134,7 @@ export default function App() {
               : ctrl.currentPage === 'cestinati' ? 'Mandati Cestinati'
               : ctrl.currentPage === 'ricerche' ? 'Mandati e Ricerche Attive'
               : ctrl.currentPage === 'candidati' ? 'Database Curricula'
+              : ctrl.currentPage === 'annunci' ? 'Bacheca Annunci Globali'
               : ctrl.currentPage === 'commerciali_gestione' ? 'Gestione Profili Commerciali'
               : ctrl.currentPage === 'email_config' ? 'Configurazione Server E-mail'
               : ctrl.currentPage === 'posta' ? 'Client Posta Elettronica'
@@ -169,6 +174,7 @@ export default function App() {
               <Route path="/posta" element={<PostaElettronica candidati={ctrl.candidati} clienti={ctrl.clienti} ricerche={ctrl.ricerche} showStatus={ctrl.showStatus} API_BASE={ctrl.API_BASE} />} />
               <Route path="/email_config" element={<ConfigurazioneEmail />} />
               <Route path="/candidati" element={<Candidati handleOpenValutazione={ctrl.handleOpenValutazione} setSelectedSubjectLog={ctrl.setSelectedSubjectLog} handleLinkCandidatoToRicerca={ctrl.handleLinkCandidatoToRicerca} setCurrentCandidato={ctrl.setCurrentCandidato} setShowNewCVCandidatoModal={ctrl.setShowNewCVCandidatoModal} />} />
+              <Route path="/annunci" element={<GestioneAnnunci ctrl={ctrl} />} />
               <Route path="/clienti" element={<Clienti setSelectedSubjectLog={ctrl.setSelectedSubjectLog} />} />
             </Routes>
           )}

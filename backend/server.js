@@ -216,9 +216,24 @@ app.get('/api/ricerche/:id', async (req, res) => {
     res.status(500).json({ success: false, error: e.message });
   }
 });
+app.get('/api/annunci', async (req, res) => {
+  try {
+    const list = await db.all(`
+      SELECT a.*, GROUP_CONCAT(ra.id_ricerca) as ricerche_collegate
+      FROM annunci a
+      LEFT JOIN ricerche_annunci ra ON a.id = ra.id_annuncio
+      GROUP BY a.id
+      ORDER BY a.data_inserimento_annuncio DESC
+    `);
+    res.json({ success: true, annunci: list });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 app.get('/api/ricerche/:id/annunci', async (req, res) => {
   try {
-    const list = await db.all('SELECT * FROM annunci WHERE id_ricerca = ? ORDER BY data_inserimento_annuncio DESC', [req.params.id]);
+    const list = await db.all('SELECT a.*, ra.data_collegamento FROM annunci a JOIN ricerche_annunci ra ON a.id = ra.id_annuncio WHERE ra.id_ricerca = ? ORDER BY a.data_inserimento_annuncio DESC', [req.params.id]);
     res.json({ success: true, annunci: list });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
@@ -226,15 +241,35 @@ app.get('/api/ricerche/:id/annunci', async (req, res) => {
 });
 
 
-app.post('/api/ricerche/:id/annunci', async (req, res) => {
+app.post('/api/annunci', async (req, res) => {
   try {
     const { testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, note } = req.body;
     const id = generateID('ANN');
     
     await db.run(`
       INSERT INTO annunci (id, id_ricerca, testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio, note)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'Attivo', ?)
-    `, [id, req.params.id, testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, note || '']);
+      VALUES (?, '', ?, ?, ?, ?, ?, 'Attivo', ?)
+    `, [id, testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, note || '']);
+    
+    res.json({ success: true, message: 'Annuncio creato con successo', id });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/ricerche/:id/annunci', async (req, res) => {
+  try {
+    const { testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, note } = req.body;
+    const id = generateID('ANN');
+    
+    // Crea l'annuncio globale
+    await db.run(`
+      INSERT INTO annunci (id, id_ricerca, testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio, note)
+      VALUES (?, '', ?, ?, ?, ?, ?, 'Attivo', ?)
+    `, [id, testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, note || '']);
+    
+    // Collega l'annuncio alla ricerca
+    await db.run('INSERT INTO ricerche_annunci (id_ricerca, id_annuncio, data_collegamento) VALUES (?, ?, ?)', [req.params.id, id, new Date().toISOString()]);
     
     const ricerca = await db.get('SELECT azienda, referente, piva FROM ricerche WHERE id = ?', [req.params.id]);
     let clientId = '';
@@ -243,14 +278,60 @@ app.post('/api/ricerche/:id/annunci', async (req, res) => {
       if (cl) clientId = cl.id;
       
       await logActivity(
-        'CLIENTE', clientId || req.params.id, ricerca.azienda, 
+        'RICERCA', req.params.id, ricerca.azienda, 
         'Inserimento Annuncio', 
-        `Nuovo annuncio inserito (${id}). Portali: ${portali_annuncio || 'N/D'}. Link: ${link_annuncio || 'N/D'}. Scadenza: ${data_scadenza_annuncio || 'N/D'}`, 
+        `Nuovo annuncio creato e collegato (${id}). Portali: ${portali_annuncio || 'N/D'}. Link: ${link_annuncio || 'N/D'}. Scadenza: ${data_scadenza_annuncio || 'N/D'}`, 
         req.params.id, id
       );
     }
     
-    res.json({ success: true, message: 'Annuncio creato con successo', id });
+    res.json({ success: true, message: 'Annuncio creato e collegato con successo', id });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/ricerche/:id_ricerca/annunci/:id_annuncio/collega', async (req, res) => {
+  try {
+    const { id_ricerca, id_annuncio } = req.params;
+    
+    const check = await db.get('SELECT 1 FROM ricerche_annunci WHERE id_ricerca = ? AND id_annuncio = ?', [id_ricerca, id_annuncio]);
+    if (check) return res.status(400).json({ success: false, error: 'Annuncio già collegato a questa ricerca' });
+    
+    await db.run('INSERT INTO ricerche_annunci (id_ricerca, id_annuncio, data_collegamento) VALUES (?, ?, ?)', [id_ricerca, id_annuncio, new Date().toISOString()]);
+    
+    const ricerca = await db.get('SELECT azienda FROM ricerche WHERE id = ?', [id_ricerca]);
+    const annuncio = await db.get('SELECT portali_annuncio FROM annunci WHERE id = ?', [id_annuncio]);
+    
+    await logActivity(
+      'RICERCA', id_ricerca, ricerca ? ricerca.azienda : 'N/D',
+      'Annuncio Collegato', 
+      `L'annuncio (${id_annuncio}) sui portali [${annuncio ? annuncio.portali_annuncio : 'N/D'}] è stato collegato a questa ricerca.`, 
+      id_ricerca, id_annuncio
+    );
+    
+    res.json({ success: true, message: 'Annuncio collegato con successo' });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.delete('/api/ricerche/:id_ricerca/annunci/:id_annuncio/scollega', async (req, res) => {
+  try {
+    const { id_ricerca, id_annuncio } = req.params;
+    
+    await db.run('DELETE FROM ricerche_annunci WHERE id_ricerca = ? AND id_annuncio = ?', [id_ricerca, id_annuncio]);
+    
+    const ricerca = await db.get('SELECT azienda FROM ricerche WHERE id = ?', [id_ricerca]);
+    
+    await logActivity(
+      'RICERCA', id_ricerca, ricerca ? ricerca.azienda : 'N/D',
+      'Annuncio Scollegato', 
+      `L'annuncio (${id_annuncio}) è stato scollegato da questa ricerca.`, 
+      id_ricerca, id_annuncio
+    );
+    
+    res.json({ success: true, message: 'Annuncio scollegato con successo' });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
@@ -273,9 +354,9 @@ app.put('/api/annunci/:id', async (req, res) => {
     if (stato_annuncio && stato_annuncio !== annuncio.stato_annuncio) {
       const details = `Stato annuncio (${req.params.id}) modificato da '${annuncio.stato_annuncio}' a '${stato_annuncio}'. Motivazione: ${motivazione_stato || 'N/D'}`;
       await logActivity(
-        'CLIENTE', clientId || annuncio.id_ricerca, ricerca ? ricerca.azienda : 'N/D', 
+        'ANNUNCIO', req.params.id, 'N/D', 
         'Stato Annuncio', details, 
-        annuncio.id_ricerca, req.params.id
+        null, req.params.id
       );
     }
     
@@ -283,12 +364,12 @@ app.put('/api/annunci/:id', async (req, res) => {
     const newScadenza = data_scadenza_annuncio !== undefined ? data_scadenza_annuncio : annuncio.data_scadenza_annuncio;
     const newPubblicazione = data_inserimento_annuncio !== undefined ? data_inserimento_annuncio : annuncio.data_inserimento_annuncio;
     
-    if (newLink !== annuncio.link_annuncio || newScadenza !== annuncio.data_scadenza_annuncio || newPubblicazione !== annuncio.data_inserimento_annuncio) {
+    if (newLink !== annuncio.link_annuncio || newScadenza !== annuncio.data_scadenza_annuncio || newPubblicazione !== annuncio.data_inserimento_annuncio || testo_annuncio !== annuncio.testo_annuncio || note !== annuncio.note) {
       await logActivity(
-        'CLIENTE', clientId || annuncio.id_ricerca, ricerca ? ricerca.azienda : 'N/D', 
+        'ANNUNCIO', req.params.id, 'N/D', 
         'Aggiornamento Annuncio', 
         `Aggiornato dettagli annuncio (${req.params.id}). Link: ${newLink || 'N/D'}. Pubblicazione: ${newPubblicazione || 'N/D'}. Scadenza: ${newScadenza || 'N/D'}`, 
-        annuncio.id_ricerca, req.params.id
+        null, req.params.id
       );
     }
     
@@ -322,13 +403,14 @@ app.delete('/api/annunci/:id', async (req, res) => {
       if (cl) clientId = cl.id;
     }
 
+    await db.run('DELETE FROM ricerche_annunci WHERE id_annuncio = ?', [req.params.id]);
     await db.run('DELETE FROM annunci WHERE id = ?', [req.params.id]);
 
     await logActivity(
-      'CLIENTE', clientId || annuncio.id_ricerca, ricerca ? ricerca.azienda : 'N/D', 
+      'ANNUNCIO', req.params.id, 'N/D', 
       'Eliminazione Annuncio', 
       `Eliminato annuncio di lavoro (${req.params.id}). Portali: ${annuncio.portali_annuncio || 'N/D'}`, 
-      annuncio.id_ricerca, req.params.id
+      null, req.params.id
     );
 
     res.json({ success: true, message: 'Annuncio eliminato con successo' });

@@ -146,6 +146,17 @@ async function initDatabase() {
         FOREIGN KEY (id_ricerca) REFERENCES ricerche(id)
       )
     `);
+    // 3c. Table Ricerche-Annunci (Junction)
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS ricerche_annunci (
+        id_ricerca TEXT NOT NULL,
+        id_annuncio TEXT NOT NULL,
+        data_collegamento TEXT,
+        PRIMARY KEY (id_ricerca, id_annuncio),
+        FOREIGN KEY (id_ricerca) REFERENCES ricerche(id),
+        FOREIGN KEY (id_annuncio) REFERENCES annunci(id)
+      )
+    `);
 
     // 4. Table Pipeline Assunzioni
     await db.exec(`
@@ -373,6 +384,18 @@ async function initDatabase() {
         )
       `);
     } catch(e) {}
+
+    try {
+      // Migrate existing annunci to ricerche_annunci
+      await db.exec(`
+        INSERT INTO ricerche_annunci (id_ricerca, id_annuncio, data_collegamento)
+        SELECT id_ricerca, id, data_inserimento_annuncio
+        FROM annunci
+        WHERE id NOT IN (SELECT id_annuncio FROM ricerche_annunci)
+      `);
+    } catch(e) {
+      console.log("Migration annunci -> ricerche_annunci failed or already done:", e.message);
+    }
 
     console.log("Database initialized successfully!");
   } catch (err) {

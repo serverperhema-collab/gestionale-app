@@ -60,6 +60,7 @@ export function useAppController() {
   const [pendingHiringCandidate, setPendingHiringCandidate] = useState(null);
   const [showTerminaProvaModal, setShowTerminaProvaModal] = useState(false);
   const [showNewAnnuncioFormModal, setShowNewAnnuncioFormModal] = useState(false);
+  const [showLinkAnnuncioModal, setShowLinkAnnuncioModal] = useState(false);
   const [showNewCandidatoPipelineModal, setShowNewCandidatoPipelineModal] = useState(false);
   const [showNewInterviewFormModal, setShowNewInterviewFormModal] = useState(false);
   const [showNewTrialFormModal, setShowNewTrialFormModal] = useState(false);
@@ -3534,6 +3535,8 @@ export function useAppController() {
     setShowTerminaProvaModal,
     showNewAnnuncioFormModal,
     setShowNewAnnuncioFormModal,
+    showLinkAnnuncioModal,
+    setShowLinkAnnuncioModal,
     showNewCandidatoPipelineModal,
     setShowNewCandidatoPipelineModal,
     showNewInterviewFormModal,
@@ -3638,6 +3641,8 @@ export function useAppController() {
     handleUpdateAdStatus,
     handleUpdateAnnuncioDetail,
     handleDeleteAnnuncio,
+    handleLinkAnnuncio,
+    handleUnlinkAnnuncio,
     handleApprovalAction,
     ensureResearchStarted,
     handleCreateRicerca,

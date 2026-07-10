@@ -2240,7 +2240,7 @@ export default function GlobalModals(props) {
                                 printWindow.document.write(`
                                   <html>
                                     <head>
-                                      <title>Report Azioni Annuncio - ${ricercaDetail.ricerca.azienda}</title>
+                                      <title>Report Azioni Annuncio - ${ricercaDetail?.ricerca?.azienda || 'Generale'}</title>
                                       <style>
                                         body { font-family: system-ui, sans-serif; padding: 40px; color: #333; }
                                         h2 { border-bottom: 2px solid #4F46E5; padding-bottom: 8px; color: #4F46E5; }
@@ -2251,7 +2251,7 @@ export default function GlobalModals(props) {
                                       </style>
                                     </head>
                                     <body>
-                                      <h2>Report Azioni Annuncio - ${ricercaDetail.ricerca.azienda} (Ruolo: ${ricercaDetail.ricerca.ruolo})</h2>
+                                      <h2>Report Azioni Annuncio - ${ricercaDetail?.ricerca?.azienda || 'Generale'} (Ruolo: ${ricercaDetail?.ricerca?.ruolo || 'N/D'})</h2>
                                       <p><strong>ID Annuncio:</strong> ${selectedAnnuncio.id}</p>
                                       <p><strong>Link Annuncio:</strong> ${selectedAnnuncio.link_annuncio || 'N/D'}</p>
                                       <p><strong>Stato Attuale:</strong> ${selectedAnnuncio.stato_annuncio || 'Attivo'}</p>
@@ -2276,10 +2276,10 @@ export default function GlobalModals(props) {
                                 </tr>
                               </thead>
                               <tbody>
-                                {adTimeline
+                                {(adTimeline || [])
                                   .filter(item => 
                                     item.id === selectedAnnuncio.id || 
-                                    (item.dettagli && item.dettagli.includes(selectedAnnuncio.id))
+                                    (item.dettagli && String(item.dettagli).includes(String(selectedAnnuncio.id)))
                                   )
                                   .map(item => (
                                     <tr key={item.id}>
@@ -2293,9 +2293,9 @@ export default function GlobalModals(props) {
                                     </tr>
                                   ))
                                 }
-                                {adTimeline.filter(item => 
+                                {(adTimeline || []).filter(item => 
                                     item.id === selectedAnnuncio.id || 
-                                    (item.dettagli && item.dettagli.includes(selectedAnnuncio.id))
+                                    (item.dettagli && String(item.dettagli).includes(String(selectedAnnuncio.id)))
                                   ).length === 0 && (
                                   <tr>
                                     <td colSpan="3" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>Nessuna azione registrata per questo annuncio.</td>
