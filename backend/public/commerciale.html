@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HEMA WORK & MDI - Form Commerciale</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0B0F19;
+      --card-bg: #111827;
+      --card-sub: #1F2937;
+      --primary: #6366F1;
+      --primary-hover: #4F46E5;
+      --text: #F3F4F6;
+      --text-muted: #9CA3AF;
+      --border: rgba(255, 255, 255, 0.08);
+      --success: #10B981;
+      --danger: #EF4444;
+      --warning: #F59E0B;
+      --radius: 12px;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 600px;
+      padding: 24px 16px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #FFF 0%, var(--primary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header p {
+      margin: 8px 0 0 0;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      margin-bottom: 24px;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .form-control {
+      font-family: inherit;
+      background-color: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border);
+      color: #FFFFFF;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .form-control:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    }
+
+    textarea.form-control {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .role-card {
+      background-color: var(--card-sub);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .role-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .role-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    .btn-remove {
+      background-color: transparent;
+      border: none;
+      color: var(--danger);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .btn-add {
+      width: 100%;
+      padding: 10px;
+      background-color: transparent;
+      border: 1px dashed var(--primary);
+      color: var(--primary);
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 24px;
+    }
+
+    .btn-add:hover {
+      background-color: rgba(99, 102, 241, 0.05);
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 14px;
+      background-color: var(--primary);
+      color: #FFFFFF;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-submit:hover {
+      background-color: var(--primary-hover);
+    }
+
+    /* Success Screen */
+    .success-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 16px;
+      padding: 16px 0;
+    }
+
+    .success-icon {
+      font-size: 48px;
+      color: var(--success);
+      background-color: rgba(16, 185, 129, 0.1);
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 8px;
+    }
+
+    .success-screen h2 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 800;
+    }
+
+    .success-screen p {
+      margin: 0;
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .btn-reset {
+      margin-top: 16px;
+      padding: 10px 20px;
+      background-color: var(--card-sub);
+      border: 1px solid var(--border);
+      color: #FFFFFF;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-reset:hover {
+      background-color: var(--border);
+    }
+
+    /* Loading Spinner */
+    .spinner {
+      display: none;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border-left-color: var(--primary);
+      animation: spin 0.8s linear infinite;
+      margin: 16px auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Auth Screens Styling */
+    .auth-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .auth-tab {
+      padding: 10px;
+      background-color: var(--card-sub);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 13px;
+      text-align: center;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .auth-tab.active {
+      background-color: var(--primary);
+      color: #FFFFFF;
+      border-color: var(--primary);
+    }
+
+    .auth-footer {
+      text-align: center;
+      margin-top: 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .auth-footer a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .user-badge {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: var(--card-sub);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 16px;
+      margin-bottom: 20px;
+      font-size: 13px;
+    }
+
+    .btn-logout {
+      background: transparent;
+      border: none;
+      color: var(--danger);
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    /* Portal Menu for Logged In Commercial */
+    .portal-nav {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .portal-btn {
+      padding: 12px;
+      background-color: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-weight: 700;
+      text-align: center;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .portal-btn.active {
+      background-color: var(--primary);
+      color: #FFFFFF;
+      border-color: var(--primary);
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      font-size: 10px;
+      font-weight: 700;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .badge-success { background-color: rgba(16, 185, 129, 0.15); color: #34D399; }
+    .badge-warning { background-color: rgba(245, 158, 11, 0.15); color: #FBBF24; }
+    .badge-danger { background-color: rgba(239, 68, 68, 0.15); color: #FCA5A5; }
+    .badge-info { background-color: rgba(99, 102, 241, 0.15); color: #818CF8; }
+
+    /* Researches List Card */
+    .research-item {
+      background-color: var(--card-sub);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .research-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      padding-bottom: 8px;
+    }
+
+    .research-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
+      text-align: center;
+      margin-top: 12px;
+      background-color: rgba(0,0,0,0.2);
+      padding: 10px;
+      border-radius: 6px;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .stat-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-top: 2px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>💼 HEMA WORK / MDI</h1>
+    <p>Portale Inserimento Mandati Commerciali</p>
+  </div>
+
+  <!-- AUTH CARD -->
+  <div class="card" id="authCard">
+    <div class="auth-tabs" id="authTabs">
+      <div class="auth-tab active" onclick="switchAuthTab('login')">Accedi</div>
+      <div class="auth-tab" onclick="switchAuthTab('register')">Registrati</div>
+    </div>
+
+    <!-- Login Form -->
+    <form id="loginForm" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label for="loginEmail">Indirizzo E-mail *</label>
+        <input type="email" id="loginEmail" class="form-control" required placeholder="name@company.com">
+      </div>
+      <div class="form-group">
+        <label for="loginPassword">Password *</label>
+        <input type="password" id="loginPassword" class="form-control" required placeholder="••••••••">
+      </div>
+      <button type="submit" class="btn-submit" style="margin-top: 12px;">Accedi</button>
+      
+      <div class="auth-footer">
+        <a href="#" onclick="showForgotPassword(event)">Password dimenticata?</a>
+      </div>
+    </form>
+
+    <!-- Register Form -->
+    <form id="registerForm" onsubmit="handleRegister(event)" style="display: none;">
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="regNome">Nome *</label>
+          <input type="text" id="regNome" class="form-control" required placeholder="Mario">
+        </div>
+        <div class="form-group">
+          <label for="regCognome">Cognome *</label>
+          <input type="text" id="regCognome" class="form-control" required placeholder="Rossi">
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label for="regEmail">Indirizzo E-mail *</label>
+        <input type="email" id="regEmail" class="form-control" required placeholder="rossi@email.com">
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="regNascita">Data Nascita</label>
+          <input type="date" id="regNascita" class="form-control">
+        </div>
+        <div class="form-group">
+          <label for="regTelefono">Telefono</label>
+          <input type="tel" id="regTelefono" class="form-control" placeholder="Es: 3331234567">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="regPassword">Scegli Password *</label>
+        <input type="password" id="regPassword" class="form-control" required placeholder="Minimo 6 caratteri">
+      </div>
+      
+      <button type="submit" class="btn-submit" style="margin-top: 12px;">Richiedi Account</button>
+    </form>
+
+    <!-- Forgot Password View -->
+    <div id="forgotPasswordView" style="display: none; text-align: center; padding: 16px 0;">
+      <div style="font-size: 32px; margin-bottom: 12px;">🔑</div>
+      <h3>Password dimenticata?</h3>
+      <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 24px;">
+        Per motivi di sicurezza della rete aziendale, contatta direttamente il tuo Team Leader in ufficio per recuperare, visualizzare o modificare le tue credenziali di accesso.
+      </p>
+      <button class="btn-reset" onclick="switchAuthTab('login')" style="width: 100%;">Torna al Login</button>
+    </div>
+  </div>
+
+  <!-- PORTAL MAIN CONTAINER -->
+  <div id="mandateContainer" style="display: none;">
+    <!-- Active User Badge -->
+    <div class="user-badge">
+      <div>Connesso come: <strong id="loggedUserName">Nome Commerciale</strong></div>
+      <button class="btn-logout" onclick="handleLogout()">Disconnetti ✕</button>
+    </div>
+
+    <!-- Portal Navigation -->
+    <div class="portal-nav">
+      <div class="portal-btn active" id="btnFormTab" onclick="switchPortalTab('form')">➕ Nuovo Mandato</div>
+      <div class="portal-btn" id="btnHistoryTab" onclick="switchPortalTab('history')">📋 Storico & Avanzamento</div>
+    </div>
+
+    <!-- TAB 1: NEW MANDATE FORM -->
+    <div class="card" id="formView">
+      <form id="mandateForm" onsubmit="submitForm(event)">
+        
+        <!-- INCARICATI INFO -->
+        <span class="section-title">Incaricati</span>
+        <div class="grid-2" style="margin-bottom: 20px;">
+          <div class="form-group">
+            <label>Consulente Commerciale</label>
+            <input type="text" id="commercialeForm" class="form-control" readonly style="opacity: 0.8; background-color: rgba(255,255,255,0.02);" />
+          </div>
+          <div class="form-group">
+            <label for="outbound">Outbound (Operatore)</label>
+            <select id="outbound" class="form-control">
+              <option value="">-- Caricamento... --</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- CLIENT INFO -->
+        <span class="section-title">Anagrafica Locale / Azienda</span>
+        
+        <div class="form-group">
+          <label for="nomeLocale">Nome Locale *</label>
+          <input type="text" id="nomeLocale" class="form-control" required placeholder="Es: Pizzeria Bella Napoli">
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="piva">Partita IVA / Cod.Fisc *</label>
+            <input type="text" id="piva" class="form-control" required placeholder="11 cifre">
+          </div>
+          <div class="form-group">
+            <label for="referente">Referente Contatto *</label>
+            <input type="text" id="referente" class="form-control" required placeholder="Es: Mario Russo">
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="telefono">Telefono Mobile *</label>
+            <input type="tel" id="telefono" class="form-control" required placeholder="Es: 3331234567">
+          </div>
+          <div class="form-group">
+            <label for="telefonoFisso">Telefono Fisso *</label>
+            <input type="tel" id="telefonoFisso" class="form-control" required placeholder="Es: 02123456">
+          </div>
+        </div>
+ 
+        <div class="form-group">
+          <label for="email">Email Referente *</label>
+          <input type="email" id="email" class="form-control" required placeholder="locale@email.com">
+        </div>
+ 
+        <div class="form-group">
+          <label for="sedeLavoro">Sede Operativa / Lavoro (compreso CAP) *</label>
+          <input type="text" id="sedeLavoro" class="form-control" required placeholder="Es: Via Roma 15, 20121 Milano (MI)">
+        </div>
+ 
+        <div class="form-group">
+          <label for="sedeLegale">Sede Legale *</label>
+          <input type="text" id="sedeLegale" class="form-control" required placeholder="Indirizzo sede legale">
+        </div>
+ 
+        <!-- ROLES LIST -->
+        <span class="section-title" style="margin-top: 24px;">Ruoli e Profili Richiesti</span>
+        <div id="rolesList">
+          <!-- Rendered dynamically -->
+        </div>
+        
+        <button type="button" class="btn-add" onclick="addRoleField()">
+          ➕ Aggiungi altro ruolo per questo locale
+        </button>
+ 
+        <!-- NOTE -->
+        <span class="section-title">Note Aggiuntive Mandato</span>
+        <div class="form-group" style="margin-bottom: 24px;">
+          <label for="note">Note / Specificità Accordi (Opzionali)</label>
+          <textarea id="note" class="form-control" placeholder="Inserisci dettagli su orari, vitto/alloggio, accordi commerciali..."></textarea>
+        </div>
+
+        <div class="spinner" id="formSpinner"></div>
+        <button type="submit" class="btn-submit" id="btnSubmit">Invia al Centro Operativo</button>
+      </form>
+    </div>
+
+    <!-- TAB 2: HISTORY AND STATUS -->
+    <div id="historyView" style="display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <span class="section-title" style="margin-bottom: 0;">I tuoi Mandati Registrati</span>
+        <button class="btn-reset" onclick="loadCommercialResearches()" style="margin-top: 0; padding: 6px 12px; font-size: 12px;">🔄 Aggiorna</button>
+      </div>
+      <div id="historyListContainer">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- SUCCESS CARD -->
+  <div class="card success-screen" id="successCard">
+    <div class="success-icon">✓</div>
+    <h2>Mandato Trasmesso!</h2>
+    <p>Le richieste sono state inoltrate con successo e inserite nello stato <strong>"In attesa di approvazione"</strong>.<br>Il Team Leader le prenderà in carico a breve.</p>
+    <button class="btn-reset" onclick="resetForm()">Invia un altro mandato</button>
+  </div>
+</div>
+
+<script>
+  let roles = [];
+  let currentUser = null;
+
+  function init() {
+    roles = [];
+    document.getElementById('rolesList').innerHTML = '';
+    addRoleField();
+    
+    // Check localStorage session
+    const savedUser = localStorage.getItem('commercialeUser');
+    if (savedUser) {
+      currentUser = JSON.parse(savedUser);
+      showMandatesForm();
+    } else {
+      showAuthScreen();
+    }
+  }
+
+  // Session view switchers
+  function showAuthScreen() {
+    document.getElementById('authCard').style.display = 'block';
+    document.getElementById('mandateContainer').style.display = 'none';
+    document.getElementById('successCard').style.display = 'none';
+  }
+
+  function showMandatesForm() {
+    document.getElementById('authCard').style.display = 'none';
+    document.getElementById('mandateContainer').style.display = 'block';
+    document.getElementById('loggedUserName').innerText = currentUser.nome + ' ' + currentUser.cognome;
+    
+    // Prefill form commercial field
+    const commFormInput = document.getElementById('commercialeForm');
+    if (commFormInput) commFormInput.value = currentUser.nome + ' ' + currentUser.cognome;
+    
+    // Fetch operators
+    fetch('/api/operatori')
+      .then(res => res.json())
+      .then(json => {
+        if (json.success) {
+          const select = document.getElementById('outbound');
+          if (select) {
+            select.innerHTML = '<option value="">-- Seleziona --</option>';
+            json.data.forEach(op => {
+              const opt = document.createElement('option');
+              opt.value = op.nome + ' ' + op.cognome;
+              opt.innerText = op.nome + ' ' + op.cognome;
+              select.appendChild(opt);
+            });
+          }
+        }
+      })
+      .catch(err => console.error(err));
+
+    switchPortalTab('form');
+  }
+
+  // Switch Portal Tabs
+  function switchPortalTab(tab) {
+    const btnForm = document.getElementById('btnFormTab');
+    const btnHistory = document.getElementById('btnHistoryTab');
+    
+    if (tab === 'form') {
+      btnForm.classList.add('active');
+      btnHistory.classList.remove('active');
+      document.getElementById('formView').style.display = 'block';
+      document.getElementById('historyView').style.display = 'none';
+    } else {
+      btnForm.classList.remove('active');
+      btnHistory.classList.add('active');
+      document.getElementById('formView').style.display = 'none';
+      document.getElementById('historyView').style.display = 'block';
+      loadCommercialResearches();
+    }
+  }
+
+  // Switch Auth Tab
+  function switchAuthTab(tab) {
+    document.getElementById('forgotPasswordView').style.display = 'none';
+    document.getElementById('authTabs').style.display = 'grid';
+    
+    const tabs = document.querySelectorAll('.auth-tab');
+    if (tab === 'login') {
+      tabs[0].classList.add('active');
+      tabs[1].classList.remove('active');
+      document.getElementById('loginForm').style.display = 'block';
+      document.getElementById('registerForm').style.display = 'none';
+    } else {
+      tabs[0].classList.remove('active');
+      tabs[1].classList.add('active');
+      document.getElementById('loginForm').style.display = 'none';
+      document.getElementById('registerForm').style.display = 'block';
+    }
+  }
+
+  function showForgotPassword(e) {
+    e.preventDefault();
+    document.getElementById('authTabs').style.display = 'none';
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('registerForm').style.display = 'none';
+    document.getElementById('forgotPasswordView').style.display = 'block';
+  }
+
+  // Fetch researches history
+  async function loadCommercialResearches() {
+    const container = document.getElementById('historyListContainer');
+    container.innerHTML = '<div style="text-align:center; padding: 24px; color: var(--text-muted);">Caricamento storico...</div>';
+    
+    const fullName = currentUser.nome + ' ' + currentUser.cognome;
+    try {
+      const res = await fetch(`/api/commerciali/ricerche?nome=${encodeURIComponent(fullName)}`);
+      const json = await res.json();
+      if (json.success) {
+        container.innerHTML = '';
+        const list = json.data;
+        if (list.length === 0) {
+          container.innerHTML = '<div style="text-align:center; padding: 24px; color: var(--text-muted);">Non hai ancora inserito alcun mandato di ricerca.</div>';
+          return;
+        }
+        
+        list.forEach(r => {
+          // Color coding for TL approval
+          let appClass = 'badge-warning';
+          if (r.stato_approvazione_tl === 'Approvata') appClass = 'badge-success';
+          if (r.stato_approvazione_tl === 'Approvata con Riserva') appClass = 'badge-warning';
+          if (r.stato_approvazione_tl === 'Cestinato') appClass = 'badge-danger';
+          
+          // Color coding for Search state
+          let searchClass = 'badge-info';
+          if (r.stato_ricerca === 'Avviata') searchClass = 'badge-info';
+          if (r.stato_ricerca === 'Chiuso/Assunto') searchClass = 'badge-success';
+          if (r.stato_ricerca === '') searchClass = 'badge-warning';
+          
+          const itemDiv = document.createElement('div');
+          itemDiv.className = 'research-item';
+          itemDiv.innerHTML = `
+            <div class="research-meta">
+              <div>
+                <strong style="font-size: 15px; color: #FFF;">${r.azienda}</strong>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Ruolo: <strong>${r.ruolo}</strong></div>
+              </div>
+              <div style="text-align: right; display: flex; flex-direction: column; gap: 4px; align-items: flex-end;">
+                <span class="badge ${appClass}">${r.stato_approvazione_tl || 'In Attesa'}</span>
+                <span class="badge ${searchClass}">${r.stato_ricerca || 'In attesa approvazione'}</span>
+              </div>
+            </div>
+            
+            <div style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
+              <div><strong>Data Mandato:</strong> ${r.data_inserimento}</div>
+              <div><strong>Sede di lavoro:</strong> ${r.sede_lavoro}</div>
+              <div><strong>Impegno:</strong> ${r.ore_lavoro ? r.ore_lavoro + ' ore settimanali' : 'N/D'} ${r.orario_lavoro ? `(${r.orario_lavoro})` : ''}</div>
+              ${r.note ? `<div style="margin-top: 6px; padding: 6px; background-color: rgba(255,255,255,0.02); border-radius: 4px; font-size: 11px;"><strong>Note:</strong> ${r.note}</div>` : ''}
+            </div>
+            
+            <div class="research-grid">
+              <div>
+                <div class="stat-label">Hanno Inviato CV</div>
+                <div class="stat-value">${r.stats?.cv_ricevuti || 0}</div>
+              </div>
+              <div>
+                <div class="stat-label">In Prova</div>
+                <div class="stat-value">${r.stats?.in_prova || 0}</div>
+              </div>
+              <div>
+                <div class="stat-label">Assunti</div>
+                <div class="stat-value">${r.stats?.assunti || 0}</div>
+              </div>
+            </div>
+          `;
+          container.appendChild(itemDiv);
+        });
+      } else {
+        container.innerHTML = `<div style="text-align:center; padding: 24px; color: var(--danger);">${json.error || 'Errore nel caricamento'}</div>`;
+      }
+    } catch (err) {
+      container.innerHTML = '<div style="text-align:center; padding: 24px; color: var(--danger);">Connessione fallita.</div>';
+    }
+  }
+
+  // Login handler
+  async function handleLogin(e) {
+    e.preventDefault();
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+
+    try {
+      const res = await fetch('/api/commerciali/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const json = await res.json();
+      if (json.success) {
+        currentUser = json.user;
+        localStorage.setItem('commercialeUser', JSON.stringify(currentUser));
+        showMandatesForm();
+      } else {
+        alert(json.error || 'Errore di autenticazione');
+      }
+    } catch (err) {
+      alert("Connessione al server fallita.");
+    }
+  }
+
+  // Registration handler
+  async function handleRegister(e) {
+    e.preventDefault();
+    const nome = document.getElementById('regNome').value;
+    const cognome = document.getElementById('regCognome').value;
+    const email = document.getElementById('regEmail').value;
+    const data_nascita = document.getElementById('regNascita').value;
+    const telefono = document.getElementById('regTelefono').value;
+    const password = document.getElementById('regPassword').value;
+
+    try {
+      const res = await fetch('/api/commerciali/registra', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome, cognome, email, data_nascita, telefono, password })
+      });
+      const json = await res.json();
+      if (json.success) {
+        alert(json.message);
+        switchAuthTab('login');
+        // Reset inputs
+        document.getElementById('registerForm').reset();
+      } else {
+        alert(json.error || 'Errore nella registrazione');
+      }
+    } catch (err) {
+      alert("Connessione al server fallita.");
+    }
+  }
+
+  function handleLogout() {
+    currentUser = null;
+    localStorage.removeItem('commercialeUser');
+    showAuthScreen();
+  }
+
+  // Mandate fields rendering
+  function addRoleField() {
+    const idx = roles.length;
+    roles.push({
+      ruolo: '',
+      nr_risorse: 1,
+      ccnl_livello: '',
+      retribuzione: '',
+      competenze_tecniche: '',
+      ore_lavoro: '',
+      ore_lavoro_tipo: 'Settimanali',
+      orario_lavoro: ''
+    });
+
+    const roleDiv = document.createElement('div');
+    roleDiv.className = 'role-card';
+    roleDiv.id = `role-card-${idx}`;
+    roleDiv.innerHTML = `
+      <div class="role-header">
+        <span class="role-title">Ruolo #${idx + 1}</span>
+        ${idx > 0 ? `<button type="button" class="btn-remove" onclick="removeRoleField(${idx})">Elimina</button>` : ''}
+      </div>
+      <div class="form-group">
+        <label>Mansione Richiesta *</label>
+        <input type="text" id="role-ruolo-${idx}" class="form-control" required placeholder="Es: Cameriere di sala, Cuoco..." oninput="updateRoleData(${idx}, 'ruolo', this.value)">
+      </div>
+      <div class="grid-2" style="margin-top: 10px;">
+        <div class="form-group">
+          <label>Nr Risorse *</label>
+          <input type="number" id="role-nr-${idx}" class="form-control" required min="1" value="1" oninput="updateRoleData(${idx}, 'nr_risorse', parseInt(this.value) || 1)">
+        </div>
+        <div class="form-group">
+          <label>CCNL e Livello *</label>
+          <input type="text" id="role-ccnl-${idx}" class="form-control" required placeholder="Es: Ristorazione 5° liv" oninput="updateRoleData(${idx}, 'ccnl_livello', this.value)">
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top: 10px;">
+        <div class="form-group">
+          <label>Retribuzione *</label>
+          <input type="text" id="role-retr-${idx}" class="form-control" required placeholder="Es: 1500€ netti" oninput="updateRoleData(${idx}, 'retribuzione', this.value)">
+        </div>
+        <div class="form-group">
+          <label>Competenze Richieste *</label>
+          <input type="text" id="role-comp-${idx}" class="form-control" required placeholder="Es: Servizio alla carta" oninput="updateRoleData(${idx}, 'competenze_tecniche', this.value)">
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top: 10px;">
+        <div class="form-group">
+          <label>Ore di Lavoro (Opzionali)</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="number" id="role-ore-${idx}" class="form-control" min="1" placeholder="Es: 40" oninput="updateRoleData(${idx}, 'ore_lavoro', this.value)" style="flex: 1;">
+            <select id="role-ore-tipo-${idx}" class="form-control" onchange="updateRoleData(${idx}, 'ore_lavoro_tipo', this.value)" style="width: 130px;">
+              <option value="Giornaliere">Giornaliere</option>
+              <option value="Settimanali" selected>Settimanali</option>
+              <option value="Mensili">Mensili</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Orario di Lavoro (Opzionale)</label>
+          <input type="text" id="role-orario-${idx}" class="form-control" placeholder="Es: Spezzato, Turni..." oninput="updateRoleData(${idx}, 'orario_lavoro', this.value)">
+        </div>
+      </div>
+    `;
+    document.getElementById('rolesList').appendChild(roleDiv);
+  }
+
+  function removeRoleField(index) {
+    const card = document.getElementById(`role-card-${index}`);
+    if (card) {
+      card.remove();
+      roles[index] = null; // Mark as removed
+    }
+  }
+
+  function updateRoleData(index, field, value) {
+    if (roles[index]) {
+      roles[index][field] = value;
+    }
+  }
+
+  async function submitForm(event) {
+    event.preventDefault();
+    
+    document.getElementById('formSpinner').style.display = 'block';
+    document.getElementById('btnSubmit').style.display = 'none';
+
+    const commerciale = currentUser.nome + ' ' + currentUser.cognome;
+    const nomeLocale = document.getElementById('nomeLocale').value;
+    const piva = document.getElementById('piva').value;
+    const sedeLavoro = document.getElementById('sedeLavoro').value;
+    const sedeLegale = document.getElementById('sedeLegale').value;
+    const referente = document.getElementById('referente').value;
+    const telefono = document.getElementById('telefono').value;
+    const email = document.getElementById('email').value;
+    const generalNote = document.getElementById('note').value;
+
+    const outbound = document.getElementById('outbound').value;
+    const telefonoFisso = document.getElementById('telefonoFisso').value;
+
+    const filteredRoles = roles.filter(r => r !== null && r.ruolo.trim() !== '');
+
+    try {
+      for (const role of filteredRoles) {
+        const payload = {
+          azienda: nomeLocale,
+          piva: piva,
+          sede_lavoro: sedeLavoro,
+          sede_legale: sedeLegale || nomeLocale,
+          referente: referente,
+          telefono_mobile: telefono,
+          telefono_fisso: telefonoFisso || '',
+          email: email,
+          consulente_commerciale: commerciale,
+          outbound: outbound || '',
+          ruolo: role.ruolo,
+          nr_risorse: role.nr_risorse,
+          ccnl_livello: role.ccnl_livello,
+          retribuzione: role.retribuzione,
+          competenze_tecniche: role.competenze_tecniche,
+          ore_lavoro: role.ore_lavoro,
+          ore_lavoro_tipo: role.ore_lavoro_tipo,
+          orario_lavoro: role.orario_lavoro,
+          note: generalNote,
+          da_approvare: true
+        };
+
+        const res = await fetch('/api/ricerche', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+        if (!json.success) {
+          throw new Error(json.error || 'Errore nella creazione della ricerca');
+        }
+      }
+
+      // Success
+      document.getElementById('mandateContainer').style.display = 'none';
+      document.getElementById('successCard').style.display = 'flex';
+    } catch (e) {
+      alert("Errore nell'invio: " + e.message);
+      document.getElementById('btnSubmit').style.display = 'block';
+    } finally {
+      document.getElementById('formSpinner').style.display = 'none';
+    }
+  }
+
+  function resetForm() {
+    document.getElementById('nomeLocale').value = '';
+    document.getElementById('piva').value = '';
+    document.getElementById('sedeLavoro').value = '';
+    document.getElementById('sedeLegale').value = '';
+    document.getElementById('referente').value = '';
+    document.getElementById('telefono').value = '';
+    document.getElementById('email').value = '';
+    document.getElementById('note').value = '';
+    
+    init();
+    
+    document.getElementById('successCard').style.display = 'none';
+    showMandatesForm();
+    document.getElementById('btnSubmit').style.display = 'block';
+  }
+
+  // Run on start
+  init();
+</script>
+</body>
+</html>

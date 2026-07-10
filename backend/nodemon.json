@@ -1,0 +1,12 @@
+{
+  "watch": [
+    "server.js",
+    "database.js",
+    "whatsapp-client.js"
+  ],
+  "ignore": [
+    ".wwebjs_auth/**",
+    ".wwebjs_cache/**",
+    "uploads/**"
+  ]
+}

@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: gestionale-backend
+    env: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    disk:
+      name: gestionale-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: DATA_DIR
+        value: /data
+      - key: PORT
+        value: 3002
