@@ -77,8 +77,8 @@ const NewCVCandidatoModal = ({ showNewCVCandidatoModal, setShowNewCVCandidatoMod
                   borderRadius: '10px'
                 }}>
                   <label style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                    <span>📁 Seleziona File CV (PDF, Word, Immagine) *</span>
-                    <input type="file" name="cvFile" id="cvFile" required style={{ width: '100%', outline: 'none' }} />
+                    <span>📁 Seleziona File CV (PDF, Word, Immagine)</span>
+                    <input type="file" name="cvFile" id="cvFile" style={{ width: '100%', outline: 'none' }} />
                   </label>
                 </div>
                 <div className="form-group">
