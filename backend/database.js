@@ -391,6 +391,7 @@ async function initDatabase() {
         SELECT id_ricerca, id, data_inserimento_annuncio
         FROM annunci
         WHERE id NOT IN (SELECT id_annuncio FROM ricerche_annunci)
+          AND id_ricerca IS NOT NULL
       `);
     } catch(e) {
       console.log("Migration annunci -> ricerche_annunci failed or already done:", e.message);

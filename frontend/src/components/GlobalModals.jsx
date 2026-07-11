@@ -24,7 +24,7 @@ export default function GlobalModals(props) {
     handlePrintSingleInterviewReport, showInterviewStatusModal, setShowInterviewStatusModal,
     selectedTrialForManagement, setSelectedTrialForManagement, handleEditTrialDetails, handlePrintSingleTrialReport,
     showTrialStatusModal, setShowTrialStatusModal, showReportModal, setShowReportModal, reportData, reportRange, setReportRange,
-    reportStartDate, setReportStartDate, reportEndDate, setReportEndDate, loadingReport, handleGenerateReport, handlePrintReport,
+    reportStartDate, setReportStartDate, reportEndDate, setReportEndDate, loadingReport, handleGenerateReport, handlePrintReport, handlePrintTimelineReport,
     showNewRicercaModal, setShowNewRicercaModal, newSearchForm, setNewSearchForm, newSearchRoles, handleCreateRicerca, handleRoleChange,
     addRoleField, removeRoleField, handleSelectClientForNewSearch, clienti, commerciali, operatori, showNewClienteModal, setShowNewClienteModal,
     handleCreateCliente, showNewCVCandidatoModal, setShowNewCVCandidatoModal, handleCreateCVCandidato, showEditCandidatoModal,
@@ -2347,7 +2347,7 @@ export default function GlobalModals(props) {
               </div>
             </div>
             <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-              <button className="btn btn-primary btn-sm" onClick={() => handlePrintReport(selectedSubjectLog.name, `Storico completo delle operazioni relative al soggetto ID: ${selectedSubjectLog.id} (${selectedSubjectLog.type})`, subjectTimeline)}>
+              <button className="btn btn-primary btn-sm" onClick={() => handlePrintTimelineReport(selectedSubjectLog.name, `Storico completo delle operazioni relative al soggetto ID: ${selectedSubjectLog.id} (${selectedSubjectLog.type})`, subjectTimeline)}>
                 🖨️ Stampa Report
               </button>
               <button className="btn btn-secondary btn-sm" onClick={() => setSelectedSubjectLog(null)}>Chiudi</button>

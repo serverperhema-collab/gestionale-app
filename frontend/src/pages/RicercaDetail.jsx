@@ -95,7 +95,7 @@ export default function RicercaDetail({
   hiringFormData, 
   setHiringFormData, 
   fetchRicercaDetail, 
-  handleSendWA, openEmailPreview, handlePrintReport,
+  handleSendWA, openEmailPreview, handlePrintTimelineReport,
   showLinkAnnuncioModal,
   setShowLinkAnnuncioModal,
   handleLinkAnnuncio,
@@ -560,7 +560,7 @@ export default function RicercaDetail({
 
                         <div style={{ marginTop: '32px' }}>
                           <h3 style={{ fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '16px' }}>Log Attività Annunci</h3>
-                          <TimelineComponent idRicerca={selectedRicercaId} reloadTrigger={ricercaDetail} timeline={timeline} setTimeline={setTimeline} API_BASE={API_BASE} handlePrintReport={handlePrintReport} />
+                          <TimelineComponent idRicerca={selectedRicercaId} reloadTrigger={ricercaDetail} timeline={timeline} setTimeline={setTimeline} API_BASE={API_BASE} handlePrintTimelineReport={handlePrintTimelineReport} />
                         </div>
                       </div>
                   </>
@@ -863,7 +863,7 @@ export default function RicercaDetail({
 
                         <div style={{ marginTop: '32px' }}>
                           <h3 style={{ fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '16px' }}>Log Attività Candidati</h3>
-                          <TimelineComponent idRicerca={selectedRicercaId} reloadTrigger={ricercaDetail} timeline={timeline} setTimeline={setTimeline} API_BASE={API_BASE} handlePrintReport={handlePrintReport} />
+                          <TimelineComponent idRicerca={selectedRicercaId} reloadTrigger={ricercaDetail} timeline={timeline} setTimeline={setTimeline} API_BASE={API_BASE} handlePrintTimelineReport={handlePrintTimelineReport} />
                         </div>
                       </div>
 
@@ -1222,7 +1222,7 @@ export default function RicercaDetail({
 
                       <div style={{ marginTop: '32px' }}>
                         <h3 style={{ fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '16px' }}>Log Attività Colloqui</h3>
-                        <TimelineComponent idRicerca={selectedRicercaId} reloadTrigger={ricercaDetail} timeline={timeline} setTimeline={setTimeline} API_BASE={API_BASE} handlePrintReport={handlePrintReport} />
+                        <TimelineComponent idRicerca={selectedRicercaId} reloadTrigger={ricercaDetail} timeline={timeline} setTimeline={setTimeline} API_BASE={API_BASE} handlePrintTimelineReport={handlePrintTimelineReport} />
                       </div>
                     </div>
                   )}
@@ -1417,7 +1417,7 @@ export default function RicercaDetail({
 
                       <div style={{ marginTop: '32px' }}>
                         <h3 style={{ fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '16px' }}>Log Attività Prove</h3>
-                        <TimelineComponent idRicerca={selectedRicercaId} reloadTrigger={ricercaDetail} timeline={timeline} setTimeline={setTimeline} API_BASE={API_BASE} handlePrintReport={handlePrintReport} />
+                        <TimelineComponent idRicerca={selectedRicercaId} reloadTrigger={ricercaDetail} timeline={timeline} setTimeline={setTimeline} API_BASE={API_BASE} handlePrintTimelineReport={handlePrintTimelineReport} />
                       </div>
                     </div>
                   )}
@@ -1537,7 +1537,7 @@ export default function RicercaDetail({
 
                         <div style={{ marginTop: '32px' }}>
                           <h3 style={{ fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '16px' }}>Log Attività Assunzioni</h3>
-                          <TimelineComponent idRicerca={selectedRicercaId} reloadTrigger={ricercaDetail} timeline={timeline} setTimeline={setTimeline} API_BASE={API_BASE} handlePrintReport={handlePrintReport} />
+                          <TimelineComponent idRicerca={selectedRicercaId} reloadTrigger={ricercaDetail} timeline={timeline} setTimeline={setTimeline} API_BASE={API_BASE} handlePrintTimelineReport={handlePrintTimelineReport} />
                         </div>
                       </div>
 
@@ -1735,7 +1735,7 @@ export default function RicercaDetail({
                 {activeTab === 'storico' && (
                   <div>
                     <h3 className="section-title">Attività Cronologiche Mandato</h3>
-                    <TimelineComponent idRicerca={selectedRicercaId} reloadTrigger={ricercaDetail} timeline={timeline} setTimeline={setTimeline} API_BASE={API_BASE} handlePrintReport={handlePrintReport} />
+                    <TimelineComponent idRicerca={selectedRicercaId} reloadTrigger={ricercaDetail} timeline={timeline} setTimeline={setTimeline} API_BASE={API_BASE} handlePrintTimelineReport={handlePrintTimelineReport} />
                   </div>
                 )}
 
@@ -1819,7 +1819,7 @@ export default function RicercaDetail({
 }
 
 
-export function TimelineComponent({ idRicerca, reloadTrigger, timeline, setTimeline, API_BASE, handlePrintReport }) {
+export function TimelineComponent({ idRicerca, reloadTrigger, timeline, setTimeline, API_BASE, handlePrintTimelineReport }) {
   
 
   useEffect(() => {
@@ -1843,7 +1843,7 @@ export function TimelineComponent({ idRicerca, reloadTrigger, timeline, setTimel
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
         <button 
           className="btn btn-secondary btn-sm"
-          onClick={() => handlePrintReport('Storico Ricerca Mandato', `Timeline delle attività e degli avanzamenti per la ricerca ID: ${idRicerca}`, timeline)}
+          onClick={() => handlePrintTimelineReport('Storico Ricerca Mandato', `Timeline delle attività e degli avanzamenti per la ricerca ID: ${idRicerca}`, timeline)}
         >
           🖨️ Stampa Report Mandato
         </button>

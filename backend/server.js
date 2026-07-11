@@ -9,6 +9,8 @@ const { db, initDatabase } = require('./database');
 const app = express();
 const PORT = process.env.PORT || 3002;
 
+const bindParams = (arr) => arr.map(v => v === undefined ? null : v);
+
 // CORS configuration (allow frontend port 5173 or any origin)
 app.use(cors());
 app.use(express.json());
@@ -196,7 +198,14 @@ app.get('/api/ricerche/:id', async (req, res) => {
           inviatoCliente: p.inviato_cliente,
           feedbackStato: p.feedback_stato,
           feedbackNote: p.feedback_note,
-          punteggioComplessivo: p.punteggio_complessivo
+          punteggioComplessivo: p.punteggio_complessivo,
+          inquadramentoProposto: p.inquadramento_proposto,
+          mansioneEffettiva: p.mansione_effettiva,
+          contrattoTipo: p.contratto_tipo,
+          oreContratto: p.ore_contratto,
+          durataContratto: p.durata_contratto,
+          retribuzioneAccordata: p.retribuzione_accordata,
+          costoServizioFinale: p.costo_servizio_finale
         })),
         appuntamenti: appuntamenti.map(a => ({
           id: a.id,
@@ -401,7 +410,16 @@ app.put('/api/annunci/:id', async (req, res) => {
     const annuncio = await db.get('SELECT * FROM annunci WHERE id = ?', [req.params.id]);
     if (!annuncio) return res.status(404).json({ success: false, error: 'Annuncio non trovato' });
     
-    const ricerca = await db.get('SELECT azienda, referente, piva FROM ricerche WHERE id = ?', [annuncio.id_ricerca]);
+    const linked = await db.get(`
+      SELECT COALESCE(a.id_ricerca, ra.id_ricerca) AS id_ricerca
+      FROM annunci a
+      LEFT JOIN ricerche_annunci ra ON a.id = ra.id_annuncio
+      WHERE a.id = ?
+      LIMIT 1
+    `, [req.params.id]);
+    const ricercaId = linked ? linked.id_ricerca : null;
+    
+    const ricerca = ricercaId ? await db.get('SELECT azienda, referente, piva FROM ricerche WHERE id = ?', [ricercaId]) : null;
     let clientId = '';
     if (ricerca) {
       const cl = await db.get('SELECT id FROM clienti WHERE nome_locale = ? OR piva = ?', [ricerca.azienda, ricerca.piva]);
@@ -413,7 +431,7 @@ app.put('/api/annunci/:id', async (req, res) => {
       await logActivity(
         'ANNUNCIO', req.params.id, 'N/D', 
         'Stato Annuncio', details, 
-        null, req.params.id
+        ricercaId, req.params.id
       );
     }
     
@@ -426,7 +444,7 @@ app.put('/api/annunci/:id', async (req, res) => {
         'ANNUNCIO', req.params.id, 'N/D', 
         'Aggiornamento Annuncio', 
         `Aggiornato dettagli annuncio (${req.params.id}). Link: ${newLink || 'N/D'}. Pubblicazione: ${newPubblicazione || 'N/D'}. Scadenza: ${newScadenza || 'N/D'}`, 
-        null, req.params.id
+        ricercaId, req.params.id
       );
     }
     
@@ -462,7 +480,16 @@ app.delete('/api/annunci/:id', async (req, res) => {
     const annuncio = await db.get('SELECT * FROM annunci WHERE id = ?', [req.params.id]);
     if (!annuncio) return res.status(404).json({ success: false, error: 'Annuncio non trovato' });
 
-    const ricerca = await db.get('SELECT azienda, referente, piva FROM ricerche WHERE id = ?', [annuncio.id_ricerca]);
+    const linked = await db.get(`
+      SELECT COALESCE(a.id_ricerca, ra.id_ricerca) AS id_ricerca
+      FROM annunci a
+      LEFT JOIN ricerche_annunci ra ON a.id = ra.id_annuncio
+      WHERE a.id = ?
+      LIMIT 1
+    `, [req.params.id]);
+    const ricercaId = linked ? linked.id_ricerca : null;
+    
+    const ricerca = ricercaId ? await db.get('SELECT azienda, referente, piva FROM ricerche WHERE id = ?', [ricercaId]) : null;
     let clientId = '';
     if (ricerca) {
       const cl = await db.get('SELECT id FROM clienti WHERE nome_locale = ? OR piva = ?', [ricerca.azienda, ricerca.piva]);
@@ -476,7 +503,7 @@ app.delete('/api/annunci/:id', async (req, res) => {
       'ANNUNCIO', req.params.id, 'N/D', 
       'Eliminazione Annuncio', 
       `Eliminato annuncio di lavoro (${req.params.id}). Portali: ${annuncio.portali_annuncio || 'N/D'}`, 
-      null, req.params.id
+      ricercaId, req.params.id
     );
 
     res.json({ success: true, message: 'Annuncio eliminato con successo' });
@@ -639,7 +666,7 @@ app.put('/api/ricerche/:id', async (req, res) => {
           orario_lavoro = COALESCE(?, orario_lavoro),
           ore_lavoro_tipo = COALESCE(?, ore_lavoro_tipo)
       WHERE id = ?
-    `, [
+    `, bindParams([
       testo_annuncio,
       portali_annuncio,
       link_annuncio,
@@ -651,11 +678,11 @@ app.put('/api/ricerche/:id', async (req, res) => {
       stato_annuncio,
       noteAggiornate,
       settore,
-      ore_lavoro !== undefined ? (ore_lavoro ? parseInt(ore_lavoro) : null) : undefined,
+      ore_lavoro !== undefined ? (ore_lavoro ? parseInt(ore_lavoro) : null) : null,
       orario_lavoro,
       ore_lavoro_tipo,
       req.params.id
-    ]);
+    ]));
     
     // Auto-create client entry if approved
     if ((stato_approvazione_tl === 'Approvata' || stato_approvazione_tl === 'Approvata con Riserva') && ricerca.stato_approvazione_tl !== stato_approvazione_tl) {
@@ -906,7 +933,7 @@ app.put('/api/candidati/:id', upload.fields([{ name: 'cvFile', maxCount: 1 }, { 
           codice_fiscale = COALESCE(?, codice_fiscale),
           link_documenti = COALESCE(?, link_documenti)
       WHERE id = ?
-    `, [
+    `, bindParams([
       cognome,
       nome,
       telefono,
@@ -924,7 +951,7 @@ app.put('/api/candidati/:id', upload.fields([{ name: 'cvFile', maxCount: 1 }, { 
       codice_fiscale,
       linkDocumenti,
       req.params.id
-    ]);
+    ]));
     
     res.json({ success: true, linkCV, linkDocumenti });
   } catch (e) {
@@ -1095,7 +1122,7 @@ app.get('/api/candidati/:id/storico', async (req, res) => {
     `, [id]);
     
     const logs = await db.all(`
-      SELECT * FROM storico 
+      SELECT *, data_attivita AS data_ora, tipo_attivita AS attivita FROM storico 
       WHERE id_soggetto = ? OR id_soggetto IN (
         SELECT id FROM pipeline_assunzioni WHERE id_candidato = ?
       )
@@ -1159,7 +1186,8 @@ app.put('/api/pipeline/:id', async (req, res) => {
   try {
     const { 
       stato_avanzamento, stato_prova, note_amministrazione, data_invio_cv, data_inizio_prova, data_scadenza_prova,
-      prova_contrattualizzata, inviato_cliente, feedback_stato, feedback_note, escludi_ricerca
+      prova_contrattualizzata, inviato_cliente, feedback_stato, feedback_note, escludi_ricerca,
+      inquadramento_proposto, mansione_effettiva, contratto_tipo, ore_contratto, durata_contratto, retribuzione_accordata, costo_servizio_finale
     } = req.body;
     
     const pipe = await db.get('SELECT * FROM pipeline_assunzioni WHERE id = ?', [req.params.id]);
@@ -1181,9 +1209,16 @@ app.put('/api/pipeline/:id', async (req, res) => {
           prova_contrattualizzata = COALESCE(?, prova_contrattualizzata),
           inviato_cliente = COALESCE(?, inviato_cliente),
           feedback_stato = COALESCE(?, feedback_stato),
-          feedback_note = COALESCE(?, feedback_note)
+          feedback_note = COALESCE(?, feedback_note),
+          inquadramento_proposto = COALESCE(?, inquadramento_proposto),
+          mansione_effettiva = COALESCE(?, mansione_effettiva),
+          contratto_tipo = COALESCE(?, contratto_tipo),
+          ore_contratto = COALESCE(?, ore_contratto),
+          durata_contratto = COALESCE(?, durata_contratto),
+          retribuzione_accordata = COALESCE(?, retribuzione_accordata),
+          costo_servizio_finale = COALESCE(?, costo_servizio_finale)
       WHERE id = ?
-    `, [
+    `, bindParams([
       targetStatoAvanzamento, 
       stato_prova, 
       note_amministrazione, 
@@ -1194,8 +1229,15 @@ app.put('/api/pipeline/:id', async (req, res) => {
       inviato_cliente !== undefined ? parseInt(inviato_cliente) : null,
       feedback_stato,
       feedback_note,
+      inquadramento_proposto,
+      mansione_effettiva,
+      contratto_tipo,
+      ore_contratto !== undefined ? (ore_contratto ? parseInt(ore_contratto) : null) : null,
+      durata_contratto,
+      retribuzione_accordata,
+      costo_servizio_finale,
       req.params.id
-    ]);
+    ]));
     
     const r = await db.get('SELECT azienda, ruolo FROM ricerche WHERE id = ?', [pipe.id_ricerca]);
     const c = await db.get('SELECT cognome, nome FROM candidati WHERE id = ?', [pipe.id_candidato]);
@@ -1309,7 +1351,7 @@ app.put('/api/appuntamenti/:id', async (req, res) => {
           stato_appuntamento = COALESCE(?, stato_appuntamento),
           note_dettagli = COALESCE(?, note_dettagli)
       WHERE id = ?
-    `, [data, ora, tipo, luogo, stato, note, req.params.id]);
+    `, bindParams([data, ora, tipo, luogo, stato, note, req.params.id]));
 
     // If rescheduled or type/luogo changed
     if ((data && data !== oldData) || (ora && ora !== oldOra) || (tipo && tipo !== oldTipo) || (luogo && luogo !== oldLuogo)) {

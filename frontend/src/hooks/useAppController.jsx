@@ -919,6 +919,77 @@ export function useAppController() {
       printWindow.print();
     }, 500);
   };
+  const handlePrintTimelineReport = (title, subtitle, timelineData) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      showStatus("warning", "Attenzione", "Blocco popup rilevato! Consenti i popup per stampare.");
+      return;
+    }
+    const rowsHtml = (timelineData || []).map(item => `
+      <tr>
+        <td style="padding: 10px; border-bottom: 1px solid #ddd; font-size: 12px; white-space: nowrap;">${item.dataStr || item.data_attivita || ''}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #ddd; font-size: 12px; font-weight: bold;">${item.attivita || item.tipo || ''}</td>
+        <td style="padding: 10px; border-bottom: 1px solid #ddd; font-size: 12px;">${item.dettagli}</td>
+      </tr>
+    `).join('');
+    
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Report Operazioni - ${title}</title>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; color: #333; margin: 40px; line-height: 1.5; }
+          .header { border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
+          .header h1 { margin: 0; font-size: 24px; text-transform: uppercase; }
+          .header p { margin: 5px 0 0 0; font-size: 14px; color: #666; }
+          .info-box { background-color: #f9f9f9; border: 1px solid #ddd; padding: 15px; border-radius: 6px; margin-bottom: 30px; }
+          .info-box h2 { margin: 0 0 5px 0; font-size: 16px; }
+          .info-box p { margin: 0; font-size: 13px; color: #555; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+          th { padding: 10px; border-bottom: 2px solid #333; text-align: left; font-size: 13px; text-transform: uppercase; }
+          @media print {
+            body { margin: 20px; }
+            .no-print { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>💼 HEMA WORK / MDI</h1>
+          <p>REPORT OPERAZIONI COMPILATE - EXPORT UFFICIALE</p>
+        </div>
+        
+        <div class="info-box">
+          <h2>Soggetto/Oggetto del Report: ${title}</h2>
+          <p>${subtitle}</p>
+          <p style="margin-top: 5px; font-size: 11px; color: #888;">Generato il: ${new Date().toLocaleString('it-IT')}</p>
+        </div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 150px;">Data e Ora</th>
+              <th style="width: 180px;">Azione / Operazione</th>
+              <th>Dettagli Attività</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+        
+        <div class="footer no-print" style="margin-top: 30px; text-align: center;">
+          <button class="btn btn-primary" onclick="window.print()" style="padding: 8px 16px; font-weight: bold; cursor: pointer; background: #3182ce; color: #fff; border: none; border-radius: 4px;">Stampa Documento</button>
+        </div>
+      </body>
+      </html>
+    `;
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
+
   const handlePrintReport = data => {
     if (!data) return;
     const printWindow = window.open('', '_blank');
@@ -2145,7 +2216,7 @@ export function useAppController() {
         nome: candObj.nome || '',
         sedeLavoro: ricercaDetail.ricerca.sede_lavoro || '',
         ccnl: ricercaDetail.ricerca.ccnl_livello || '',
-        livello: c.statoProva || '',
+        livello: '',
         mansione: ricercaDetail.ricerca.ruolo || '',
         contrattoTipo: c.contrattoTipo || 'Full-time',
         oreContratto: c.oreContratto || '40',
@@ -2157,6 +2228,7 @@ export function useAppController() {
         mail: candObj.email || '',
         residenza: candObj.residenza || '',
         codiceFiscale: candObj.codice_fiscale || '',
+        iban: candObj.iban || '',
         linkDocumenti: candObj.link_documenti || '',
         idCandidato: c.idCandidato
       };
@@ -3368,8 +3440,8 @@ export function useAppController() {
     if (!cleanNum.startsWith('39') && cleanNum.startsWith('3')) {
       cleanNum = '39' + cleanNum;
     }
-    const origin = window.location.origin.includes('localhost:5173') ? 'http://localhost:3001' : window.location.origin;
-    const text = `Gentile Referente di ${az}, in merito alla ricerca in corso per ${ru}, le presentiamo il profilo di ${c.nomeCompleto}. Può visionare il CV al seguente link: ${c.linkCV ? `${origin}${c.linkCV}` : '[Nessun CV inserito]'}`;
+    const origin = window.location.origin.includes('localhost:5173') ? 'http://localhost:3002' : window.location.origin;
+    const text = `Gentile Referente di ${az}, in merito alla ricerca in corso per ${ru}, le presentiamo il profilo di ${c.nomeCompleto}. Può visionare il CV al seguente link: ${c.link_cv ? `${origin}${c.link_cv}` : '[Nessun CV inserito]'}`;
     const waUrl = `https://api.whatsapp.com/send?phone=${cleanNum}&text=${encodeURIComponent(text)}`;
 
     // Open WA in new window natively (no popup block!)
@@ -3700,6 +3772,7 @@ export function useAppController() {
     removeRoleField,
     handlePrintScheda,
     handlePrintReport,
+    handlePrintTimelineReport,
     handleOpenValutazione,
     calculateRealtimeScore,
     handleEvalFormChange,
