@@ -8,8 +8,7 @@ export default function Candidati({
   setSelectedSubjectLog,
   handleLinkCandidatoToRicerca,
   setCurrentCandidato,
-  setShowNewCVCandidatoModal,
-  setShowEditCandidatoModal
+  setShowNewCVCandidatoModal
 }) {
   const { candidati, fetchCandidati } = useGlobalState();
   const { showStatus } = useToast();
@@ -261,9 +260,6 @@ export default function Candidati({
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); handleOpenValutazione(c.id, `${c.cognome} ${c.nome}`); }}>
                       🔍 Scheda
-                    </button>
-                    <button className="btn btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); setCurrentCandidato(c); setShowEditCandidatoModal(true); }} style={{ backgroundColor: 'var(--primary)', color: 'white', border: 'none' }}>
-                      ✏️ Modifica
                     </button>
                     <button className="btn btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); setSelectedSubjectLog({ type: 'CANDIDATO', id: c.id, name: `${c.cognome} ${c.nome}` }); }}>
                       📜 Log Attività

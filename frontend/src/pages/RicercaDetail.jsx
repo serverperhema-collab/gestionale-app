@@ -99,9 +99,7 @@ export default function RicercaDetail({
   showLinkAnnuncioModal,
   setShowLinkAnnuncioModal,
   handleLinkAnnuncio,
-  handleUnlinkAnnuncio,
-  setShowEditCandidatoModal,
-  setCurrentCandidato
+  handleUnlinkAnnuncio
 }) {
   const { annunci: annunciGlobali } = useGlobalState();
 
@@ -893,24 +891,6 @@ export default function RicercaDetail({
                                 onClick={() => handleOpenValutazione(selectedPipeCand.idCandidato, selectedPipeCand.nomeCompleto)}
                               >
                                 📋 Compila Valutazione
-                              </button>
-                              <button 
-                                className="btn btn-secondary btn-sm"
-                                onClick={async () => {
-                                  try {
-                                    const res = await fetch(`${API_BASE}/candidati/${selectedPipeCand.idCandidato}`);
-                                    const json = await res.json();
-                                    if (json.success) {
-                                      setCurrentCandidato(json.data);
-                                      setShowEditCandidatoModal(true);
-                                    }
-                                  } catch (e) {
-                                    console.error(e);
-                                  }
-                                }}
-                                style={{ backgroundColor: 'var(--primary)', color: 'white', border: 'none' }}
-                              >
-                                ✏️ Modifica Anagrafica
                               </button>
                               <button 
                                 className="btn btn-danger btn-sm"
