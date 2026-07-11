@@ -269,6 +269,7 @@ export function useAppController() {
       const json = await res.json();
       if (json.success) {
         setAdTimeline(json.timeline);
+        setTimeline(json.timeline);
       }
     } catch (e) {
       console.error("Errore fetchAdTimeline:", e);
@@ -3740,6 +3741,7 @@ export function useAppController() {
     StarRating,
     renderCandidateStars,
     affinedCandidatiMemo,
-    getAffinedCandidati
+    getAffinedCandidati,
+    API_BASE
   };
 }

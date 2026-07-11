@@ -74,7 +74,7 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
   const handleCandidatoSelect = (id) => {
     setSelectedCandidatoId(id);
     if (id) {
-      const cand = candidati.find(c => c.id === id);
+      const cand = candidati.find(c => String(c.id) === id);
       if (cand) {
         setDestinatario(cand.email || '');
         // Customize template if selected

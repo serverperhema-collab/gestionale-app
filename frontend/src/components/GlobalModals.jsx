@@ -30,7 +30,7 @@ export default function GlobalModals(props) {
     handleCreateCliente, showNewCVCandidatoModal, setShowNewCVCandidatoModal, handleCreateCVCandidato, showEditCandidatoModal,
     setShowEditCandidatoModal, showEmailPreviewModal, setShowEmailPreviewModal, emailData, setEmailData, handleSendEmail, showDocUploadModal,
     setShowDocUploadModal, handleUploadDocument, pendingHiringCandidate, setPendingHiringCandidate, hiringFormData, setHiringFormData,
-    handleCompleteHiring, showTerminaProvaModal, setShowTerminaProvaModal, provaData, setProvaData, handleTerminaProva, showNewAnnuncioFormModal,
+    handleCompleteHiring, showTerminaProvaModal, setShowTerminaProvaModal, provaData, setProvaData, handleEndTrial, showNewAnnuncioFormModal,
     setShowNewAnnuncioFormModal, newSearchForm: annuncioForm, setNewSearchForm: setAnnuncioForm, handleCreateAnnuncio, newSearchRoles: annuncioRoles,
     addRoleField: annuncioAddRole, removeRoleField: annuncioRemoveRole, handleRoleChange: annuncioRoleChange,
     selectedSubjectLog, setSelectedSubjectLog, subjectTimeline, setSubjectTimeline, candidati,
@@ -101,7 +101,7 @@ export default function GlobalModals(props) {
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label>Email</label>
-                      <input type="email" name="email" className="form-control" defaultValue={currentCandidato.email} />
+                      <input type="text" name="email" className="form-control" defaultValue={currentCandidato.email} />
                     </div>
                   </div>
                   

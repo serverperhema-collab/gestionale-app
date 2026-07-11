@@ -915,7 +915,7 @@ export default function RicercaDetail({
                               <span style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Curriculum Vitae</span>
                               <div>
                                 {selectedPipeCand.linkCV ? (
-                                  <a href={`${API_BASE}${selectedPipeCand.linkCV}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 700, textDecoration: 'underline' }}>
+                                  <a href={`${API_BASE.replace('/api', '')}${selectedPipeCand.linkCV}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 700, textDecoration: 'underline' }}>
                                     📄 Apri CV
                                   </a>
                                 ) : 'Nessun CV caricato'}
@@ -1591,7 +1591,7 @@ export default function RicercaDetail({
                             </div>
                             <div className="form-group">
                               <label>Email Referente Cliente</label>
-                              <input type="email" className="form-control" value={hiringFormData.clienteEmail || ''} onChange={(e) => setHiringFormData({ ...hiringFormData, clienteEmail: e.target.value })} />
+                              <input type="text" className="form-control" value={hiringFormData.clienteEmail || ''} onChange={(e) => setHiringFormData({ ...hiringFormData, clienteEmail: e.target.value })} />
                             </div>
                           </div>
 
@@ -1681,7 +1681,7 @@ export default function RicercaDetail({
                             </div>
                             <div className="form-group">
                               <label>Mail Dipendente</label>
-                              <input type="email" className="form-control" value={hiringFormData.mail || ''} onChange={(e) => setHiringFormData({ ...hiringFormData, mail: e.target.value })} />
+                              <input type="text" className="form-control" value={hiringFormData.mail || ''} onChange={(e) => setHiringFormData({ ...hiringFormData, mail: e.target.value })} />
                             </div>
                           </div>
 

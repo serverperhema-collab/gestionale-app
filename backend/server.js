@@ -1095,11 +1095,11 @@ app.get('/api/candidati/:id/storico', async (req, res) => {
     `, [id]);
     
     const logs = await db.all(`
-      SELECT * FROM storico_attivita 
-      WHERE entita_id = ? OR entita_id IN (
+      SELECT * FROM storico 
+      WHERE id_soggetto = ? OR id_soggetto IN (
         SELECT id FROM pipeline_assunzioni WHERE id_candidato = ?
       )
-      ORDER BY data_ora DESC
+      ORDER BY data_attivita DESC
     `, [id, id]);
 
     res.json({
@@ -1552,9 +1552,10 @@ app.get('/api/dashboard/pending', async (req, res) => {
 
     // 5. Expiration of Advertisements (Alert starting from the day before)
     const activeAds = await db.all(`
-      SELECT a.id, r.azienda, r.ruolo, a.data_scadenza_annuncio, a.link_annuncio, a.id_ricerca
+      SELECT a.id, r.azienda, r.ruolo, a.data_scadenza_annuncio, a.link_annuncio, COALESCE(a.id_ricerca, ra.id_ricerca) AS id_ricerca
       FROM annunci a
-      JOIN ricerche r ON a.id_ricerca = r.id
+      LEFT JOIN ricerche_annunci ra ON a.id = ra.id_annuncio
+      LEFT JOIN ricerche r ON COALESCE(a.id_ricerca, ra.id_ricerca) = r.id
       WHERE a.link_annuncio IS NOT NULL 
         AND a.link_annuncio != '' 
         AND a.data_scadenza_annuncio IS NOT NULL 
@@ -1573,8 +1574,8 @@ app.get('/api/dashboard/pending', async (req, res) => {
         pendingList.push({
           id: `ad-scadenza-${ad.id}`,
           tipo: 'ANNUNCIO_SCADENZA',
-          idRicerca: ad.id_ricerca,
-          testo: `L'annuncio di lavoro per ${ad.azienda} (${ad.ruolo}) scade a breve: termine previsto il ${ad.data_scadenza_annuncio}.`
+          idRicerca: ad.id_ricerca || '',
+          testo: `L'annuncio di lavoro per ${ad.azienda || 'Globale'} (${ad.ruolo || 'N/D'}) scade a breve: termine previsto il ${ad.data_scadenza_annuncio}.`
         });
       }
     });
@@ -1871,7 +1872,7 @@ app.post('/api/commerciali/login', async (req, res) => {
 
 app.get('/api/commerciali', async (req, res) => {
   try {
-    const list = await db.all('SELECT id, nome, cognome, email, data_nascita, telefono, password, stato_approvazione, data_registrazione FROM commerciali ORDER BY data_registrazione DESC');
+    const list = await db.all('SELECT id, nome, cognome, email, data_nascita, telefono, stato_approvazione, data_registrazione FROM commerciali ORDER BY data_registrazione DESC');
     res.json({ success: true, data: list });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
@@ -2143,7 +2144,7 @@ app.delete('/api/candidati/:id', async (req, res) => {
 app.delete('/api/clienti/:id', async (req, res) => {
   try {
     const id = req.params.id;
-    await db.run('DELETE FROM anagrafica_clienti WHERE id = ?', [id]);
+    await db.run('DELETE FROM clienti WHERE id = ?', [id]);
     res.json({ success: true, message: 'Cliente eliminato' });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });

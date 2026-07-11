@@ -93,7 +93,7 @@ const EditCandidatoModal = ({ showEditCandidatoModal, setShowEditCandidatoModal,
                   </div>
                   <div className="form-group">
                     <label>Email</label>
-                    <input type="email" name="email" className="form-control" defaultValue={currentCandidato.email} />
+                    <input type="text" name="email" className="form-control" defaultValue={currentCandidato.email} />
                   </div>
                 </div>
                 <div className="form-group">

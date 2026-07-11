@@ -5,7 +5,7 @@ import { useToast } from '../contexts/ToastContext';
 
 export default function Clienti({ setSelectedSubjectLog }) {
   const { clienti, fetchClienti } = useGlobalState();
-  const showToast = useToast();
+  const { showStatus } = useToast();
 
   const handleDelete = async (id, nome) => {
     if (!window.confirm(`Sei sicuro di voler eliminare DEFINITIVAMENTE il cliente "${nome}"? Questa azione non puo essere annullata.`)) {
@@ -15,13 +15,13 @@ export default function Clienti({ setSelectedSubjectLog }) {
       const res = await fetch(`${API_BASE}/clienti/${id}`, { method: 'DELETE' });
       const json = await res.json();
       if (json.success) {
-        showToast('Cliente eliminato con successo', 'success');
+        showStatus('success', 'Cliente eliminato', 'Cliente eliminato con successo');
         fetchClienti();
       } else {
-        showToast('Errore: ' + json.error, 'error');
+        showStatus('error', 'Errore', json.error);
       }
     } catch (e) {
-      showToast('Errore di rete: ' + e.message, 'error');
+      showStatus('error', 'Errore di rete', e.message);
     }
   };
 

@@ -11,7 +11,7 @@ export default function Candidati({
   setShowNewCVCandidatoModal
 }) {
   const { candidati, fetchCandidati } = useGlobalState();
-  const showToast = useToast();
+  const { showStatus } = useToast();
 
   const handleDeleteCandidato = async (id, nomeCompleto) => {
     if (!window.confirm(`Sei sicuro di voler eliminare DEFINITIVAMENTE il candidato "${nomeCompleto}"? Questa azione non puo essere annullata.`)) {
@@ -21,13 +21,13 @@ export default function Candidati({
       const res = await fetch(`${API_BASE}/candidati/${id}`, { method: 'DELETE' });
       const json = await res.json();
       if (json.success) {
-        showToast('Candidato eliminato con successo', 'success');
+        showStatus('success', 'Candidato eliminato', 'Candidato eliminato con successo');
         fetchCandidati();
       } else {
-        showToast('Errore: ' + json.error, 'error');
+        showStatus('error', 'Errore', json.error);
       }
     } catch (e) {
-      showToast('Errore di rete: ' + e.message, 'error');
+      showStatus('error', 'Errore di rete', e.message);
     }
   };
 
@@ -239,7 +239,7 @@ export default function Candidati({
                 </td>
                 <td>
                   {c.link_cv ? (
-                    <a href={c.link_cv} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>
+                    <a href={`${API_BASE.replace('/api', '')}${c.link_cv}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>
                       📄 Apri CV File
                     </a>
                   ) : (

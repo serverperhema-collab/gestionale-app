@@ -36,7 +36,7 @@ const NewClientModal = ({ showNewClienteModal, setShowNewClienteModal, handleCre
                   </div>
                   <div className="form-group">
                     <label>Email</label>
-                    <input type="email" name="email" className="form-control" placeholder="info@locale.it" />
+                    <input type="text" name="email" className="form-control" placeholder="info@locale.it" />
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
