@@ -29,7 +29,7 @@ export default function GlobalModals(props) {
     addRoleField, removeRoleField, handleSelectClientForNewSearch, clienti, commerciali, operatori, showNewClienteModal, setShowNewClienteModal,
     handleCreateCliente, showNewCVCandidatoModal, setShowNewCVCandidatoModal, handleCreateCVCandidato, showEditCandidatoModal,
     setShowEditCandidatoModal, showEmailPreviewModal, setShowEmailPreviewModal, emailData, setEmailData, handleSendEmail, showDocUploadModal,
-    setShowDocUploadModal, handleUploadDocument, pendingHiringCandidate, setPendingHiringCandidate, hiringFormData, setHiringFormData,
+    setShowDocUploadModal, handleUploadDocAndProceed, setSelectedHiringCandidate, pendingHiringCandidate, setPendingHiringCandidate, hiringFormData, setHiringFormData,
     handleCompleteHiring, showTerminaProvaModal, setShowTerminaProvaModal, provaData, setProvaData, handleEndTrial, showNewAnnuncioFormModal,
     setShowNewAnnuncioFormModal, newSearchForm: annuncioForm, setNewSearchForm: setAnnuncioForm, handleCreateAnnuncio, newSearchRoles: annuncioRoles,
     addRoleField: annuncioAddRole, removeRoleField: annuncioRemoveRole, handleRoleChange: annuncioRoleChange,
@@ -2352,6 +2352,54 @@ export default function GlobalModals(props) {
               </button>
               <button className="btn btn-secondary btn-sm" onClick={() => setSelectedSubjectLog(null)}>Chiudi</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showDocUploadModal && (
+        <div className="modal-overlay" style={{ zIndex: 1100 }}>
+          <div className="modal-container" style={{ maxWidth: '500px' }}>
+            <form onSubmit={handleUploadDocAndProceed}>
+              <div className="modal-header">
+                <h2>🪪 Documento Identità Richiesto</h2>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setShowDocUploadModal(null); setPendingHiringCandidate(null); }}>✕</button>
+              </div>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <p style={{ fontSize: '14px', color: 'var(--text-primary)' }}>
+                  Per procedere con l'assunzione di <strong>{showDocUploadModal.cognome} {showDocUploadModal.nome}</strong>, si consiglia di allegare copia del documento d'identità (Fisico).
+                </p>
+                <div className="form-group">
+                  <label>Seleziona file (PDF, JPG, PNG, DOCX)</label>
+                  <input 
+                    type="file" 
+                    id="docUploadInput" 
+                    className="form-control" 
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                  />
+                </div>
+              </div>
+              <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', marginTop: '16px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => { setShowDocUploadModal(null); setPendingHiringCandidate(null); }}>
+                  Annulla
+                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary" 
+                    onClick={() => {
+                      setSelectedHiringCandidate(pendingHiringCandidate);
+                      setShowDocUploadModal(null);
+                      setPendingHiringCandidate(null);
+                    }}
+                  >
+                    Procedi senza caricare
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    💾 Carica e Procedi
+                  </button>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       )}
