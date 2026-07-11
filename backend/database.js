@@ -135,15 +135,14 @@ async function initDatabase() {
     await db.exec(`
       CREATE TABLE IF NOT EXISTS annunci (
         id TEXT PRIMARY KEY,
-        id_ricerca TEXT NOT NULL,
+        id_ricerca TEXT,
         testo_annuncio TEXT,
         portali_annuncio TEXT,
         link_annuncio TEXT,
         data_inserimento_annuncio TEXT,
         data_scadenza_annuncio TEXT,
         stato_annuncio TEXT DEFAULT 'Attivo',
-        note TEXT,
-        FOREIGN KEY (id_ricerca) REFERENCES ricerche(id)
+        note TEXT
       )
     `);
     // 3c. Table Ricerche-Annunci (Junction)
@@ -395,6 +394,41 @@ async function initDatabase() {
       `);
     } catch(e) {
       console.log("Migration annunci -> ricerche_annunci failed or already done:", e.message);
+    }
+
+    try {
+      // Migrate annunci table schema to remove id_ricerca NOT NULL and FOREIGN KEY constraints
+      // SQLite requires recreating the table to drop constraints
+      const tableInfo = await db.all("PRAGMA table_info(annunci)");
+      const idRicercaCol = tableInfo.find(c => c.name === 'id_ricerca');
+      if (idRicercaCol && idRicercaCol.notnull === 1) {
+        console.log("Migrating annunci table schema to remove constraints...");
+        await db.exec('PRAGMA foreign_keys=off;');
+        await db.exec('BEGIN TRANSACTION;');
+        await db.exec(`
+          CREATE TABLE IF NOT EXISTS annunci_new (
+            id TEXT PRIMARY KEY,
+            id_ricerca TEXT,
+            testo_annuncio TEXT,
+            portali_annuncio TEXT,
+            link_annuncio TEXT,
+            data_inserimento_annuncio TEXT,
+            data_scadenza_annuncio TEXT,
+            stato_annuncio TEXT DEFAULT 'Attivo',
+            note TEXT
+          )
+        `);
+        await db.exec(`INSERT INTO annunci_new SELECT * FROM annunci`);
+        await db.exec(`DROP TABLE annunci`);
+        await db.exec(`ALTER TABLE annunci_new RENAME TO annunci`);
+        await db.exec('COMMIT;');
+        await db.exec('PRAGMA foreign_keys=on;');
+        console.log("Annunci table migration completed.");
+      }
+    } catch(e) {
+      console.log("Annunci table schema migration failed:", e.message);
+      // rollback in case of error
+      try { await db.exec('ROLLBACK;'); await db.exec('PRAGMA foreign_keys=on;'); } catch(err) {}
     }
 
     console.log("Database initialized successfully!");

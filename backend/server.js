@@ -248,7 +248,7 @@ app.post('/api/annunci', async (req, res) => {
     
     await db.run(`
       INSERT INTO annunci (id, id_ricerca, testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio, note)
-      VALUES (?, '', ?, ?, ?, ?, ?, 'Attivo', ?)
+      VALUES (?, NULL, ?, ?, ?, ?, ?, 'Attivo', ?)
     `, [id, testo_annuncio || '', portali_annuncio || '', link_annuncio || '', data_inserimento_annuncio || '', data_scadenza_annuncio || '', note || '']);
     
     res.json({ success: true, message: 'Annuncio creato con successo', id });
@@ -322,8 +322,8 @@ app.post('/api/ricerche/:id/annunci', async (req, res) => {
     // Crea l'annuncio globale
     await db.run(`
       INSERT INTO annunci (id, id_ricerca, testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio, note)
-      VALUES (?, '', ?, ?, ?, ?, ?, 'Attivo', ?)
-    `, [id, testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, note || '']);
+      VALUES (?, NULL, ?, ?, ?, ?, ?, 'Attivo', ?)
+    `, [id, testo_annuncio || '', portali_annuncio || '', link_annuncio || '', data_inserimento_annuncio || '', data_scadenza_annuncio || '', note || '']);
     
     // Collega l'annuncio alla ricerca
     await db.run('INSERT INTO ricerche_annunci (id_ricerca, id_annuncio, data_collegamento) VALUES (?, ?, ?)', [req.params.id, id, new Date().toISOString()]);
