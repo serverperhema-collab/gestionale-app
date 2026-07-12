@@ -37,7 +37,15 @@ export default function GlobalModals(props) {
     selectedAnnuncio, setSelectedAnnuncio, handleUpdateAnnuncioDetail,
     handleSaveStatusMotivation, newAdStatus, adStatusMotivation, setAdStatusMotivation, showFeedbackModal, setShowFeedbackModal,
     feedbackNoteText, setFeedbackNoteText, showAdStatusModal, setShowAdStatusModal, handleUpdateAdStatus,
-    newMandatePopup, setNewMandatePopup, newCommercialPopup, setNewCommercialPopup, setCurrentPage
+    newMandatePopup, setNewMandatePopup, newCommercialPopup, setNewCommercialPopup, setCurrentPage,
+    handleFeedbackPositivo, handleFeedbackNegativo,
+    scheduleInterviewOption, setScheduleInterviewOption,
+    interviewDate, setInterviewDate,
+    interviewTime, setInterviewTime,
+    interviewType, setInterviewType,
+    excludeFromResearch, setExcludeFromResearch,
+    handleUpdateInterviewStatus, handleUpdateTrialStatus,
+    setNewAdStatus, ricercaDetail, adTimeline
   } = props;
 
   return (

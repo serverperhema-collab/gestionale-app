@@ -2405,6 +2405,8 @@ export function useAppController() {
   const handleEmailHiringSheet = async () => {
     const destEmail = window.prompt("Inserisci l'indirizzo email dell'Amministrazione:", "amministrazione@hemafood.it");
     if (!destEmail) return;
+    const baseOrigin = API_BASE.startsWith('http') ? API_BASE.replace('/api', '') : window.location.origin;
+    const mappedOrigin = baseOrigin.includes('localhost:5173') ? 'http://localhost:3002' : baseOrigin;
     const htmlBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; line-height: 1.6;">
         <h2 style="text-align: center; text-transform: uppercase;">HEMA FOOD</h2>
@@ -2433,7 +2435,7 @@ export function useAppController() {
         <p><strong>TELEFONO:</strong> ${hiringFormData.telefono}</p>
         <p><strong>MAIL:</strong> ${hiringFormData.mail}</p>
         <p><strong>IBAN:</strong> ${hiringFormData.iban}</p>
-        <p><strong>DOCUMENTO IDENTITÀ:</strong> ${hiringFormData.linkDocumenti ? `<a href="${(API_BASE.startsWith('http') ? API_BASE.replace('/api', '') : window.location.origin) + hiringFormData.linkDocumenti}">Apri Documento d'Identità</a>` : 'Nessuno'}</p>
+        <p><strong>DOCUMENTO IDENTITÀ:</strong> ${hiringFormData.linkDocumenti ? `<a href="${mappedOrigin + hiringFormData.linkDocumenti}">Apri Documento d'Identità</a>` : 'Nessuno'}</p>
       </div>
     `;
     try {
@@ -2447,8 +2449,8 @@ export function useAppController() {
           dest_email: destEmail,
           subject: `Nuova Scheda Assunzione - ${hiringFormData.cognome} ${hiringFormData.nome}`,
           htmlBody,
-          id_candidato: selectedHiringCandidate.idCandidato,
-          candidato_nome: selectedHiringCandidate.nomeCompleto,
+          id_candidato: selectedHiringCandidate?.idCandidato || hiringFormData.idCandidato || '',
+          candidato_nome: selectedHiringCandidate?.nomeCompleto || `${hiringFormData.cognome} ${hiringFormData.nome}` || '',
           id_ricerca: selectedRicercaId
         })
       });
@@ -3556,7 +3558,7 @@ export function useAppController() {
     const research = ricercaDetail.ricerca;
     const rCoords = getCoords(research.sede_lavoro);
     const rSettore = (research.settore || '').toLowerCase().trim();
-    return candidati.filter(cand => !(ricercaDetail.candidatiCollegati || []).some(cc => cc.idCandidato === cand.id)).map(cand => {
+    return candidati.filter(cand => !(ricercaDetail.candidatiCollegati || []).some(cc => cc.idCandidato == cand.id)).map(cand => {
       const cCoords = getCoords(cand.residenza);
       const distance = calcDistance(rCoords, cCoords);
       const candSettore = (cand.settore || '').toLowerCase().trim();

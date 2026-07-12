@@ -667,9 +667,15 @@ app.put('/api/ricerche/:id', async (req, res) => {
     if (updateData.hasOwnProperty('ore_lavoro')) {
       updateData.ore_lavoro = updateData.ore_lavoro ? parseInt(updateData.ore_lavoro) : null;
     }
+    if (updateData.hasOwnProperty('nr_risorse')) {
+      updateData.nr_risorse = updateData.nr_risorse ? parseInt(updateData.nr_risorse) : null;
+    }
     updateData.note = noteAggiornate;
 
     const updateQuery = buildUpdateQuery('ricerche', req.params.id, updateData, [
+      'azienda', 'consulente_commerciale', 'outbound', 'piva', 'sede_legale', 'sede_lavoro',
+      'referente', 'telefono_mobile', 'telefono_fisso', 'email', 'nr_risorse', 'ruolo',
+      'ccnl_livello', 'retribuzione', 'competenze_tecniche', 'note_team_leader', 'data_ultimo_resoconto',
       'testo_annuncio', 'portali_annuncio', 'link_annuncio', 'data_inserimento_annuncio', 'valutazione_facilita',
       'stato_ricerca', 'stato_approvazione_tl', 'data_scadenza_annuncio', 'stato_annuncio', 'note', 'settore',
       'ore_lavoro', 'orario_lavoro', 'ore_lavoro_tipo'
@@ -2049,7 +2055,7 @@ app.get('/api/report', async (req, res) => {
       SELECT 
         COUNT(CASE WHEN tipo_attivita = 'Nuovo Mandato' THEN 1 END) as ricercheAperte,
         COUNT(CASE WHEN tipo_attivita = 'Inserimento CV' THEN 1 END) as nuoviCandidati,
-        COUNT(CASE WHEN tipo_attivita = 'Associazione Ricerca' THEN 1 END) as candidatiPresentati,
+        COUNT(CASE WHEN tipo_attivita = 'Associazione Ricerca' OR tipo_attivita = 'Ricezione CV' THEN 1 END) as candidatiPresentati,
         COUNT(CASE WHEN tipo_attivita = 'Colloquio Programmato' AND tipo_soggetto = 'CANDIDATO' THEN 1 END) as colloquiProgrammati,
         COUNT(CASE WHEN tipo_attivita = 'Stato Candidato Modificato' AND dettagli LIKE '%In Prova%' THEN 1 END) as proveAvviate,
         COUNT(CASE WHEN tipo_attivita = 'Inviata Email (con Allegato)' OR tipo_attivita = 'Inviato CV (WhatsApp)' THEN 1 END) as cvInviati,
