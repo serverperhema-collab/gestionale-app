@@ -19,7 +19,7 @@ export default function GlobalModals(props) {
   const {
     showValutazioneModal, setShowValutazioneModal, currentCandidato, setCurrentCandidato, evalForm, setEvalForm, evalActiveTab, setEvalActiveTab,
     evalCandidateId, evalCandidateName, loadingEvalStorico, evalStorico, timeline, handleSaveValutazione, handleEvalFormChange,
-    calculateRealtimeScore, renderCandidateStars, API_BASE, handlePrintScheda, handleEditCandidato, StarRating,
+    calculateRealtimeScore, renderCandidateStars, API_BASE, handlePrintScheda, handleEditCandidato, StarRating, setSelectedRicercaId,
     selectedInterviewForManagement, setSelectedInterviewForManagement, handleEditInterviewDetails, handleDeleteInterview,
     handlePrintSingleInterviewReport, showInterviewStatusModal, setShowInterviewStatusModal,
     selectedTrialForManagement, setSelectedTrialForManagement, handleEditTrialDetails, handlePrintSingleTrialReport,

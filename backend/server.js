@@ -104,7 +104,7 @@ async function inviaEmailHelper(dest, subject, body, attachments = []) {
       to: dest,
       subject: subject,
       text: body ? body.replace(/<[^>]*>/g, '') : '',
-      html: body,
+      html: body && !/<[a-z][\s\S]*>/i.test(body) ? body.replace(/\n/g, '<br>') : body,
       attachments: attachments
     });
     return { success: true, simulated: false };

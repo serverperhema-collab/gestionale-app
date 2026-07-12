@@ -3443,7 +3443,7 @@ export function useAppController() {
     if (!cleanNum.startsWith('39') && cleanNum.startsWith('3')) {
       cleanNum = '39' + cleanNum;
     }
-    const origin = window.location.origin.includes('localhost:5173') ? 'http://localhost:3002' : window.location.origin;
+    const origin = API_BASE.startsWith('http') ? API_BASE.replace('/api', '') : (window.location.origin.includes('localhost:5173') ? 'http://localhost:3002' : window.location.origin);
     const text = `Gentile Referente di ${az}, in merito alla ricerca in corso per ${ru}, le presentiamo il profilo di ${c.nomeCompleto}. Può visionare il CV al seguente link: ${c.link_cv ? `${origin}${c.link_cv}` : '[Nessun CV inserito]'}`;
     const waUrl = `https://api.whatsapp.com/send?phone=${cleanNum}&text=${encodeURIComponent(text)}`;
 
@@ -3805,10 +3805,11 @@ export function useAppController() {
 const StarRating = ({
   value,
   name,
-  onChange
+  onChange,
+  maxStars = 10
 }) => {
   const stars = [];
-  for (let i = 1; i <= 10; i++) {
+  for (let i = 1; i <= maxStars; i++) {
     stars.push(<span key={i} className={`star ${i > value ? 'empty' : ''}`} onClick={() => onChange && onChange(i)}>
         ★
       </span>);

@@ -4,7 +4,7 @@ import { useToast } from '../contexts/ToastContext';
 import { API_BASE } from '../utils';
 
 export default function ConfigurazioneEmail() {
-  const { emailConfig, fetchEmailConfig } = useGlobalState();
+  const { emailConfig = {}, fetchEmailConfig } = useGlobalState() || {};
   const { showStatus } = useToast();
 
   useEffect(() => {

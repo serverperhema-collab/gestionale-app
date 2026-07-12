@@ -229,6 +229,7 @@ export default function RicercaDetail({
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span style={{ fontSize: '12px', fontWeight: 600 }}>Facilità Ricerca:</span>
                     <StarRating 
+                      maxStars={5}
                       value={ricercaDetail.ricerca.valutazione_facilita || 0}
                       onChange={async (newVal) => {
                         await fetch(`${API_BASE}/ricerche/${selectedRicercaId}`, {
