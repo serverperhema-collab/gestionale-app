@@ -11,6 +11,21 @@ const PORT = process.env.PORT || 3002;
 
 const bindParams = (arr) => arr.map(v => v === undefined ? null : v);
 
+const buildUpdateQuery = (table, idValue, body, allowedFields, idColumn = 'id') => {
+  const fields = [];
+  const params = [];
+  for (const field of allowedFields) {
+    if (body.hasOwnProperty(field)) {
+      fields.push(`${field} = ?`);
+      params.push(body[field] === undefined ? null : body[field]);
+    }
+  }
+  if (fields.length === 0) return null;
+  const sql = `UPDATE ${table} SET ${fields.join(', ')} WHERE ${idColumn} = ?`;
+  params.push(idValue);
+  return { sql, params };
+};
+
 // CORS configuration (allow frontend port 5173 or any origin)
 app.use(cors());
 app.use(express.json());
@@ -52,14 +67,9 @@ const storage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     const ext = path.extname(file.originalname);
-    const cognome = req.body.cognome ? req.body.cognome.trim().replace(/\s+/g, '_') : 'Sconosciuto';
-    const nome = req.body.nome ? req.body.nome.trim().replace(/\s+/g, '_') : '';
-    const cleanNome = `${cognome}_${nome}`.replace(/_+$/, '');
-    if (file.fieldname === 'docIdFile') {
-      cb(null, `DOC_${cleanNome}_${Date.now()}${ext}`);
-    } else {
-      cb(null, `CV_${cleanNome}_${Date.now()}${ext}`);
-    }
+    const originalNameClean = path.basename(file.originalname, ext).trim().replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
+    const prefix = file.fieldname === 'docIdFile' ? 'DOC' : 'CV';
+    cb(null, `${prefix}_${originalNameClean}_${Date.now()}${ext}`);
   }
 });
 
@@ -93,7 +103,8 @@ async function inviaEmailHelper(dest, subject, body, attachments = []) {
       from: `"HEMA WORK / MDI" <${config.user}>`,
       to: dest,
       subject: subject,
-      text: body,
+      text: body ? body.replace(/<[^>]*>/g, '') : '',
+      html: body,
       attachments: attachments
     });
     return { success: true, simulated: false };
@@ -649,40 +660,24 @@ app.put('/api/ricerche/:id', async (req, res) => {
       noteAggiornate = `${ricerca.note ? ricerca.note + '\n' : ''}[${dataCorrente} - ${prefix}]: ${motivazione}`;
     }
     
-    await db.run(`
-      UPDATE ricerche 
-      SET testo_annuncio = COALESCE(?, testo_annuncio),
-          portali_annuncio = COALESCE(?, portali_annuncio),
-          link_annuncio = COALESCE(?, link_annuncio),
-          data_inserimento_annuncio = COALESCE(?, data_inserimento_annuncio),
-          valutazione_facilita = COALESCE(?, valutazione_facilita),
-          stato_ricerca = COALESCE(?, stato_ricerca),
-          stato_approvazione_tl = COALESCE(?, stato_approvazione_tl),
-          data_scadenza_annuncio = COALESCE(?, data_scadenza_annuncio),
-          stato_annuncio = COALESCE(?, stato_annuncio),
-          note = ?,
-          settore = COALESCE(?, settore),
-          ore_lavoro = COALESCE(?, ore_lavoro),
-          orario_lavoro = COALESCE(?, orario_lavoro),
-          ore_lavoro_tipo = COALESCE(?, ore_lavoro_tipo)
-      WHERE id = ?
-    `, bindParams([
-      testo_annuncio,
-      portali_annuncio,
-      link_annuncio,
-      data_inserimento_annuncio,
-      facilita ? parseInt(facilita) : null,
-      stato_ricerca,
-      stato_approvazione_tl,
-      data_scadenza_annuncio,
-      stato_annuncio,
-      noteAggiornate,
-      settore,
-      ore_lavoro !== undefined ? (ore_lavoro ? parseInt(ore_lavoro) : null) : null,
-      orario_lavoro,
-      ore_lavoro_tipo,
-      req.params.id
-    ]));
+    const updateData = { ...req.body };
+    if (updateData.hasOwnProperty('facilita')) {
+      updateData.valutazione_facilita = updateData.facilita ? parseInt(updateData.facilita) : null;
+    }
+    if (updateData.hasOwnProperty('ore_lavoro')) {
+      updateData.ore_lavoro = updateData.ore_lavoro ? parseInt(updateData.ore_lavoro) : null;
+    }
+    updateData.note = noteAggiornate;
+
+    const updateQuery = buildUpdateQuery('ricerche', req.params.id, updateData, [
+      'testo_annuncio', 'portali_annuncio', 'link_annuncio', 'data_inserimento_annuncio', 'valutazione_facilita',
+      'stato_ricerca', 'stato_approvazione_tl', 'data_scadenza_annuncio', 'stato_annuncio', 'note', 'settore',
+      'ore_lavoro', 'orario_lavoro', 'ore_lavoro_tipo'
+    ]);
+    
+    if (updateQuery) {
+      await db.run(updateQuery.sql, updateQuery.params);
+    }
     
     // Auto-create client entry if approved
     if ((stato_approvazione_tl === 'Approvata' || stato_approvazione_tl === 'Approvata con Riserva') && ricerca.stato_approvazione_tl !== stato_approvazione_tl) {
@@ -797,7 +792,7 @@ app.post('/api/candidati/:id/cv', upload.single('cvFile'), async (req, res) => {
     if (!cand) return res.status(404).json({ success: false, error: 'Candidato non trovato' });
     
     if (cand.link_cv && cand.link_cv.startsWith('/uploads')) {
-      const oldPath = path.join(__dirname, cand.link_cv);
+      const oldPath = path.join(dataDir, cand.link_cv);
       if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
     }
     
@@ -901,57 +896,43 @@ app.put('/api/candidati/:id', upload.fields([{ name: 'cvFile', maxCount: 1 }, { 
       if (req.files.cvFile && req.files.cvFile[0]) {
         linkCV = `/uploads/cv/${req.files.cvFile[0].filename}`;
         if (cand.link_cv && cand.link_cv.startsWith('/uploads')) {
-          const oldPath = path.join(__dirname, cand.link_cv);
+          const oldPath = path.join(dataDir, cand.link_cv);
           if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
         }
       }
       if (req.files.docIdFile && req.files.docIdFile[0]) {
         linkDocumenti = `/uploads/doc/${req.files.docIdFile[0].filename}`;
         if (cand.link_documenti && cand.link_documenti.startsWith('/uploads')) {
-          const oldPath = path.join(__dirname, cand.link_documenti);
+          const oldPath = path.join(dataDir, cand.link_documenti);
           if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
         }
       }
     }
     
-    await db.run(`
-      UPDATE candidati
-      SET cognome = COALESCE(?, cognome),
-          nome = COALESCE(?, nome),
-          telefono = COALESCE(?, telefono),
-          email = COALESCE(?, email),
-          residenza = COALESCE(?, residenza),
-          competenze_chiave = COALESCE(?, competenze_chiave),
-          disponibilita = COALESCE(?, disponibilita),
-          link_cv = COALESCE(?, link_cv),
-          note_generali = COALESCE(?, note_generali),
-          valutazione_serieta = COALESCE(?, valutazione_serieta),
-          valutazione_disponibilita = COALESCE(?, valutazione_disponibilita),
-          valutazione_professionalita = COALESCE(?, valutazione_professionalita),
-          iban = COALESCE(?, iban),
-          settore = COALESCE(?, settore),
-          codice_fiscale = COALESCE(?, codice_fiscale),
-          link_documenti = COALESCE(?, link_documenti)
-      WHERE id = ?
-    `, bindParams([
-      cognome,
-      nome,
-      telefono,
-      email,
-      residenza,
-      competenze_chiave,
-      disponibilita,
-      linkCV,
-      note_generali,
-      valutazione_serieta ? parseInt(valutazione_serieta) : null,
-      valutazione_disponibilita ? parseInt(valutazione_disponibilita) : null,
-      valutazione_professionalita ? parseInt(valutazione_professionalita) : null,
-      iban,
-      settore,
-      codice_fiscale,
-      linkDocumenti,
-      req.params.id
-    ]));
+    const updateData = { ...req.body };
+    if (req.files) {
+      if (req.files.cvFile && req.files.cvFile[0]) updateData.link_cv = linkCV;
+      if (req.files.docIdFile && req.files.docIdFile[0]) updateData.link_documenti = linkDocumenti;
+    }
+    
+    if (updateData.hasOwnProperty('valutazione_serieta')) {
+      updateData.valutazione_serieta = updateData.valutazione_serieta ? parseInt(updateData.valutazione_serieta) : null;
+    }
+    if (updateData.hasOwnProperty('valutazione_disponibilita')) {
+      updateData.valutazione_disponibilita = updateData.valutazione_disponibilita ? parseInt(updateData.valutazione_disponibilita) : null;
+    }
+    if (updateData.hasOwnProperty('valutazione_professionalita')) {
+      updateData.valutazione_professionalita = updateData.valutazione_professionalita ? parseInt(updateData.valutazione_professionalita) : null;
+    }
+
+    const updateQuery = buildUpdateQuery('candidati', req.params.id, updateData, [
+      'cognome', 'nome', 'telefono', 'email', 'residenza', 'competenze_chiave', 'disponibilita', 'link_cv', 'note_generali',
+      'valutazione_serieta', 'valutazione_disponibilita', 'valutazione_professionalita', 'iban', 'settore', 'codice_fiscale', 'link_documenti'
+    ]);
+    
+    if (updateQuery) {
+      await db.run(updateQuery.sql, updateQuery.params);
+    }
     
     res.json({ success: true, linkCV, linkDocumenti });
   } catch (e) {
@@ -1198,46 +1179,27 @@ app.put('/api/pipeline/:id', async (req, res) => {
       targetStatoAvanzamento = 'Escluso';
     }
     
-    await db.run(`
-      UPDATE pipeline_assunzioni
-      SET stato_avanzamento = COALESCE(?, stato_avanzamento),
-          stato_prova = COALESCE(?, stato_prova),
-          note_amministrazione = COALESCE(?, note_amministrazione),
-          data_invio_cv = COALESCE(?, data_invio_cv),
-          data_inizio_prova = COALESCE(?, data_inizio_prova),
-          data_scadenza_prova = COALESCE(?, data_scadenza_prova),
-          prova_contrattualizzata = COALESCE(?, prova_contrattualizzata),
-          inviato_cliente = COALESCE(?, inviato_cliente),
-          feedback_stato = COALESCE(?, feedback_stato),
-          feedback_note = COALESCE(?, feedback_note),
-          inquadramento_proposto = COALESCE(?, inquadramento_proposto),
-          mansione_effettiva = COALESCE(?, mansione_effettiva),
-          contratto_tipo = COALESCE(?, contratto_tipo),
-          ore_contratto = COALESCE(?, ore_contratto),
-          durata_contratto = COALESCE(?, durata_contratto),
-          retribuzione_accordata = COALESCE(?, retribuzione_accordata),
-          costo_servizio_finale = COALESCE(?, costo_servizio_finale)
-      WHERE id = ?
-    `, bindParams([
-      targetStatoAvanzamento, 
-      stato_prova, 
-      note_amministrazione, 
-      data_invio_cv, 
-      data_inizio_prova,
-      data_scadenza_prova,
-      prova_contrattualizzata !== undefined ? parseInt(prova_contrattualizzata) : null,
-      inviato_cliente !== undefined ? parseInt(inviato_cliente) : null,
-      feedback_stato,
-      feedback_note,
-      inquadramento_proposto,
-      mansione_effettiva,
-      contratto_tipo,
-      ore_contratto !== undefined ? (ore_contratto ? parseInt(ore_contratto) : null) : null,
-      durata_contratto,
-      retribuzione_accordata,
-      costo_servizio_finale,
-      req.params.id
-    ]));
+    const updateData = { ...req.body };
+    updateData.stato_avanzamento = targetStatoAvanzamento;
+    if (updateData.hasOwnProperty('prova_contrattualizzata')) {
+      updateData.prova_contrattualizzata = (updateData.prova_contrattualizzata !== undefined && updateData.prova_contrattualizzata !== null) ? parseInt(updateData.prova_contrattualizzata) : null;
+    }
+    if (updateData.hasOwnProperty('inviato_cliente')) {
+      updateData.inviato_cliente = (updateData.inviato_cliente !== undefined && updateData.inviato_cliente !== null) ? parseInt(updateData.inviato_cliente) : null;
+    }
+    if (updateData.hasOwnProperty('ore_contratto')) {
+      updateData.ore_contratto = (updateData.ore_contratto !== undefined && updateData.ore_contratto !== null) ? parseInt(updateData.ore_contratto) : null;
+    }
+
+    const updateQuery = buildUpdateQuery('pipeline_assunzioni', req.params.id, updateData, [
+      'stato_avanzamento', 'stato_prova', 'note_amministrazione', 'data_invio_cv', 'data_inizio_prova', 'data_scadenza_prova',
+      'prova_contrattualizzata', 'inviato_cliente', 'feedback_stato', 'feedback_note',
+      'inquadramento_proposto', 'mansione_effettiva', 'contratto_tipo', 'ore_contratto', 'durata_contratto', 'retribuzione_accordata', 'costo_servizio_finale'
+    ]);
+
+    if (updateQuery) {
+      await db.run(updateQuery.sql, updateQuery.params);
+    }
     
     const r = await db.get('SELECT azienda, ruolo FROM ricerche WHERE id = ?', [pipe.id_ricerca]);
     const c = await db.get('SELECT cognome, nome FROM candidati WHERE id = ?', [pipe.id_candidato]);
@@ -1342,16 +1304,21 @@ app.put('/api/appuntamenti/:id', async (req, res) => {
     const oldLuogo = appuntamento.luogo;
     const oldStato = appuntamento.stato_appuntamento;
 
-    await db.run(`
-      UPDATE appuntamenti
-      SET data_colloquio = COALESCE(?, data_colloquio),
-          ora_colloquio = COALESCE(?, ora_colloquio),
-          tipo_colloquio = COALESCE(?, tipo_colloquio),
-          luogo = COALESCE(?, luogo),
-          stato_appuntamento = COALESCE(?, stato_appuntamento),
-          note_dettagli = COALESCE(?, note_dettagli)
-      WHERE id = ?
-    `, bindParams([data, ora, tipo, luogo, stato, note, req.params.id]));
+    const updateData = {};
+    if (req.body.hasOwnProperty('data')) updateData.data_colloquio = data;
+    if (req.body.hasOwnProperty('ora')) updateData.ora_colloquio = ora;
+    if (req.body.hasOwnProperty('tipo')) updateData.tipo_colloquio = tipo;
+    if (req.body.hasOwnProperty('luogo')) updateData.luogo = luogo;
+    if (req.body.hasOwnProperty('stato')) updateData.stato_appuntamento = stato;
+    if (req.body.hasOwnProperty('note')) updateData.note_dettagli = note;
+
+    const updateQuery = buildUpdateQuery('appuntamenti', req.params.id, updateData, [
+      'data_colloquio', 'ora_colloquio', 'tipo_colloquio', 'luogo', 'stato_appuntamento', 'note_dettagli'
+    ]);
+
+    if (updateQuery) {
+      await db.run(updateQuery.sql, updateQuery.params);
+    }
 
     // If rescheduled or type/luogo changed
     if ((data && data !== oldData) || (ora && ora !== oldOra) || (tipo && tipo !== oldTipo) || (luogo && luogo !== oldLuogo)) {
@@ -1684,7 +1651,7 @@ app.post('/api/email', async (req, res) => {
     const attachments = [];
     
     if (c.link_cv && c.link_cv.startsWith('/uploads')) {
-      const filePath = path.join(__dirname, c.link_cv);
+      const filePath = path.join(dataDir, c.link_cv);
       if (fs.existsSync(filePath)) {
         attachments.push({
           filename: path.basename(filePath),
@@ -1798,7 +1765,14 @@ app.get('/api/commerciali/ricerche', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Nome commerciale obbligatorio' });
     }
     
-    const list = await db.all('SELECT * FROM ricerche WHERE consulente_commerciale = ? ORDER BY data_inserimento DESC', [nome]);
+    const list = await db.all(
+      `SELECT * FROM ricerche 
+       WHERE consulente_commerciale = ? 
+          OR consulente_commerciale LIKE ? 
+          OR ? LIKE '%' || consulente_commerciale || '%' 
+       ORDER BY data_inserimento DESC`, 
+      [nome, `%${nome}%`, nome]
+    );
     
     // For each search, count candidates in pipeline
     const result = await Promise.all(list.map(async (r) => {
@@ -2077,7 +2051,7 @@ app.get('/api/report', async (req, res) => {
         COUNT(CASE WHEN tipo_attivita = 'Inserimento CV' THEN 1 END) as nuoviCandidati,
         COUNT(CASE WHEN tipo_attivita = 'Associazione Ricerca' THEN 1 END) as candidatiPresentati,
         COUNT(CASE WHEN tipo_attivita = 'Colloquio Programmato' THEN 1 END) as colloquiProgrammati,
-        COUNT(CASE WHEN tipo_attivita = 'Avvio Prova' THEN 1 END) as proveAvviate,
+        COUNT(CASE WHEN tipo_attivita = 'Stato Candidato Modificato' AND dettagli LIKE '%In Prova%' THEN 1 END) as proveAvviate,
         COUNT(CASE WHEN tipo_attivita = 'Inviata Email (con Allegato)' OR tipo_attivita = 'Inviato CV (WhatsApp)' THEN 1 END) as cvInviati,
         COUNT(CASE WHEN tipo_attivita = 'Stato Candidato Modificato' AND dettagli LIKE '%Approvato/Assunto%' THEN 1 END) as assunti,
         COUNT(CASE WHEN tipo_attivita = 'Scheda Assunzione Trasmessa' THEN 1 END) as assunzioniTrasmesse

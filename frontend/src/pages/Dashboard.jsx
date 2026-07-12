@@ -186,7 +186,7 @@ export default function Dashboard({
                 </td>
               </tr>
             ))}
-            {ricerche.length === 0 && (
+            {ricerche.filter(r => r.stato_approvazione_tl === 'Approvata' || r.stato_approvazione_tl === 'Approvata con Riserva').length === 0 && (
               <tr>
                 <td colSpan="7" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>Nessun mandato trovato. Usa il tasto Dati di Test in basso a sinistra per riempire il database.</td>
               </tr>

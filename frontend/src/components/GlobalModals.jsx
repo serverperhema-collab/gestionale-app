@@ -28,7 +28,7 @@ export default function GlobalModals(props) {
     showNewRicercaModal, setShowNewRicercaModal, newSearchForm, setNewSearchForm, newSearchRoles, handleCreateRicerca, handleRoleChange,
     addRoleField, removeRoleField, handleSelectClientForNewSearch, clienti, commerciali, operatori, showNewClienteModal, setShowNewClienteModal,
     handleCreateCliente, showNewCVCandidatoModal, setShowNewCVCandidatoModal, handleCreateCVCandidato, showEditCandidatoModal,
-    setShowEditCandidatoModal, showEmailPreviewModal, setShowEmailPreviewModal, emailData, setEmailData, handleSendEmail, showDocUploadModal,
+    setShowEditCandidatoModal, showEmailPreviewModal, setShowEmailPreviewModal, emailData, setEmailData, handleSendCVEmail, showDocUploadModal,
     setShowDocUploadModal, handleUploadDocAndProceed, setSelectedHiringCandidate, pendingHiringCandidate, setPendingHiringCandidate, hiringFormData, setHiringFormData,
     handleCompleteHiring, showTerminaProvaModal, setShowTerminaProvaModal, provaData, setProvaData, handleEndTrial, showNewAnnuncioFormModal,
     setShowNewAnnuncioFormModal, newSearchForm: annuncioForm, setNewSearchForm: setAnnuncioForm, handleCreateAnnuncio, newSearchRoles: annuncioRoles,

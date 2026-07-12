@@ -159,7 +159,7 @@ export default function GestioneCommerciali() {
                 <td>{c.email} <br/> {c.telefono || 'N/D'}</td>
                 <td>{c.data_nascita || 'N/D'}</td>
                 <td><code>{c.password}</code></td>
-                <td>{new Date(c.data_registrazione).toLocaleDateString('it-IT')}</td>
+                <td>{c.data_registrazione ? new Date(c.data_registrazione).toLocaleDateString('it-IT') : 'N/D'}</td>
                 <td>
                   <span className={`badge ${
                     c.stato_approvazione === 'Approvato' ? 'badge-success'

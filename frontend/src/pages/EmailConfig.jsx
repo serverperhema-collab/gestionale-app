@@ -71,7 +71,7 @@ export default function ConfigurazioneEmail() {
 
           <div className="form-group" style={{ marginBottom: '16px' }}>
             <label>Nome Utente / E-mail di Invio *</label>
-            <input type="email" name="user" className="form-control" required defaultValue={emailConfig.user} placeholder="latuamail@gmail.com" />
+            <input type="text" name="user" className="form-control" required defaultValue={emailConfig.user} placeholder="latuamail@gmail.com" />
           </div>
 
           <div className="form-group" style={{ marginBottom: '24px' }}>

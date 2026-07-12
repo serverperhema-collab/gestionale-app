@@ -190,12 +190,12 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
             <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '20px' }}>Nessun messaggio trovato</div>
           ) : (
             filteredEmails.map(e => {
-              const dateStr = new Date(e.data_invio).toLocaleString('it-IT', {
+              const dateStr = e.data_invio ? new Date(e.data_invio).toLocaleString('it-IT', {
                 day: '2-digit',
                 month: 'short',
                 hour: '2-digit',
                 minute: '2-digit'
-              });
+              }) : 'N/D';
               
               const isSelected = selectedEmail && selectedEmail.id === e.id;
               
@@ -376,7 +376,7 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
                   {selectedEmail.stato === 'Simulata' ? '⚠️ INVIO SIMULATO' : selectedEmail.stato === 'Inviata' ? '✓ INVIATA CON SUCCESSO' : '✕ INVIO FALLITO'}
                 </span>
                 <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                  {new Date(selectedEmail.data_invio).toLocaleString('it-IT')}
+                  {selectedEmail.data_invio ? new Date(selectedEmail.data_invio).toLocaleString('it-IT') : 'N/D'}
                 </span>
               </div>
               <h2 style={{ fontSize: '20px', fontWeight: 800, margin: '8px 0', color: 'var(--text-primary)' }}>

@@ -126,7 +126,7 @@ export default function App() {
         <header className="content-header">
           <h1>
             {ctrl.selectedRicercaId 
-              ? `Gestione Mandato:  @ ` 
+              ? `Gestione Mandato: ${ctrl.ricercaDetail ? `${ctrl.ricercaDetail.ricerca.ruolo} @ ${ctrl.ricercaDetail.ricerca.azienda}` : 'Caricamento...'}` 
               : ctrl.currentPage === 'dashboard' ? 'Dashboard Principale'
               : ctrl.currentPage === 'approvazioni' ? 'Mandati Commerciali da Approvare'
               : ctrl.currentPage === 'riserva' ? 'Mandati in Riserva'
@@ -180,10 +180,17 @@ export default function App() {
           )}
 
           {/* SINGLE SEARCH DETAIL & WORKSPACE */}
-          {ctrl.selectedRicercaId && ctrl.ricercaDetail && (
-            <ErrorBoundary>
-              <RicercaDetail {...ctrl} />
-            </ErrorBoundary>
+          {ctrl.selectedRicercaId && (
+            !ctrl.ricercaDetail ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '300px', color: 'var(--text-secondary)' }}>
+                <div className="spinner" style={{ marginBottom: '16px', fontSize: '24px' }}>🔄</div>
+                <span style={{ fontWeight: 600 }}>Caricamento dettagli mandato...</span>
+              </div>
+            ) : (
+              <ErrorBoundary>
+                <RicercaDetail {...ctrl} />
+              </ErrorBoundary>
+            )
           )}
         </div>
       </main>

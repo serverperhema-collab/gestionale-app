@@ -276,12 +276,12 @@ async function initDatabase() {
 
 
     // Create CV upload folder if it doesn't exist
-    const uploadsDir = path.resolve(__dirname, 'uploads', 'cv');
+    const uploadsDir = path.resolve(dbDir, 'uploads', 'cv');
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
     }
     // Create Doc upload folder if it doesn't exist
-    const docsDir = path.resolve(__dirname, 'uploads', 'doc');
+    const docsDir = path.resolve(dbDir, 'uploads', 'doc');
     if (!fs.existsSync(docsDir)) {
       fs.mkdirSync(docsDir, { recursive: true });
     }

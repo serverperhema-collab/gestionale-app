@@ -140,6 +140,7 @@ export function useAppController() {
     body: ''
   });
   const [provaData, setProvaData] = useState({
+    idAssunzione: '',
     idCandidato: '',
     dataFine: '',
     esito: 'Prova Superata',
@@ -631,7 +632,7 @@ export function useAppController() {
       }));
       return;
     }
-    const cl = clienti.find(c => c.id === clientId);
+    const cl = clienti.find(c => c.id == clientId);
     if (cl) {
       setNewSearchForm(prev => ({
         ...prev,
@@ -1656,7 +1657,7 @@ export function useAppController() {
     const data = Object.fromEntries(formData.entries());
     data.id_ricerca = selectedRicercaId;
     try {
-      const isLinked = ricercaDetail.candidatiCollegati.some(cc => cc.idCandidato === data.id_candidato);
+      const isLinked = ricercaDetail.candidatiCollegati.some(cc => cc.idCandidato == data.id_candidato);
       if (!isLinked) {
         const linkRes = await fetch(`${API_BASE}/pipeline`, {
           method: 'POST',
@@ -1780,7 +1781,7 @@ export function useAppController() {
     const data = Object.fromEntries(formData.entries());
     try {
       let assunzioneId = null;
-      const linked = ricercaDetail.candidatiCollegati.find(c => c.idCandidato === data.id_candidato);
+      const linked = ricercaDetail.candidatiCollegati.find(c => c.idCandidato == data.id_candidato);
       if (!linked) {
         const linkRes = await fetch(`${API_BASE}/pipeline`, {
           method: 'POST',
@@ -1832,7 +1833,7 @@ export function useAppController() {
     e.preventDefault();
     try {
       showStatus('loading', 'Salvataggio esito prova...', 'Salvataggio in corso...');
-      const res = await fetch(`${API_BASE}/pipeline/${provaData.idAssunzione || provaData.idCandidato}`, {
+      const res = await fetch(`${API_BASE}/pipeline/${provaData.idAssunzione}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
@@ -1918,7 +1919,7 @@ export function useAppController() {
 
         // If trial is passed, auto-select for assunzione
         if (isApproved) {
-          setSelectedHiringCandidate({
+          handleOpenHiringForm({
             idCandidato: pipe.idCandidato,
             nomeCompleto: pipe.nomeCompleto,
             statoAvanzamento: 'Approvato/Assunto'
@@ -2432,7 +2433,7 @@ export function useAppController() {
         <p><strong>TELEFONO:</strong> ${hiringFormData.telefono}</p>
         <p><strong>MAIL:</strong> ${hiringFormData.mail}</p>
         <p><strong>IBAN:</strong> ${hiringFormData.iban}</p>
-        <p><strong>DOCUMENTO IDENTITÀ:</strong> ${hiringFormData.linkDocumenti ? `<a href="${API_BASE.replace('/api', '')}${hiringFormData.linkDocumenti}">Apri Documento d'Identità</a>` : 'Nessuno'}</p>
+        <p><strong>DOCUMENTO IDENTITÀ:</strong> ${hiringFormData.linkDocumenti ? `<a href="${(API_BASE.startsWith('http') ? API_BASE.replace('/api', '') : window.location.origin) + hiringFormData.linkDocumenti}">Apri Documento d'Identità</a>` : 'Nessuno'}</p>
       </div>
     `;
     try {
@@ -3482,27 +3483,6 @@ export function useAppController() {
     setShowEmailPreviewModal(true);
   };
 
-  // Render Stars Rating Component
-  const StarRating = ({
-    value,
-    name,
-    onChange
-  }) => {
-    const stars = [];
-    for (let i = 1; i <= 10; i++) {
-      stars.push(<span key={i} className={`star ${i > value ? 'empty' : ''}`} onClick={() => onChange && onChange(i)}>
-          ★
-        </span>);
-    }
-    return <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '4px'
-    }}>
-        <div className="stars-container">{stars}</div>
-        <input type="hidden" name={name} value={value} />
-      </div>;
-  };
   const affinedCandidatiMemo = useMemo(() => {
     if (!ricercaDetail || !ricercaDetail.ricerca || !candidati) return [];
     const provCoords = {
@@ -3818,3 +3798,25 @@ export function useAppController() {
     API_BASE
   };
 }
+
+// Render Stars Rating Component (moved outside hook to prevent focus loss)
+const StarRating = ({
+  value,
+  name,
+  onChange
+}) => {
+  const stars = [];
+  for (let i = 1; i <= 10; i++) {
+    stars.push(<span key={i} className={`star ${i > value ? 'empty' : ''}`} onClick={() => onChange && onChange(i)}>
+        ★
+      </span>);
+  }
+  return <div style={{
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px'
+  }}>
+      <div className="stars-container">{stars}</div>
+      <input type="hidden" name={name} value={value} />
+    </div>;
+};

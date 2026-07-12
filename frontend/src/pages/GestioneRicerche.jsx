@@ -51,6 +51,13 @@ export default function GestioneRicerche({ setSelectedRicercaId }) {
               </td>
             </tr>
           ))}
+          {ricerche.filter(r => r.stato_approvazione_tl === 'Approvata' || r.stato_approvazione_tl === 'Approvata con Riserva').length === 0 && (
+            <tr>
+              <td colSpan="8" style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '20px' }}>
+                Nessun mandato di ricerca attivo.
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
