@@ -30,13 +30,13 @@ export default function GlobalModals(props) {
     handleCreateCliente, showNewCVCandidatoModal, setShowNewCVCandidatoModal, handleCreateCVCandidato, showEditCandidatoModal,
     setShowEditCandidatoModal, showEmailPreviewModal, setShowEmailPreviewModal, emailData, setEmailData, handleSendCVEmail, showDocUploadModal,
     setShowDocUploadModal, handleUploadDocAndProceed, setSelectedHiringCandidate, pendingHiringCandidate, setPendingHiringCandidate, hiringFormData, setHiringFormData,
-    handleCompleteHiring, showTerminaProvaModal, setShowTerminaProvaModal, provaData, setProvaData, handleEndTrial, showNewAnnuncioFormModal,
-    setShowNewAnnuncioFormModal, newSearchForm: annuncioForm, setNewSearchForm: setAnnuncioForm, handleCreateAnnuncio, newSearchRoles: annuncioRoles,
+    showTerminaProvaModal, setShowTerminaProvaModal, provaData, setProvaData, handleEndTrial, showNewAnnuncioFormModal,
+    setShowNewAnnuncioFormModal, newSearchForm: annuncioForm, setNewSearchForm: setAnnuncioForm, newSearchRoles: annuncioRoles,
     addRoleField: annuncioAddRole, removeRoleField: annuncioRemoveRole, handleRoleChange: annuncioRoleChange,
     selectedSubjectLog, setSelectedSubjectLog, subjectTimeline, setSubjectTimeline, candidati,
     selectedAnnuncio, setSelectedAnnuncio, handleUpdateAnnuncioDetail,
     handleSaveStatusMotivation, newAdStatus, adStatusMotivation, setAdStatusMotivation, showFeedbackModal, setShowFeedbackModal,
-    feedbackNoteText, setFeedbackNoteText, handleSaveFeedback, showAdStatusModal, setShowAdStatusModal, handleUpdateAdStatus,
+    feedbackNoteText, setFeedbackNoteText, showAdStatusModal, setShowAdStatusModal, handleUpdateAdStatus,
     newMandatePopup, setNewMandatePopup, newCommercialPopup, setNewCommercialPopup, setCurrentPage
   } = props;
 

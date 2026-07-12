@@ -2,9 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 
 const formatDateSafe = (dateString, options = { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) => {
   if (!dateString) return 'N/D';
-  const parsed = Date.parse(dateString);
-  if (isNaN(parsed)) return dateString;
-  return new Date(parsed).toLocaleString('it-IT', options);
+  if (dateString instanceof Date) {
+    return isNaN(dateString.getTime()) ? 'Data Invalida' : dateString.toLocaleString('it-IT', options);
+  }
+  const parsed = new Date(dateString);
+  if (isNaN(parsed.getTime())) {
+    return String(dateString);
+  }
+  return parsed.toLocaleString('it-IT', options);
 };
 
 export default function PostaElettronica({ candidati = [], clienti = [], ricerche = [], showStatus, API_BASE }) {

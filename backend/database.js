@@ -425,11 +425,11 @@ async function initDatabase() {
         await db.exec(`
           INSERT INTO annunci_new (
             id, id_ricerca, testo_annuncio, portali_annuncio, link_annuncio, 
-            data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio
+            data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio, note
           )
           SELECT 
             id, id_ricerca, testo_annuncio, portali_annuncio, link_annuncio, 
-            data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio 
+            data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio, note
           FROM annunci
         `);
         await db.exec(`DROP TABLE annunci`);

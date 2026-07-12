@@ -3,17 +3,22 @@ import { useGlobalState } from '../contexts/GlobalStateContext';
 import { useToast } from '../contexts/ToastContext';
 import { API_BASE } from '../utils';
 
-const formatDateSafe = (dateString) => {
+const formatDateSafe = (dateString, options = { day: '2-digit', month: '2-digit', year: 'numeric' }) => {
   if (!dateString) return 'N/D';
-  if (dateString.length === 10 && dateString.includes('-')) {
+  if (dateString instanceof Date) {
+    return isNaN(dateString.getTime()) ? 'Data Invalida' : dateString.toLocaleDateString('it-IT', options);
+  }
+  if (typeof dateString === 'string' && dateString.length === 10 && dateString.includes('-')) {
     const parts = dateString.split('-');
     if (parts.length === 3) {
       return `${parts[2]}/${parts[1]}/${parts[0]}`;
     }
   }
-  const parsed = Date.parse(dateString);
-  if (isNaN(parsed)) return dateString;
-  return new Date(parsed).toLocaleDateString('it-IT');
+  const parsed = new Date(dateString);
+  if (isNaN(parsed.getTime())) {
+    return String(dateString);
+  }
+  return parsed.toLocaleDateString('it-IT', options);
 };
 
 export default function GestioneCommerciali() {
