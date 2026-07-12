@@ -45,6 +45,30 @@ class ErrorBoundary extends React.Component {
 export default function App() {
   const ctrl = useAppController();
 
+  React.useEffect(() => {
+    let title = "HR Management";
+    if (ctrl.selectedRicercaId && ctrl.ricercaDetail?.ricerca) {
+      const r = ctrl.ricercaDetail.ricerca;
+      title = `Mandato: ${r.ruolo} @ ${r.azienda}`;
+    } else {
+      switch (ctrl.currentPage) {
+        case 'dashboard': title = "Dashboard - HR Management"; break;
+        case 'ricerche': title = "Mandati & Ricerche - HR Management"; break;
+        case 'approvazioni': title = "Mandati da Approvare - HR Management"; break;
+        case 'riserva': title = "Mandati in Riserva - HR Management"; break;
+        case 'pausa': title = "Mandati in Pausa - HR Management"; break;
+        case 'cestinati': title = "Mandati Cestinati - HR Management"; break;
+        case 'candidati': title = "Anagrafica Candidati - HR Management"; break;
+        case 'clienti': title = "Clienti - HR Management"; break;
+        case 'annunci': title = "Gestione Annunci - HR Management"; break;
+        case 'commerciali_gestione': title = "Gestione Commerciali - HR Management"; break;
+        case 'posta': title = "Posta Elettronica - HR Management"; break;
+        case 'email_config': title = "Configurazione SMTP - HR Management"; break;
+      }
+    }
+    document.title = title;
+  }, [ctrl.currentPage, ctrl.selectedRicercaId, ctrl.ricercaDetail]);
+
   return (
     <div className="app-container">
       {/* SIDEBAR NAVIGATION */}

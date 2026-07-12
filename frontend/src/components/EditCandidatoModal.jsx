@@ -24,7 +24,7 @@ const StarRating = ({ value, name, onChange }) => {
   return <div style={{ display: 'flex' }}>{stars}</div>;
 };
 
-const EditCandidatoModal = ({ showEditCandidatoModal, setShowEditCandidatoModal, currentCandidato, handleEditCandidato, API_BASE }) => {
+const EditCandidatoModal = ({ showEditCandidatoModal, setShowEditCandidatoModal, currentCandidato, setCurrentCandidato, handleEditCandidato, API_BASE }) => {
   return (
     <>
       {/* 4. EDIT CANDIDATO & STAR RATINGS MODAL */}

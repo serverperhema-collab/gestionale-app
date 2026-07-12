@@ -319,14 +319,14 @@ export function useAppController() {
         // Synchronize selected interview if currently managing it
         setSelectedInterviewForManagement(prev => {
           if (!prev) return null;
-          const updated = json.data.appuntamenti.find(a => a.id === prev.id);
+          const updated = (json.data.appuntamenti || []).find(a => a.id == prev.id);
           return updated || null;
         });
 
         // Synchronize selected trial if currently managing it
         setSelectedTrialForManagement(prev => {
           if (!prev) return null;
-          const updated = json.data.candidatiCollegati.find(c => c.idCandidato === prev.idCandidato);
+          const updated = (json.data.candidatiCollegati || []).find(c => c.idCandidato == prev.idCandidato);
           return updated || null;
         });
       } else {
@@ -1507,10 +1507,10 @@ export function useAppController() {
       const json = await res.json();
       if (json.success) {
         showStatus('success', 'Stato Aggiornato!', `Stato dell'invio aggiornato con successo.`);
-        setSelectedPipeCand(prev => ({
+        setSelectedPipeCand(prev => prev ? {
           ...prev,
           inviatoCliente: newInviato
-        }));
+        } : null);
         fetchRicercaDetail(selectedRicercaId);
       } else {
         showStatus('error', 'Errore', json.error);
@@ -1831,6 +1831,10 @@ export function useAppController() {
   };
   const handleEndTrial = async e => {
     e.preventDefault();
+    if (!provaData.idAssunzione) {
+      showStatus('error', 'Dati non validi', 'ID Assunzione non valido o non selezionato.');
+      return;
+    }
     try {
       showStatus('loading', 'Salvataggio esito prova...', 'Salvataggio in corso...');
       const res = await fetch(`${API_BASE}/pipeline/${provaData.idAssunzione}`, {
@@ -2314,6 +2318,8 @@ export function useAppController() {
       showStatus("warning", "Attenzione", "Blocco popup rilevato! Consenti i popup per stampare.");
       return;
     }
+    const baseOrigin = API_BASE.startsWith('http') ? API_BASE.replace('/api', '') : window.location.origin;
+    const mappedOrigin = baseOrigin.includes('localhost:5173') ? 'http://localhost:3002' : baseOrigin;
     const html = `
       <!DOCTYPE html>
       <html>
@@ -2385,7 +2391,7 @@ export function useAppController() {
         <div class="row"><div class="col"><span class="label">TELEFONO:</span><span class="value">${hiringFormData.telefono}</span></div></div>
         <div class="row"><div class="col"><span class="label">MAIL:</span><span class="value">${hiringFormData.mail}</span></div></div>
         <div class="row"><div class="col"><span class="label">IBAN:</span><span class="value">${hiringFormData.iban}</span></div></div>
-        <div class="row"><div class="col"><span class="label">DOCUMENTO IDENTITÀ URL:</span><span class="value">${hiringFormData.linkDocumenti ? window.location.origin + hiringFormData.linkDocumenti : 'Nessuno'}</span></div></div>
+        <div class="row"><div class="col"><span class="label">DOCUMENTO IDENTITÀ URL:</span><span class="value">${hiringFormData.linkDocumenti ? mappedOrigin + hiringFormData.linkDocumenti : 'Nessuno'}</span></div></div>
         
         <div class="no-print" style="margin-top: 50px; text-align: center;">
           <button onclick="window.print()" style="padding: 12px 24px; font-weight: bold; background: #3182ce; color: #fff; border: none; border-radius: 5px; cursor: pointer;">🖨️ Avvia Stampa Scheda</button>
