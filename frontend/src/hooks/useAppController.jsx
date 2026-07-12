@@ -2143,7 +2143,7 @@ export function useAppController() {
     try {
       showStatus('loading', 'Associazione candidato...', 'Preparazione della scheda di assunzione...');
       // 1. Check if candidate is already associated
-      const associated = (ricercaDetail.candidatiCollegati || []).find(cc => cc.idCandidato === idCandidato);
+      const associated = (ricercaDetail.candidatiCollegati || []).find(cc => cc.idCandidato == idCandidato);
       if (associated) {
         if (associated.statoAvanzamento !== 'Approvato/Assunto') {
           // Update status to Approvato/Assunto

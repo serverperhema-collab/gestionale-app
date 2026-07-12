@@ -61,7 +61,7 @@ export default function ConfigurazioneEmail() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
             <div className="form-group">
               <label>Porta SMTP *</label>
-              <input type="text" name="port" className="form-control" required defaultValue={emailConfig.port} placeholder="Es: 465, 587" />
+              <input type="number" name="port" className="form-control" required defaultValue={emailConfig.port} placeholder="Es: 465, 587" />
             </div>
             <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '8px', height: '100%', paddingTop: '20px' }}>
               <input type="checkbox" name="secure" id="emailSecure" defaultChecked={emailConfig.secure} style={{ cursor: 'pointer', width: '18px', height: '18px' }} />
@@ -76,7 +76,7 @@ export default function ConfigurazioneEmail() {
 
           <div className="form-group" style={{ marginBottom: '24px' }}>
             <label>Password Server / Password per le App *</label>
-            <input type="password" name="pass" className="form-control" defaultValue={emailConfig.pass} placeholder="Password per le app Google a 16 caratteri" />
+            <input type="password" name="pass" className="form-control" required defaultValue={emailConfig.pass} placeholder="Password per le app Google a 16 caratteri" />
           </div>
 
           <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '12px', fontWeight: '700' }}>

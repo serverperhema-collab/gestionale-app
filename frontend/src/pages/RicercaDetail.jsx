@@ -25,7 +25,6 @@ export default function RicercaDetail({
   handleInsertCandidate,
   handleFeedbackPositivo,
   handleFeedbackNegativo,
-  handleRemoveFromPipeline,
   handleUnlinkCandidate,
   handleToggleInviatoStatus,
   handleEditCandidato,

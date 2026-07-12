@@ -3,6 +3,9 @@ const path = require('path');
 const fs = require('fs');
 
 const dbDir = process.env.DATA_DIR || __dirname;
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
 const dbPath = path.resolve(dbDir, 'database.db');
 const dbInstance = new sqlite3.Database(dbPath);
 
@@ -419,7 +422,16 @@ async function initDatabase() {
             note TEXT
           )
         `);
-        await db.exec(`INSERT INTO annunci_new SELECT * FROM annunci`);
+        await db.exec(`
+          INSERT INTO annunci_new (
+            id, id_ricerca, testo_annuncio, portali_annuncio, link_annuncio, 
+            data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio
+          )
+          SELECT 
+            id, id_ricerca, testo_annuncio, portali_annuncio, link_annuncio, 
+            data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio 
+          FROM annunci
+        `);
         await db.exec(`DROP TABLE annunci`);
         await db.exec(`ALTER TABLE annunci_new RENAME TO annunci`);
         await db.exec('COMMIT;');

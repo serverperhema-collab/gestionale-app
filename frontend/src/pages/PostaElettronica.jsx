@@ -1,5 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 
+const formatDateSafe = (dateString, options = { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) => {
+  if (!dateString) return 'N/D';
+  const parsed = Date.parse(dateString);
+  if (isNaN(parsed)) return dateString;
+  return new Date(parsed).toLocaleString('it-IT', options);
+};
+
 export default function PostaElettronica({ candidati = [], clienti = [], ricerche = [], showStatus, API_BASE }) {
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -190,12 +197,7 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
             <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '20px' }}>Nessun messaggio trovato</div>
           ) : (
             filteredEmails.map(e => {
-              const dateStr = e.data_invio ? new Date(e.data_invio).toLocaleString('it-IT', {
-                day: '2-digit',
-                month: 'short',
-                hour: '2-digit',
-                minute: '2-digit'
-              }) : 'N/D';
+              const dateStr = formatDateSafe(e.data_invio);
               
               const isSelected = selectedEmail && selectedEmail.id === e.id;
               
@@ -376,7 +378,7 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
                   {selectedEmail.stato === 'Simulata' ? '⚠️ INVIO SIMULATO' : selectedEmail.stato === 'Inviata' ? '✓ INVIATA CON SUCCESSO' : '✕ INVIO FALLITO'}
                 </span>
                 <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                  {selectedEmail.data_invio ? new Date(selectedEmail.data_invio).toLocaleString('it-IT') : 'N/D'}
+                  {formatDateSafe(selectedEmail.data_invio, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
               <h2 style={{ fontSize: '20px', fontWeight: 800, margin: '8px 0', color: 'var(--text-primary)' }}>

@@ -19,7 +19,7 @@ export default function GlobalModals(props) {
   const {
     showValutazioneModal, setShowValutazioneModal, currentCandidato, setCurrentCandidato, evalForm, setEvalForm, evalActiveTab, setEvalActiveTab,
     evalCandidateId, evalCandidateName, loadingEvalStorico, evalStorico, timeline, handleSaveValutazione, handleEvalFormChange,
-    calculateRealtimeScore, renderCandidateStars, API_BASE, handlePrintScheda, handleEditCandidato,
+    calculateRealtimeScore, renderCandidateStars, API_BASE, handlePrintScheda, handleEditCandidato, StarRating,
     selectedInterviewForManagement, setSelectedInterviewForManagement, handleEditInterviewDetails, handleDeleteInterview,
     handlePrintSingleInterviewReport, showInterviewStatusModal, setShowInterviewStatusModal,
     selectedTrialForManagement, setSelectedTrialForManagement, handleEditTrialDetails, handlePrintSingleTrialReport,
@@ -1680,67 +1680,13 @@ export default function GlobalModals(props) {
       )}
 
       {/* 5. EMAIL PREVIEW MODAL */}
-      {showEmailPreviewModal && (
-        <div className="modal-overlay" style={{ zIndex: 1200 }}>
-          <div className="modal-container" style={{ width: '650px' }}>
-            <form onSubmit={handleSendCVEmail}>
-              <div className="modal-header">
-                <h2>Anteprima ed Invio E-mail</h2>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowEmailPreviewModal(false)}>✕</button>
-              </div>
-              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div className="form-group">
-                  <label>Destinatario Referente</label>
-                  <input 
-                    type="email" 
-                    className="form-control" 
-                    required 
-                    value={emailData.destEmail}
-                    onChange={(e) => setEmailData({ ...emailData, destEmail: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Oggetto E-mail</label>
-                  <input 
-                    type="text" 
-                    className="form-control" 
-                    required 
-                    value={emailData.subject}
-                    onChange={(e) => setEmailData({ ...emailData, subject: e.target.value })}
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Testo del Messaggio</label>
-                  <textarea 
-                    className="form-control" 
-                    required 
-                    value={emailData.body}
-                    onChange={(e) => setEmailData({ ...emailData, body: e.target.value })}
-                    style={{ minHeight: '180px' }}
-                  />
-                </div>
-                <div style={{
-                  padding: '12px 16px',
-                  backgroundColor: 'rgba(16,185,129,0.1)',
-                  borderRadius: '6px',
-                  border: '1px solid rgba(16,185,129,0.2)',
-                  fontSize: '12px',
-                  color: '#34D399',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}>
-                  📎 <strong>Allegato rilevato:</strong> Il file del curriculum vitae originale verrà inviato in allegato fisico a questa e-mail.
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowEmailPreviewModal(false)}>Annulla</button>
-                <button type="submit" className="btn btn-primary">📧 Invia E-mail Ora</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <EmailPreviewModal 
+        showEmailPreviewModal={showEmailPreviewModal} 
+        setShowEmailPreviewModal={setShowEmailPreviewModal} 
+        emailData={emailData} 
+        setEmailData={setEmailData} 
+        handleSendCVEmail={handleSendCVEmail} 
+      />
 
       {/* 6. TERMINA PROVA MODAL */}
       {showTerminaProvaModal && (

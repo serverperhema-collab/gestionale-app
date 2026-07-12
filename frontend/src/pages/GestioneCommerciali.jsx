@@ -3,6 +3,19 @@ import { useGlobalState } from '../contexts/GlobalStateContext';
 import { useToast } from '../contexts/ToastContext';
 import { API_BASE } from '../utils';
 
+const formatDateSafe = (dateString) => {
+  if (!dateString) return 'N/D';
+  if (dateString.length === 10 && dateString.includes('-')) {
+    const parts = dateString.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+  }
+  const parsed = Date.parse(dateString);
+  if (isNaN(parsed)) return dateString;
+  return new Date(parsed).toLocaleDateString('it-IT');
+};
+
 export default function GestioneCommerciali() {
   const { commerciali, fetchCommerciali, operatori, fetchOperatori } = useGlobalState();
   const { showStatus } = useToast();
@@ -157,9 +170,9 @@ export default function GestioneCommerciali() {
               <tr key={c.id}>
                 <td><strong>{c.cognome} {c.nome}</strong></td>
                 <td>{c.email} <br/> {c.telefono || 'N/D'}</td>
-                <td>{c.data_nascita || 'N/D'}</td>
+                <td>{formatDateSafe(c.data_nascita)}</td>
                 <td><code>{c.password}</code></td>
-                <td>{c.data_registrazione ? new Date(c.data_registrazione).toLocaleDateString('it-IT') : 'N/D'}</td>
+                <td>{formatDateSafe(c.data_registrazione)}</td>
                 <td>
                   <span className={`badge ${
                     c.stato_approvazione === 'Approvato' ? 'badge-success'

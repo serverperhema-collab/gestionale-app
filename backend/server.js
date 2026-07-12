@@ -651,13 +651,13 @@ app.put('/api/ricerche/:id', async (req, res) => {
       );
     }
 
-    let noteAggiornate = ricerca.note;
+    let noteAggiornate = req.body.hasOwnProperty('note') ? req.body.note : ricerca.note;
     if (motivazione) {
       const dataCorrente = new Date().toLocaleDateString('it-IT');
       const prefix = stato_approvazione_tl === 'Cestinato' ? 'MOTIVAZIONE CESTINAMENTO' 
                    : stato_approvazione_tl === 'In Pausa' ? 'MOTIVAZIONE MESSA IN PAUSA'
                    : 'MOTIVAZIONE RISERVA';
-      noteAggiornate = `${ricerca.note ? ricerca.note + '\n' : ''}[${dataCorrente} - ${prefix}]: ${motivazione}`;
+      noteAggiornate = `${noteAggiornate ? noteAggiornate + '\n' : ''}[${dataCorrente} - ${prefix}]: ${motivazione}`;
     }
     
     const updateData = { ...req.body };
@@ -1746,7 +1746,7 @@ app.post('/api/whatsapp', async (req, res) => {
     await logActivity('CANDIDATO', id_candidato, nomeCompleto, 'CV Inviato a Cliente (WA)', `CV inviato via WhatsApp a ${r.azienda} per ruolo ${r.ruolo}`, id_ricerca, r.azienda);
     
     const today = new Date().toISOString().substring(0, 10);
-    await db.run('UPDATE pipeline_assunzioni SET data_invio_cv = ? WHERE id_ricerca = ? AND id_candidato = ?', [today, id_ricerca, id_candidato]);
+    await db.run('UPDATE pipeline_assunzioni SET data_invio_cv = ?, inviato_cliente = 1 WHERE id_ricerca = ? AND id_candidato = ?', [today, id_ricerca, id_candidato]);
     
     res.json({ success: true });
   } catch (e) {
@@ -2050,7 +2050,7 @@ app.get('/api/report', async (req, res) => {
         COUNT(CASE WHEN tipo_attivita = 'Nuovo Mandato' THEN 1 END) as ricercheAperte,
         COUNT(CASE WHEN tipo_attivita = 'Inserimento CV' THEN 1 END) as nuoviCandidati,
         COUNT(CASE WHEN tipo_attivita = 'Associazione Ricerca' THEN 1 END) as candidatiPresentati,
-        COUNT(CASE WHEN tipo_attivita = 'Colloquio Programmato' THEN 1 END) as colloquiProgrammati,
+        COUNT(CASE WHEN tipo_attivita = 'Colloquio Programmato' AND tipo_soggetto = 'CANDIDATO' THEN 1 END) as colloquiProgrammati,
         COUNT(CASE WHEN tipo_attivita = 'Stato Candidato Modificato' AND dettagli LIKE '%In Prova%' THEN 1 END) as proveAvviate,
         COUNT(CASE WHEN tipo_attivita = 'Inviata Email (con Allegato)' OR tipo_attivita = 'Inviato CV (WhatsApp)' THEN 1 END) as cvInviati,
         COUNT(CASE WHEN tipo_attivita = 'Stato Candidato Modificato' AND dettagli LIKE '%Approvato/Assunto%' THEN 1 END) as assunti,

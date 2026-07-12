@@ -8,7 +8,7 @@ export default function Dashboard({
   setActiveTab 
 }) {
   const navigate = useNavigate();
-  const { candidati, ricerche, clienti, pendingChecklist } = useGlobalState();
+  const { candidati = [], ricerche = [], clienti = [], pendingChecklist = [] } = useGlobalState() || {};
 
   return (
     <div>
