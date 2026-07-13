@@ -294,7 +294,7 @@ export function useAppController() {
     } else {
       setPipeCandTimeline([]);
     }
-  }, [selectedPipeCand]);
+  }, [selectedPipeCand, selectedRicercaId]);
   const fetchAnnunci = async id => {
     if (!id) return;
     try {
@@ -527,7 +527,7 @@ export function useAppController() {
     }
   };
   const ensureResearchStarted = async () => {
-    if (ricercaDetail && (ricercaDetail.ricerca.stato_ricerca === '' || ricercaDetail.ricerca.stato_ricerca === 'Ricerca Inserita')) {
+    if (ricercaDetail && ricercaDetail.ricerca && (ricercaDetail.ricerca.stato_ricerca === '' || ricercaDetail.ricerca.stato_ricerca === 'Ricerca Inserita')) {
       try {
         await fetch(`${API_BASE}/ricerche/${selectedRicercaId}`, {
           method: 'PUT',
@@ -2263,25 +2263,25 @@ export function useAppController() {
       }
       const candObj = json.data || {};
       const newHiringData = {
-        commerciale: ricercaDetail.ricerca.consulente_commerciale || '',
-        outbound: ricercaDetail.ricerca.outbound || '',
-        committente: ricercaDetail.ricerca.azienda || '',
-        clientePiva: ricercaDetail.ricerca.piva || '',
-        clienteSedeLegale: ricercaDetail.ricerca.sede_legale || '',
-        clienteSedeLavoro: ricercaDetail.ricerca.sede_lavoro || '',
-        clienteReferente: ricercaDetail.ricerca.referente || '',
-        clienteEmail: ricercaDetail.ricerca.email || '',
-        clienteTelefono: [ricercaDetail.ricerca.telefono_mobile, ricercaDetail.ricerca.telefono_fisso].filter(Boolean).join(' / ') || '',
+        commerciale: ricercaDetail?.ricerca?.consulente_commerciale || '',
+        outbound: ricercaDetail?.ricerca?.outbound || '',
+        committente: ricercaDetail?.ricerca?.azienda || '',
+        clientePiva: ricercaDetail?.ricerca?.piva || '',
+        clienteSedeLegale: ricercaDetail?.ricerca?.sede_legale || '',
+        clienteSedeLavoro: ricercaDetail?.ricerca?.sede_lavoro || '',
+        clienteReferente: ricercaDetail?.ricerca?.referente || '',
+        clienteEmail: ricercaDetail?.ricerca?.email || '',
+        clienteTelefono: [ricercaDetail?.ricerca?.telefono_mobile, ricercaDetail?.ricerca?.telefono_fisso].filter(Boolean).join(' / ') || '',
         cognome: candObj.cognome || '',
         nome: candObj.nome || '',
-        sedeLavoro: ricercaDetail.ricerca.sede_lavoro || '',
-        ccnl: ricercaDetail.ricerca.ccnl_livello || '',
+        sedeLavoro: ricercaDetail?.ricerca?.sede_lavoro || '',
+        ccnl: ricercaDetail?.ricerca?.ccnl_livello || '',
         livello: '',
-        mansione: ricercaDetail.ricerca.ruolo || '',
+        mansione: ricercaDetail?.ricerca?.ruolo || '',
         contrattoTipo: c.contrattoTipo || 'Full-time',
         oreContratto: c.oreContratto || '40',
         durata: c.durataContratto || 'Tempo Indeterminato',
-        retribuzione: ricercaDetail.ricerca.retribuzione || '',
+        retribuzione: ricercaDetail?.ricerca?.retribuzione || '',
         costoServizio: c.costoServizioFinale || '',
         note: c.noteAmministrazione || '',
         telefono: candObj.telefono || '',
@@ -3493,9 +3493,9 @@ export function useAppController() {
 
   // Trigger WhatsApp logic and write activity log
   const handleSendWA = async c => {
-    const tel = String(ricercaDetail.ricerca.telefono_mobile || '');
-    const az = String(ricercaDetail.ricerca.azienda || '');
-    const ru = String(ricercaDetail.ricerca.ruolo || '');
+    const tel = String(ricercaDetail?.ricerca?.telefono_mobile || '');
+    const az = String(ricercaDetail?.ricerca?.azienda || '');
+    const ru = String(ricercaDetail?.ricerca?.ruolo || '');
     if (!tel) {
       showStatus('error', 'Attenzione', 'Numero di telefono del cliente non disponibile.');
       return;
@@ -3532,13 +3532,13 @@ export function useAppController() {
 
   // Helper to open Email customized preview modal
   const openEmailPreview = c => {
-    const ref = ricercaDetail.ricerca.referente || 'Referente';
-    const az = ricercaDetail.ricerca.azienda || 'Azienda';
-    const ru = ricercaDetail.ricerca.ruolo || 'Ruolo';
+    const ref = ricercaDetail?.ricerca?.referente || 'Referente';
+    const az = ricercaDetail?.ricerca?.azienda || 'Azienda';
+    const ru = ricercaDetail?.ricerca?.ruolo || 'Ruolo';
     const body = `Gentile ${ref} di ${az},\n\nin merito alla ricerca per il ruolo di ${ru}, le presentiamo in allegato il Curriculum Vitae del candidato ${c.nomeCompleto}.\n\nRestiamo a disposizione per fissare un colloquio.\n\nCordiali saluti,\nTeam Selezione`;
     setEmailData({
       idCandidato: c.idCandidato,
-      destEmail: ricercaDetail.ricerca.email || '',
+      destEmail: ricercaDetail?.ricerca?.email || '',
       subject: `Presentazione Candidato ${c.nomeCompleto} - ${ru}`,
       body: body,
       hasCV: !!c.link_cv

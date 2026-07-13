@@ -478,30 +478,13 @@ app.put('/api/annunci/:id', async (req, res) => {
       );
     }
     
-    await db.run(`
-      UPDATE annunci 
-      SET testo_annuncio = COALESCE(?, testo_annuncio),
-          portali_annuncio = COALESCE(?, portali_annuncio),
-          link_annuncio = COALESCE(?, link_annuncio),
-          data_inserimento_annuncio = COALESCE(?, data_inserimento_annuncio),
-          data_scadenza_annuncio = COALESCE(?, data_scadenza_annuncio),
-          stato_annuncio = COALESCE(?, stato_annuncio),
-          note = COALESCE(?, note),
-          mansione = COALESCE(?, mansione),
-          zona = COALESCE(?, zona)
-      WHERE id = ?
-    `, [
-      testo_annuncio !== undefined ? testo_annuncio : null, 
-      portali_annuncio !== undefined ? portali_annuncio : null, 
-      link_annuncio !== undefined ? link_annuncio : null, 
-      data_inserimento_annuncio !== undefined ? data_inserimento_annuncio : null, 
-      data_scadenza_annuncio !== undefined ? data_scadenza_annuncio : null, 
-      stato_annuncio !== undefined ? stato_annuncio : null, 
-      note !== undefined ? note : null, 
-      mansione !== undefined ? (mansione ? mansione.trim() : null) : null,
-      zona !== undefined ? (zona ? zona.trim() : null) : null,
-      req.params.id
+    const updateQuery = buildUpdateQuery('annunci', req.params.id, req.body, [
+      'testo_annuncio', 'portali_annuncio', 'link_annuncio', 'data_inserimento_annuncio', 'data_scadenza_annuncio', 'stato_annuncio', 'note', 'mansione', 'zona'
     ]);
+    
+    if (updateQuery) {
+      await db.run(updateQuery.sql, updateQuery.params);
+    }
     
     res.json({ success: true, message: 'Annuncio aggiornato con successo' });
   } catch (e) {
@@ -708,13 +691,17 @@ app.put('/api/ricerche/:id', async (req, res) => {
       await db.run(updateQuery.sql, updateQuery.params);
     }
     
+    // Fetch updated research row to auto-create client with fresh data
+    const updatedRicerca = await db.get('SELECT * FROM ricerche WHERE id = ?', [req.params.id]);
+    
     // Auto-create client entry if approved
     if ((stato_approvazione_tl === 'Approvata' || stato_approvazione_tl === 'Approvata con Riserva') && ricerca.stato_approvazione_tl !== stato_approvazione_tl) {
       let clientExists = null;
-      if (ricerca.piva) {
-        clientExists = await db.get('SELECT id FROM clienti WHERE piva = ?', [ricerca.piva]);
+      const refRicerca = updatedRicerca || ricerca;
+      if (refRicerca.piva) {
+        clientExists = await db.get('SELECT id FROM clienti WHERE piva = ?', [refRicerca.piva]);
       } else {
-        clientExists = await db.get('SELECT id FROM clienti WHERE nome_locale = ?', [ricerca.azienda]);
+        clientExists = await db.get('SELECT id FROM clienti WHERE nome_locale = ?', [refRicerca.azienda]);
       }
       
       if (!clientExists) {
@@ -725,13 +712,13 @@ app.put('/api/ricerche/:id', async (req, res) => {
         `, [
           clId,
           new Date().toISOString().substring(0, 10),
-          ricerca.azienda,
-          ricerca.piva || '',
-          ricerca.sede_legale || '',
-          ricerca.sede_lavoro || '',
-          ricerca.referente || '',
-          ricerca.email || '',
-          ricerca.telefono_mobile || ''
+          refRicerca.azienda,
+          refRicerca.piva || '',
+          refRicerca.sede_legale || '',
+          refRicerca.sede_lavoro || '',
+          refRicerca.referente || '',
+          refRicerca.email || '',
+          refRicerca.telefono_mobile || ''
         ]);
       }
     }
@@ -942,6 +929,28 @@ app.put('/api/candidati/:id', upload.fields([{ name: 'cvFile', maxCount: 1 }, { 
     if (req.files) {
       if (req.files.cvFile && req.files.cvFile[0]) updateData.link_cv = linkCV;
       if (req.files.docIdFile && req.files.docIdFile[0]) updateData.link_documenti = linkDocumenti;
+    }
+
+    // Clean up physical files on disk if they are being cleared
+    if (updateData.hasOwnProperty('link_cv') && !updateData.link_cv) {
+      if (cand.link_cv && cand.link_cv.startsWith('/uploads')) {
+        const oldPath = path.join(dataDir, cand.link_cv);
+        try {
+          if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+        } catch (err) {
+          console.error("Errore eliminazione CV rimosso:", err);
+        }
+      }
+    }
+    if (updateData.hasOwnProperty('link_documenti') && !updateData.link_documenti) {
+      if (cand.link_documenti && cand.link_documenti.startsWith('/uploads')) {
+        const oldPath = path.join(dataDir, cand.link_documenti);
+        try {
+          if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+        } catch (err) {
+          console.error("Errore eliminazione documento rimosso:", err);
+        }
+      }
     }
     
     if (updateData.hasOwnProperty('valutazione_serieta')) {
@@ -1169,7 +1178,7 @@ app.post('/api/pipeline', async (req, res) => {
     }
     
     const id = generateID('A');
-    const invCliente = inviato_cliente !== undefined ? parseInt(inviato_cliente) : 0;
+    const invCliente = (inviato_cliente === true || inviato_cliente === 'true' || inviato_cliente === 1 || String(inviato_cliente) === '1') ? 1 : 0;
     const feedStato = feedback_stato || 'In attesa di feedback';
     const feedNote = feedback_note || '';
     const statoAvanzamento = stato_avanzamento || 'CV Ricevuto';
@@ -1214,10 +1223,12 @@ app.put('/api/pipeline/:id', async (req, res) => {
     const updateData = { ...req.body };
     updateData.stato_avanzamento = targetStatoAvanzamento;
     if (updateData.hasOwnProperty('prova_contrattualizzata')) {
-      updateData.prova_contrattualizzata = (updateData.prova_contrattualizzata !== undefined && updateData.prova_contrattualizzata !== null) ? parseInt(updateData.prova_contrattualizzata) : null;
+      const pc = updateData.prova_contrattualizzata;
+      updateData.prova_contrattualizzata = (pc === true || pc === 'true' || pc === 1 || String(pc) === '1') ? 1 : 0;
     }
     if (updateData.hasOwnProperty('inviato_cliente')) {
-      updateData.inviato_cliente = (updateData.inviato_cliente !== undefined && updateData.inviato_cliente !== null) ? parseInt(updateData.inviato_cliente) : null;
+      const ic = updateData.inviato_cliente;
+      updateData.inviato_cliente = (ic === true || ic === 'true' || ic === 1 || String(ic) === '1') ? 1 : 0;
     }
     if (updateData.hasOwnProperty('ore_contratto')) {
       updateData.ore_contratto = (updateData.ore_contratto !== undefined && updateData.ore_contratto !== null) ? parseInt(updateData.ore_contratto) : null;

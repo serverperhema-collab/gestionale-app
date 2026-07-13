@@ -1245,22 +1245,24 @@ export default function RicercaDetail({
                                 // Calculate countdown days dynamically
                                 const today = new Date();
                                 today.setHours(0,0,0,0);
-                                const appDate = new Date(a.data);
-                                appDate.setHours(0,0,0,0);
+                                const appDate = a.data ? new Date(a.data) : null;
+                                if (appDate) appDate.setHours(0,0,0,0);
 
-                                let tempisticaStr = '';
+                                let tempisticaStr = 'N/D';
                                 let tempisticaColor = 'var(--text-secondary)';
 
-                                if (appDate.getTime() === today.getTime()) {
-                                  tempisticaStr = 'Oggi';
-                                  tempisticaColor = '#f59e0b';
-                                } else if (appDate > today) {
-                                  const diffDays = Math.ceil((appDate - today) / (1000 * 60 * 60 * 24));
-                                  tempisticaStr = `Tra ${diffDays} giorn${diffDays === 1 ? 'o' : 'i'}`;
-                                } else {
-                                  const diffDays = Math.floor((today - appDate) / (1000 * 60 * 60 * 24));
-                                  tempisticaStr = `⚠️ Scaduto da ${diffDays} giorn${diffDays === 1 ? 'o' : 'i'} - da aggiornare`;
-                                  tempisticaColor = '#ef4444';
+                                if (appDate && !isNaN(appDate.getTime())) {
+                                  if (appDate.getTime() === today.getTime()) {
+                                    tempisticaStr = 'Oggi';
+                                    tempisticaColor = '#f59e0b';
+                                  } else if (appDate > today) {
+                                    const diffDays = Math.ceil((appDate - today) / (1000 * 60 * 60 * 24));
+                                    tempisticaStr = `Tra ${diffDays} giorn${diffDays === 1 ? 'o' : 'i'}`;
+                                  } else {
+                                    const diffDays = Math.floor((today - appDate) / (1000 * 60 * 60 * 24));
+                                    tempisticaStr = `⚠️ Scaduto da ${diffDays} giorn${diffDays === 1 ? 'o' : 'i'} - da aggiornare`;
+                                    tempisticaColor = '#ef4444';
+                                  }
                                 }
 
                                 return (

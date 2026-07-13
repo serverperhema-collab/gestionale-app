@@ -5,7 +5,7 @@ export default function GestioneRicerche({ setSelectedRicercaId }) {
   const { ricerche = [] } = useGlobalState() || {};
   const [sortDirection, setSortDirection] = useState(null); // null | 'asc' | 'desc'
 
-  const activeRicerche = ricerche.filter(r => r.stato_approvazione_tl === 'Approvata' || r.stato_approvazione_tl === 'Approvata con Riserva');
+  const activeRicerche = (ricerche || []).filter(r => r.stato_approvazione_tl === 'Approvata' || r.stato_approvazione_tl === 'Approvata con Riserva');
 
   const sortedRicerche = [...activeRicerche].sort((a, b) => {
     if (!sortDirection) return 0;
