@@ -3,6 +3,26 @@ import { API_BASE, renderCandidateStars, getCapFromAddress, estimateDistanceByCa
 import { useToast } from '../contexts/ToastContext';
 import { useGlobalState } from '../contexts/GlobalStateContext';
 
+const formatTitleCase = (str) => {
+  if (!str) return '';
+  const lowercaseWords = ['e', 'o', 'a', 'da', 'in', 'con', 'su', 'per', 'tra', 'fra', 'di', 'del', 'dello', 'della', 'dei', 'degli', 'delle', 'al', 'allo', 'alla', 'ai', 'agli', 'alle', 'dal', 'dallo', 'dalla', 'dai', 'dagli', 'dalle', 'nel', 'nello', 'nella', 'nei', 'negli', 'nelle', 'sul', 'sullo', 'sulla', 'sui', 'sugli', 'sulle', 'col', 'coi', 'perchè', 'affinchè', 'poichè', 'se', 'che'];
+  
+  return str
+    .toLowerCase()
+    .split(' ')
+    .map((w, index) => {
+      const cleanWord = w.replace(/[^a-zA-Z0-9àèìòù]/g, '');
+      if (index > 0 && lowercaseWords.includes(cleanWord)) {
+        return w;
+      }
+      if (w.includes("'")) {
+        return w.split("'").map(subWord => subWord.charAt(0).toUpperCase() + subWord.slice(1)).join("'");
+      }
+      return w.charAt(0).toUpperCase() + w.slice(1);
+    })
+    .join(' ');
+};
+
 export default function RicercaDetail({
   ricercaDetail,
   setRicercaDetail,
@@ -191,137 +211,91 @@ export default function RicercaDetail({
                 background: 'var(--bg-secondary)',
                 border: '1px solid var(--border)',
                 borderRadius: '12px',
-                padding: '16px 24px',
+                padding: '24px',
                 marginBottom: '24px',
                 display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
+                flexDirection: 'column',
+                gap: '20px'
               }}>
-                <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'center' }}>
-                  <div>
-                    <span style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 'bold', letterSpacing: '0.5px' }}>NOME ATTIVITÀ</span>
-                    <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--primary)' }}>
-                      {ricercaDetail.ricerca.azienda ? ricercaDetail.ricerca.azienda.toUpperCase() : 'N/D'}
+                {/* ROW 1: Identity & Quick Actions */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                  {/* Left Side: Company Name & Role Pill */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+                    <div>
+                      <span style={{ fontSize: '10px', color: 'var(--primary)', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>NOME ATTIVITÀ</span>
+                      <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--primary)', margin: 0, lineHeight: 1.2 }}>
+                        {formatTitleCase(ricercaDetail.ricerca.azienda)}
+                      </h1>
+                    </div>
+                    <div style={{ borderLeft: '1px solid var(--border)', height: '40px', alignSelf: 'center' }}></div>
+                    <div>
+                      <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>RUOLO RICERCATO</span>
+                      <span style={{ 
+                        display: 'inline-block',
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid var(--border)',
+                        color: 'var(--text)',
+                        padding: '6px 14px',
+                        borderRadius: '20px',
+                        fontSize: '14px',
+                        fontWeight: 700
+                      }}>
+                        {formatTitleCase(ricercaDetail.ricerca.ruolo)}
+                      </span>
                     </div>
                   </div>
-                  <div style={{ borderLeft: '2px solid var(--border)', height: '32px', alignSelf: 'center' }}></div>
-                  <div>
-                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 'bold', letterSpacing: '0.5px' }}>RUOLO RICERCATO</span>
-                    <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text)' }}>
-                      {ricercaDetail.ricerca.ruolo}
-                    </div>
-                  </div>
-                  <div style={{ borderLeft: '2px solid var(--border)', height: '32px', alignSelf: 'center' }}></div>
-                  <div>
-                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>CLIENTE REFERENTE</span>
-                    <div style={{ fontSize: '14px', fontWeight: 700 }}>
-                      {ricercaDetail.ricerca.referente} ({ricercaDetail.ricerca.email} | {ricercaDetail.ricerca.telefono_mobile})
-                    </div>
-                  </div>
-                  <div>
-                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>SEDE DI L.</span>
-                    <div style={{ fontSize: '14px', fontWeight: 600 }}>{ricercaDetail.ricerca.sede_lavoro}</div>
-                  </div>
-                  <div>
-                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>SETTORE</span>
-                    <div style={{ fontSize: '14px', fontWeight: 600 }}>{ricercaDetail.ricerca.settore || 'N/D'}</div>
-                  </div>
-                  <div>
-                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>RISORSE</span>
-                    <div style={{ fontSize: '14px', fontWeight: 600 }}>{ricercaDetail.ricerca.nr_risorse}</div>
-                  </div>
-                  <div>
-                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>ORE DI LAVORO</span>
-                    <div style={{ fontSize: '14px', fontWeight: 600 }}>{ricercaDetail.ricerca.ore_lavoro ? `${ricercaDetail.ricerca.ore_lavoro}h ${ricercaDetail.ricerca.ore_lavoro_tipo ? ricercaDetail.ricerca.ore_lavoro_tipo.toLowerCase() : 'sett.'}` : 'N/D'}</div>
-                  </div>
-                  <div>
-                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>ORARIO DI L.</span>
-                    <div style={{ fontSize: '14px', fontWeight: 600 }}>{ricercaDetail.ricerca.orario_lavoro || 'Opzionale/Flessibile'}</div>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 600 }}>Facilità Ricerca:</span>
-                    <StarRating 
-                      maxStars={5}
-                      value={ricercaDetail.ricerca.valutazione_facilita || 0}
-                      onChange={async (newVal) => {
-                        await fetch(`${API_BASE}/ricerche/${selectedRicercaId}`, {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ facilita: newVal })
-                        });
-                        fetchRicercaDetail(selectedRicercaId);
-                      }}
-                    />
-                  </div>
-                  <button 
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={handlePrintTechnicalResearchReport}
-                    style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', marginRight: '8px' }}
-                  >
-                    📄 Report Tecnico (PDF)
-                  </button>
-                  <button 
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={handlePrintExecutiveReport}
-                    style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', marginRight: '8px' }}
-                  >
-                    👥 Relazione Direzionale (PDF)
-                  </button>
-                  {ricercaDetail.ricerca.stato_approvazione_tl === 'In Pausa' ? (
-                    <button 
-                      className="btn btn-success btn-sm" 
-                      style={{ fontWeight: 'bold', marginRight: '8px' }}
-                      onClick={async () => {
-                        try {
-                          const res = await fetch(`${API_BASE}/ricerche/${selectedRicercaId}`, {
+
+                  {/* Right Side: Star Rating & Actions */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.02)', padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Facilità:</span>
+                      <StarRating 
+                        maxStars={5}
+                        value={ricercaDetail.ricerca.valutazione_facilita || 0}
+                        onChange={async (newVal) => {
+                          await fetch(`${API_BASE}/ricerche/${selectedRicercaId}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ 
-                              stato_approvazione_tl: 'Approvata',
-                              stato_ricerca: 'Ricerca Inserita'
-                            })
+                            body: JSON.stringify({ facilita: newVal })
                           });
-                          const json = await res.json();
-                          if (json.success) {
-                            showStatus('success', 'Mandato Riattivato!', 'Il mandato è stato riattivato con successo.');
-                            fetchRicercaDetail(selectedRicercaId);
-                            fetchRicerche();
-                          }
-                        } catch (err) {
-                          showStatus('error', 'Errore', err.message);
-                        }
-                      }}
+                          fetchRicercaDetail(selectedRicercaId);
+                        }}
+                      />
+                    </div>
+
+                    <button 
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={handlePrintTechnicalResearchReport}
+                      style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', height: '36px' }}
                     >
-                      ▶️ Riattiva Mandato
+                      📄 Report Tecnico (PDF)
                     </button>
-                  ) : (
-                    ricercaDetail.ricerca.stato_approvazione_tl !== 'Cestinato' && (
+                    <button 
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={handlePrintExecutiveReport}
+                      style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', height: '36px' }}
+                    >
+                      👥 Relazione Direzionale (PDF)
+                    </button>
+                    {ricercaDetail.ricerca.stato_approvazione_tl === 'In Pausa' ? (
                       <button 
-                        className="btn btn-warning btn-sm" 
-                        style={{ backgroundColor: '#D97706', color: '#fff', fontWeight: 'bold', marginRight: '8px' }}
+                        className="btn btn-success btn-sm" 
+                        style={{ fontWeight: 'bold', height: '36px' }}
                         onClick={async () => {
-                          const reason = window.prompt("Inserisci la motivazione obbligatoria per mettere in pausa questo mandato:");
-                          if (reason === null) return;
-                          if (!reason.trim()) {
-                            showStatus("error", "Errore", "La motivazione è obbligatoria per mettere in pausa il mandato.");
-                            return;
-                          }
                           try {
                             const res = await fetch(`${API_BASE}/ricerche/${selectedRicercaId}`, {
                               method: 'PUT',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ 
-                                stato_approvazione_tl: 'In Pausa',
-                                motivazione: reason
+                                stato_approvazione_tl: 'Approvata',
+                                stato_ricerca: 'Ricerca Inserita'
                               })
                             });
                             const json = await res.json();
                             if (json.success) {
-                              showStatus('success', 'Mandato in Pausa!', 'Il mandato è stato temporaneamente messo in pausa.');
+                              showStatus('success', 'Mandato Riattivato!', 'Il mandato è stato riattivato con successo.');
                               fetchRicercaDetail(selectedRicercaId);
                               fetchRicerche();
                             }
@@ -330,44 +304,134 @@ export default function RicercaDetail({
                           }
                         }}
                       >
-                        ⏸️ Metti in Pausa
+                        ▶️ Riattiva Mandato
                       </button>
-                    )
-                  )}
-                  {ricercaDetail.ricerca.stato_approvazione_tl !== 'Cestinato' && (
-                    <button 
-                      className="btn btn-danger btn-sm" 
-                      style={{ backgroundColor: '#EF4444', fontWeight: 'bold' }}
-                      onClick={async () => {
-                        const reason = window.prompt("Inserisci la motivazione obbligatoria per il cestinamento di questa ricerca:");
-                        if (reason === null) return;
-                        if (!reason.trim()) {
-                          showStatus("error", "Errore", "La motivazione è obbligatoria per cestinare la ricerca.");
-                          return;
-                        }
-                        try {
-                          const res = await fetch(`${API_BASE}/ricerche/${selectedRicercaId}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ 
-                              stato_approvazione_tl: 'Cestinato',
-                              motivazione: reason
-                            })
-                          });
-                          const json = await res.json();
-                          if (json.success) {
-                            showStatus('success', 'Ricerca Cestinata!', 'La ricerca è stata spostata nei mandati Cestinati.');
-                            setSelectedRicercaId(null);
-                            setCurrentPage('cestinati');
+                    ) : (
+                      ricercaDetail.ricerca.stato_approvazione_tl !== 'Cestinato' && (
+                        <button 
+                          className="btn btn-warning btn-sm" 
+                          style={{ backgroundColor: '#D97706', color: '#fff', fontWeight: 'bold', height: '36px' }}
+                          onClick={async () => {
+                            const reason = window.prompt("Inserisci la motivazione obbligatoria per mettere in pausa questo mandato:");
+                            if (reason === null) return;
+                            if (!reason.trim()) {
+                              showStatus("error", "Errore", "La motivazione è obbligatoria per mettere in pausa il mandato.");
+                              return;
+                            }
+                            try {
+                              const res = await fetch(`${API_BASE}/ricerche/${selectedRicercaId}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ 
+                                  stato_approvazione_tl: 'In Pausa',
+                                  motivazione: reason
+                                })
+                              });
+                              const json = await res.json();
+                              if (json.success) {
+                                showStatus('success', 'Mandato in Pausa!', 'Il mandato è stato temporaneamente messo in pausa.');
+                                fetchRicercaDetail(selectedRicercaId);
+                                fetchRicerche();
+                              }
+                            } catch (err) {
+                              showStatus('error', 'Errore', err.message);
+                            }
+                          }}
+                        >
+                          ⏸️ Metti in Pausa
+                        </button>
+                      )
+                    )}
+                    {ricercaDetail.ricerca.stato_approvazione_tl !== 'Cestinato' && (
+                      <button 
+                        className="btn btn-danger btn-sm" 
+                        style={{ backgroundColor: '#EF4444', fontWeight: 'bold', height: '36px' }}
+                        onClick={async () => {
+                          const reason = window.prompt("Inserisci la motivazione obbligatoria per il cestinamento di questa ricerca:");
+                          if (reason === null) return;
+                          if (!reason.trim()) {
+                            showStatus("error", "Errore", "La motivazione è obbligatoria per cestinare la ricerca.");
+                            return;
                           }
-                        } catch (err) {
-                          showStatus('error', 'Errore', err.message);
-                        }
-                      }}
-                    >
-                      🗑️ Cestina Mandato
-                    </button>
-                  )}
+                          try {
+                            const res = await fetch(`${API_BASE}/ricerche/${selectedRicercaId}`, {
+                              method: 'PUT',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ 
+                                stato_approvazione_tl: 'Cestinato',
+                                motivazione: reason
+                              })
+                            });
+                            const json = await res.json();
+                            if (json.success) {
+                              showStatus('success', 'Ricerca Cestinata!', 'La ricerca è stata spostata nei mandati Cestinati.');
+                              setSelectedRicercaId(null);
+                              setCurrentPage('cestinati');
+                            }
+                          } catch (err) {
+                            showStatus('error', 'Errore', err.message);
+                          }
+                        }}
+                      >
+                        🗑️ Cestina Mandato
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Divider Line */}
+                <div style={{ borderBottom: '1px solid var(--border)' }} />
+
+                {/* ROW 2: Structured Details Grid */}
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                  gap: '20px' 
+                }}>
+                  <div>
+                    <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>CLIENTE REFERENTE</span>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text)' }}>
+                      {formatTitleCase(ricercaDetail.ricerca.referente)} 
+                      <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginTop: '2px' }}>
+                        {ricercaDetail.ricerca.email} | {ricercaDetail.ricerca.telefono_mobile}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>SEDE DI LAVORO</span>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>
+                      {formatTitleCase(ricercaDetail.ricerca.sede_lavoro)}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>SETTORE</span>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>
+                      {formatTitleCase(ricercaDetail.ricerca.settore) || 'N/D'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>RISORSE</span>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text)' }}>
+                      {ricercaDetail.ricerca.nr_risorse || 0} {ricercaDetail.ricerca.nr_risorse === 1 ? 'Risorsa' : 'Risorse'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>ORE DI LAVORO</span>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>
+                      {ricercaDetail.ricerca.ore_lavoro ? `${ricercaDetail.ricerca.ore_lavoro}h ${ricercaDetail.ricerca.ore_lavoro_tipo ? ricercaDetail.ricerca.ore_lavoro_tipo.toLowerCase() : 'sett.'}` : 'N/D'}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span style={{ fontSize: '10px', color: 'var(--text-secondary)', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase', display: 'block', marginBottom: '4px' }}>ORARIO DI LAVORO</span>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>
+                      {formatTitleCase(ricercaDetail.ricerca.orario_lavoro) || 'Opzionale / Flessibile'}
+                    </div>
+                  </div>
                 </div>
               </div>
 
