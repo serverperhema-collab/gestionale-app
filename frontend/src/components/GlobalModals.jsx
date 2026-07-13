@@ -56,6 +56,16 @@ export default function GlobalModals(props) {
     }
   }, [showNewClienteModal]);
 
+  const [selectedClientWorkplaces, setSelectedClientWorkplaces] = useState([]);
+  const [isManualWorkplace, setIsManualWorkplace] = useState(true);
+
+  React.useEffect(() => {
+    if (!showNewRicercaModal) {
+      setSelectedClientWorkplaces([]);
+      setIsManualWorkplace(true);
+    }
+  }, [showNewRicercaModal]);
+
   return (
     <>
       {/* ----------------- MODALS ----------------- */}
@@ -1155,7 +1165,29 @@ export default function GlobalModals(props) {
                     <label>Seleziona Cliente Esistente (Opzionale)</label>
                     <select 
                       className="form-control" 
-                      onChange={(e) => handleSelectClientForNewSearch(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        handleSelectClientForNewSearch(val);
+                        if (!val) {
+                          setSelectedClientWorkplaces([]);
+                          setIsManualWorkplace(true);
+                        } else {
+                          const cl = clienti.find(c => c.id == val);
+                          if (cl && cl.sede_lavoro) {
+                            const sedi = cl.sede_lavoro.split(' | ').filter(s => s.trim() !== '');
+                            setSelectedClientWorkplaces(sedi);
+                            if (sedi.length > 0) {
+                              setIsManualWorkplace(false);
+                              setNewSearchForm(prev => ({ ...prev, sede_lavoro: sedi[0] }));
+                            } else {
+                              setIsManualWorkplace(true);
+                            }
+                          } else {
+                            setSelectedClientWorkplaces([]);
+                            setIsManualWorkplace(true);
+                          }
+                        }
+                      }}
                     >
                       <option value="">-- Nuovo Cliente / Compila Manualmente --</option>
                       {clienti.map(c => (
@@ -1206,15 +1238,53 @@ export default function GlobalModals(props) {
                     </div>
                     <div className="form-group">
                       <label>Sede di Lavoro *</label>
-                      <input 
-                        type="text" 
-                        name="sede_lavoro" 
-                        className="form-control" 
-                        required 
-                        placeholder="Es: Via Roma 12, Milano" 
-                        value={newSearchForm.sede_lavoro}
-                        onChange={(e) => setNewSearchForm({ ...newSearchForm, sede_lavoro: e.target.value })}
-                      />
+                      {!isManualWorkplace && selectedClientWorkplaces.length > 0 ? (
+                        <select
+                          name="sede_lavoro"
+                          className="form-control"
+                          required
+                          value={newSearchForm.sede_lavoro}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '__MANUAL__') {
+                              setIsManualWorkplace(true);
+                              setNewSearchForm(prev => ({ ...prev, sede_lavoro: '' }));
+                            } else {
+                              setNewSearchForm(prev => ({ ...prev, sede_lavoro: val }));
+                            }
+                          }}
+                        >
+                          {selectedClientWorkplaces.map((s, idx) => (
+                            <option key={idx} value={s}>{s}</option>
+                          ))}
+                          <option value="__MANUAL__">-- Altro (Inserisci manualmente) --</option>
+                        </select>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <input 
+                            type="text" 
+                            name="sede_lavoro" 
+                            className="form-control" 
+                            required 
+                            placeholder="Es: Via Roma 12, Milano" 
+                            value={newSearchForm.sede_lavoro}
+                            onChange={(e) => setNewSearchForm({ ...newSearchForm, sede_lavoro: e.target.value })}
+                          />
+                          {selectedClientWorkplaces.length > 0 && (
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => {
+                                setIsManualWorkplace(false);
+                                setNewSearchForm(prev => ({ ...prev, sede_lavoro: selectedClientWorkplaces[0] }));
+                              }}
+                              style={{ alignSelf: 'flex-start', marginTop: '4px' }}
+                            >
+                              ↩️ Seleziona da sedi cliente
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 
