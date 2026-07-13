@@ -426,6 +426,7 @@ export function useAppController() {
       const json = await res.json();
       if (json.success) {
         showStatus('success', 'Collegato!', 'Annuncio collegato al mandato con successo.');
+        await ensureResearchStarted();
         fetchRicercaDetail(selectedRicercaId);
       } else {
         showStatus('error', 'Errore', json.error);
@@ -1383,6 +1384,7 @@ export function useAppController() {
         showStatus('success', 'Candidato Inserito!', 'Il candidato è stato collegato alla ricerca in attesa di feedback.');
         e.target.reset();
         setIsNewCandidate(false);
+        await ensureResearchStarted();
         fetchCandidati();
         fetchRicercaDetail(selectedRicercaId);
       } else {
@@ -1617,6 +1619,7 @@ export function useAppController() {
       const json = await res.json();
       if (json.success) {
         showStatus('success', 'Pipeline aggiornata!', 'Stato del candidato aggiornato.');
+        await ensureResearchStarted();
         fetchRicercaDetail(selectedRicercaId);
       } else {
         showStatus('error', 'Errore', json.error);
@@ -1650,6 +1653,7 @@ export function useAppController() {
       if (json.success) {
         showStatus('success', 'Stato Aggiornato!', `Stato del colloquio modificato in ${nextStato}.`);
         setShowInterviewStatusModal(null);
+        await ensureResearchStarted();
         fetchRicercaDetail(selectedRicercaId);
       } else {
         showStatus('error', 'Errore', json.error);
@@ -1928,6 +1932,7 @@ export function useAppController() {
         showStatus('success', 'Esito Registrato!', `Prova conclusa con esito: ${nextStato}.`);
         setShowTrialStatusModal(null);
         setSelectedTrialForManagement(null);
+        await ensureResearchStarted();
         fetchRicercaDetail(selectedRicercaId);
 
         // If trial is passed, auto-select for assunzione
@@ -2196,6 +2201,7 @@ export function useAppController() {
       }
 
       // Refresh detail and open hiring form
+      await ensureResearchStarted();
       await fetchRicercaDetail(selectedRicercaId);
       setShowNewAssunzioneModal(false);
       handleOpenHiringForm({
