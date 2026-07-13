@@ -145,7 +145,9 @@ async function initDatabase() {
         data_inserimento_annuncio TEXT,
         data_scadenza_annuncio TEXT,
         stato_annuncio TEXT DEFAULT 'Attivo',
-        note TEXT
+        note TEXT,
+        mansione TEXT,
+        zona TEXT
       )
     `);
     // 3c. Table Ricerche-Annunci (Junction)
@@ -401,6 +403,13 @@ async function initDatabase() {
     }
 
     try {
+      await db.exec('ALTER TABLE annunci ADD COLUMN mansione TEXT');
+    } catch(e) {}
+    try {
+      await db.exec('ALTER TABLE annunci ADD COLUMN zona TEXT');
+    } catch(e) {}
+
+    try {
       // Migrate annunci table schema to remove id_ricerca NOT NULL and FOREIGN KEY constraints
       // SQLite requires recreating the table to drop constraints
       const tableInfo = await db.all("PRAGMA table_info(annunci)");
@@ -419,17 +428,21 @@ async function initDatabase() {
             data_inserimento_annuncio TEXT,
             data_scadenza_annuncio TEXT,
             stato_annuncio TEXT DEFAULT 'Attivo',
-            note TEXT
+            note TEXT,
+            mansione TEXT,
+            zona TEXT
           )
         `);
         await db.exec(`
           INSERT INTO annunci_new (
             id, id_ricerca, testo_annuncio, portali_annuncio, link_annuncio, 
-            data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio, note
+            data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio, note,
+            mansione, zona
           )
           SELECT 
             id, id_ricerca, testo_annuncio, portali_annuncio, link_annuncio, 
-            data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio, note
+            data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio, note,
+            mansione, zona
           FROM annunci
         `);
         await db.exec(`DROP TABLE annunci`);

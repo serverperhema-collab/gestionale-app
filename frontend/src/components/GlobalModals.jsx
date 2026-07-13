@@ -2091,6 +2091,30 @@ export default function GlobalModals(props) {
                           </div>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                             <div className="form-group">
+                              <label>Mansione dell'Annuncio *</label>
+                              <input 
+                                type="text" 
+                                name="mansione" 
+                                className="form-control" 
+                                required
+                                defaultValue={selectedAnnuncio.mansione || ''}
+                                placeholder="Es: Sviluppatore React, Addetto Vendite..."
+                              />
+                            </div>
+                            <div className="form-group">
+                              <label>Zona di Lavoro *</label>
+                              <input 
+                                type="text" 
+                                name="zona" 
+                                className="form-control" 
+                                required
+                                defaultValue={selectedAnnuncio.zona || ''}
+                                placeholder="Es: Milano (MI), Bergamo..."
+                              />
+                            </div>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                            <div className="form-group">
                               <label>Portali Pubblicazione (separati da virgola)</label>
                               <input 
                                 type="text" 

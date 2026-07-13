@@ -87,6 +87,7 @@ export default function GestioneAnnunci({ ctrl }) {
               <tr key={a.id} style={{ borderBottom: '1px solid var(--border)' }}>
                 <td style={{ padding: '12px' }}>
                   <strong>{a.portali_annuncio || 'N/D'}</strong>
+                  {a.mansione && <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>💼 {a.mansione} ({a.zona || 'N/D'})</div>}
                   {a.link_annuncio && (
                     <div style={{ marginTop: '4px' }}>
                       <a href={a.link_annuncio} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: 'var(--primary)' }}>Apri Link ↗</a>
@@ -129,6 +130,16 @@ export default function GestioneAnnunci({ ctrl }) {
                 <div className="form-group">
                   <label>Testo Annuncio *</label>
                   <textarea className="form-control" rows="5" required value={formData.testo_annuncio || ''} onChange={e => setFormData({...formData, testo_annuncio: e.target.value})}></textarea>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div className="form-group">
+                    <label>Mansione *</label>
+                    <input type="text" className="form-control" required value={formData.mansione || ''} onChange={e => setFormData({...formData, mansione: e.target.value})} placeholder="Es: Sviluppatore React..." />
+                  </div>
+                  <div className="form-group">
+                    <label>Zona *</label>
+                    <input type="text" className="form-control" required value={formData.zona || ''} onChange={e => setFormData({...formData, zona: e.target.value})} placeholder="Es: Milano (MI)..." />
+                  </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <div className="form-group">

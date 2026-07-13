@@ -263,13 +263,18 @@ app.get('/api/ricerche/:id/annunci', async (req, res) => {
 
 app.post('/api/annunci', async (req, res) => {
   try {
-    const { testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, note } = req.body;
+    const { testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, note, mansione, zona } = req.body;
+    
+    if (!mansione || !mansione.trim() || !zona || !zona.trim()) {
+      return res.status(400).json({ success: false, error: 'Mansione e Zona sono campi obbligatori' });
+    }
+    
     const id = generateID('ANN');
     
     await db.run(`
-      INSERT INTO annunci (id, id_ricerca, testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio, note)
-      VALUES (?, NULL, ?, ?, ?, ?, ?, 'Attivo', ?)
-    `, [id, testo_annuncio || '', portali_annuncio || '', link_annuncio || '', data_inserimento_annuncio || '', data_scadenza_annuncio || '', note || '']);
+      INSERT INTO annunci (id, id_ricerca, testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio, note, mansione, zona)
+      VALUES (?, NULL, ?, ?, ?, ?, ?, 'Attivo', ?, ?, ?)
+    `, [id, testo_annuncio || '', portali_annuncio || '', link_annuncio || '', data_inserimento_annuncio || '', data_scadenza_annuncio || '', note || '', mansione.trim(), zona.trim()]);
     
     res.json({ success: true, message: 'Annuncio creato con successo', id });
   } catch (e) {
@@ -336,14 +341,19 @@ app.delete('/api/ricerche/:id/annunci-link/:id_annuncio', async (req, res) => {
 
 app.post('/api/ricerche/:id/annunci', async (req, res) => {
   try {
-    const { testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, note } = req.body;
+    const { testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, note, mansione, zona } = req.body;
+    
+    if (!mansione || !mansione.trim() || !zona || !zona.trim()) {
+      return res.status(400).json({ success: false, error: 'Mansione e Zona sono campi obbligatori' });
+    }
+    
     const id = generateID('ANN');
     
     // Crea l'annuncio globale
     await db.run(`
-      INSERT INTO annunci (id, id_ricerca, testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio, note)
-      VALUES (?, NULL, ?, ?, ?, ?, ?, 'Attivo', ?)
-    `, [id, testo_annuncio || '', portali_annuncio || '', link_annuncio || '', data_inserimento_annuncio || '', data_scadenza_annuncio || '', note || '']);
+      INSERT INTO annunci (id, id_ricerca, testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio, note, mansione, zona)
+      VALUES (?, NULL, ?, ?, ?, ?, ?, 'Attivo', ?, ?, ?)
+    `, [id, testo_annuncio || '', portali_annuncio || '', link_annuncio || '', data_inserimento_annuncio || '', data_scadenza_annuncio || '', note || '', mansione.trim(), zona.trim()]);
     
     // Collega l'annuncio alla ricerca
     await db.run('INSERT INTO ricerche_annunci (id_ricerca, id_annuncio, data_collegamento) VALUES (?, ?, ?)', [req.params.id, id, new Date().toISOString()]);
@@ -357,7 +367,7 @@ app.post('/api/ricerche/:id/annunci', async (req, res) => {
       await logActivity(
         'RICERCA', req.params.id, ricerca.azienda, 
         'Inserimento Annuncio', 
-        `Nuovo annuncio creato e collegato (${id}). Portali: ${portali_annuncio || 'N/D'}. Link: ${link_annuncio || 'N/D'}. Scadenza: ${data_scadenza_annuncio || 'N/D'}`, 
+        `Nuovo annuncio creato e collegato (${id}). Mansione: ${mansione.trim()}. Zona: ${zona.trim()}. Portali: ${portali_annuncio || 'N/D'}. Link: ${link_annuncio || 'N/D'}. Scadenza: ${data_scadenza_annuncio || 'N/D'}`, 
         req.params.id, id
       );
     }
@@ -416,7 +426,14 @@ app.delete('/api/ricerche/:id_ricerca/annunci/:id_annuncio/scollega', async (req
 
 app.put('/api/annunci/:id', async (req, res) => {
   try {
-    const { testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio, note, motivazione_stato } = req.body;
+    const { testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio, note, motivazione_stato, mansione, zona } = req.body;
+    
+    if (mansione !== undefined && (!mansione || !mansione.trim())) {
+      return res.status(400).json({ success: false, error: 'La Mansione è obbligatoria' });
+    }
+    if (zona !== undefined && (!zona || !zona.trim())) {
+      return res.status(400).json({ success: false, error: 'La Zona è obbligatoria' });
+    }
     
     const annuncio = await db.get('SELECT * FROM annunci WHERE id = ?', [req.params.id]);
     if (!annuncio) return res.status(404).json({ success: false, error: 'Annuncio non trovato' });
@@ -449,12 +466,14 @@ app.put('/api/annunci/:id', async (req, res) => {
     const newLink = link_annuncio !== undefined ? link_annuncio : annuncio.link_annuncio;
     const newScadenza = data_scadenza_annuncio !== undefined ? data_scadenza_annuncio : annuncio.data_scadenza_annuncio;
     const newPubblicazione = data_inserimento_annuncio !== undefined ? data_inserimento_annuncio : annuncio.data_inserimento_annuncio;
+    const newMansione = mansione !== undefined ? mansione : annuncio.mansione;
+    const newZona = zona !== undefined ? zona : annuncio.zona;
     
-    if (newLink !== annuncio.link_annuncio || newScadenza !== annuncio.data_scadenza_annuncio || newPubblicazione !== annuncio.data_inserimento_annuncio || testo_annuncio !== annuncio.testo_annuncio || note !== annuncio.note) {
+    if (newLink !== annuncio.link_annuncio || newScadenza !== annuncio.data_scadenza_annuncio || newPubblicazione !== annuncio.data_inserimento_annuncio || testo_annuncio !== annuncio.testo_annuncio || note !== annuncio.note || newMansione !== annuncio.mansione || newZona !== annuncio.zona) {
       await logActivity(
         'ANNUNCIO', req.params.id, 'N/D', 
         'Aggiornamento Annuncio', 
-        `Aggiornato dettagli annuncio (${req.params.id}). Link: ${newLink || 'N/D'}. Pubblicazione: ${newPubblicazione || 'N/D'}. Scadenza: ${newScadenza || 'N/D'}`, 
+        `Aggiornato dettagli annuncio (${req.params.id}). Mansione: ${newMansione || 'N/D'}. Zona: ${newZona || 'N/D'}. Link: ${newLink || 'N/D'}. Pubblicazione: ${newPubblicazione || 'N/D'}. Scadenza: ${newScadenza || 'N/D'}`, 
         ricercaId, req.params.id
       );
     }
@@ -467,7 +486,9 @@ app.put('/api/annunci/:id', async (req, res) => {
           data_inserimento_annuncio = COALESCE(?, data_inserimento_annuncio),
           data_scadenza_annuncio = COALESCE(?, data_scadenza_annuncio),
           stato_annuncio = COALESCE(?, stato_annuncio),
-          note = COALESCE(?, note)
+          note = COALESCE(?, note),
+          mansione = COALESCE(?, mansione),
+          zona = COALESCE(?, zona)
       WHERE id = ?
     `, [
       testo_annuncio !== undefined ? testo_annuncio : null, 
@@ -477,6 +498,8 @@ app.put('/api/annunci/:id', async (req, res) => {
       data_scadenza_annuncio !== undefined ? data_scadenza_annuncio : null, 
       stato_annuncio !== undefined ? stato_annuncio : null, 
       note !== undefined ? note : null, 
+      mansione !== undefined ? (mansione ? mansione.trim() : null) : null,
+      zona !== undefined ? (zona ? zona.trim() : null) : null,
       req.params.id
     ]);
     

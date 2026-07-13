@@ -398,6 +398,28 @@ export default function RicercaDetail({
                                 </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                                   <div className="form-group" style={{ margin: 0 }}>
+                                    <label>Mansione dell'Annuncio *</label>
+                                    <input 
+                                      type="text" 
+                                      name="mansione" 
+                                      className="form-control" 
+                                      required
+                                      placeholder="Es: Sviluppatore React, Addetto Vendite..."
+                                    />
+                                  </div>
+                                  <div className="form-group" style={{ margin: 0 }}>
+                                    <label>Zona di Lavoro *</label>
+                                    <input 
+                                      type="text" 
+                                      name="zona" 
+                                      className="form-control" 
+                                      required
+                                      placeholder="Es: Milano (MI), Bergamo..."
+                                    />
+                                  </div>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                  <div className="form-group" style={{ margin: 0 }}>
                                     <label>Portali Pubblicazione (separati da virgola)</label>
                                     <input 
                                       type="text" 
@@ -472,7 +494,11 @@ export default function RicercaDetail({
                                       const isLinked = annunci.some(linkedAnn => linkedAnn.id === a.id);
                                       return (
                                         <tr key={a.id}>
-                                          <td><strong>{a.portali_annuncio || 'N/D'}</strong><br/><small>{a.testo_annuncio ? a.testo_annuncio.substring(0,30)+'...' : ''}</small></td>
+                                          <td>
+                                            <strong>{a.portali_annuncio || 'N/D'}</strong>
+                                            {a.mansione && <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>💼 {a.mansione} ({a.zona || 'N/D'})</div>}
+                                            <br/><small>{a.testo_annuncio ? a.testo_annuncio.substring(0,30)+'...' : ''}</small>
+                                          </td>
                                           <td><span className={`badge ${a.stato_annuncio === 'Attivo' ? 'badge-success' : 'badge-secondary'}`}>{a.stato_annuncio}</span></td>
                                           <td style={{ textAlign: 'right' }}>
                                             {isLinked ? (
@@ -524,7 +550,10 @@ export default function RicercaDetail({
                                   const expInfo = getAdActiveDaysInfo(ann.data_inserimento_annuncio, ann.stato_annuncio);
                                   return (
                                     <tr key={ann.id}>
-                                      <td><strong>{ann.portali_annuncio || 'N/D'}</strong></td>
+                                      <td>
+                                        <strong>{ann.portali_annuncio || 'N/D'}</strong>
+                                        {ann.mansione && <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>💼 {ann.mansione} ({ann.zona || 'N/D'})</div>}
+                                      </td>
                                       <td><a href={ann.link_annuncio} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>{ann.link_annuncio}</a></td>
                                       <td>{ann.data_inserimento_annuncio ? new Date(ann.data_inserimento_annuncio).toLocaleDateString('it-IT') : 'N/D'}</td>
                                       <td style={{ color: expInfo.color, fontWeight: 700 }}>{expInfo.text}</td>
