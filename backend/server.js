@@ -110,7 +110,7 @@ async function inviaEmailHelper(dest, subject, body, attachments = []) {
     return { success: true, simulated: false };
   } catch (err) {
     console.error("Errore nell'invio dell'email:", err);
-    throw err;
+    return { success: false, simulated: false, error: err.message };
   }
 }
 
@@ -1131,13 +1131,16 @@ app.get('/api/candidati/:id/storico', async (req, res) => {
       ORDER BY a.data_colloquio DESC, a.ora_colloquio DESC
     `, [id]);
     
+    const cand = await db.get('SELECT cognome, nome FROM candidati WHERE id = ?', [id]);
+    const nomeCompleto = cand ? `${cand.cognome} ${cand.nome}` : '';
+    
     const logs = await db.all(`
       SELECT *, data_attivita AS data_ora, tipo_attivita AS attivita FROM storico 
-      WHERE id_soggetto = ? OR id_soggetto IN (
+      WHERE id_soggetto = ? OR soggetto_correlato = ? OR id_soggetto IN (
         SELECT id FROM pipeline_assunzioni WHERE id_candidato = ?
       )
       ORDER BY data_attivita DESC
-    `, [id, id]);
+    `, [id, nomeCompleto, id]);
 
     res.json({
       success: true,
@@ -1729,6 +1732,10 @@ app.post('/api/email', async (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [id, dataInvio, mittente, dest_email, subject, body, 'cv_presentazione', stato, id_candidato, id_ricerca]);
     
+    if (!emailResult.success && !emailResult.simulated) {
+      return res.status(500).json({ success: false, error: emailResult.error || 'Errore durante l\'invio dell\'email.' });
+    }
+    
     await logActivity('CLIENTE', id_ricerca, r.azienda, 'Inviata Email (con Allegato)', `Trasmesso CV del candidato ${nomeCompleto} a ${dest_email}. Oggetto: ${subject}`, id_ricerca, nomeCompleto);
     await logActivity('CANDIDATO', id_candidato, nomeCompleto, 'CV Inviato a Cliente (Email)', `CV inviato via email a ${r.azienda} (${dest_email})`, id_ricerca, r.azienda);
     
@@ -1767,6 +1774,10 @@ app.post('/api/email/assunzione', async (req, res) => {
       INSERT INTO emails (id, data_invio, mittente, destinatario, oggetto, corpo, tipo, stato, id_candidato, id_ricerca)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [id, dataInvio, mittente, dest_email, subject || 'Nuova Scheda Assunzione - HEMA FOOD', htmlBody, 'scheda_assunzione', stato, id_candidato || null, id_ricerca || null]);
+    
+    if (!emailResult.success && !emailResult.simulated) {
+      return res.status(500).json({ success: false, error: emailResult.error || 'Errore durante l\'invio dell\'email.' });
+    }
     
     if (id_candidato) {
       await logActivity('CANDIDATO', id_candidato, candidato_nome, 'Scheda Assunzione Trasmessa', `Trasmessa scheda assunzione all'amministrazione (${dest_email}) per la ricerca ${id_ricerca || ''}`, id_ricerca || '');
@@ -1856,7 +1867,7 @@ app.post('/api/commerciali', async (req, res) => {
     if (!nome || !cognome || !email || !password) {
       return res.status(400).json({ success: false, error: 'Dati incompleti' });
     }
-    const existing = await db.get('SELECT id FROM commerciali WHERE email = ?', [email]);
+    const existing = await db.get('SELECT id FROM commerciali WHERE LOWER(email) = ?', [email.toLowerCase()]);
     if (existing) {
       return res.status(400).json({ success: false, error: 'Questa e-mail è già registrata' });
     }
@@ -1866,7 +1877,7 @@ app.post('/api/commerciali', async (req, res) => {
       INSERT INTO commerciali (id, nome, cognome, email, data_nascita, telefono, password, stato_approvazione, data_registrazione)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
-      id, nome, cognome, email, data_nascita || '', telefono || '', password, status, new Date().toISOString()
+      id, nome, cognome, email.toLowerCase(), data_nascita || '', telefono || '', password, status, new Date().toISOString()
     ]);
     
     res.json({ success: true, message: 'Commerciale creato con successo' });
@@ -1883,7 +1894,7 @@ app.post('/api/commerciali/registra', async (req, res) => {
     }
     
     // Check if email already registered
-    const existing = await db.get('SELECT id FROM commerciali WHERE email = ?', [email]);
+    const existing = await db.get('SELECT id FROM commerciali WHERE LOWER(email) = ?', [email.toLowerCase()]);
     if (existing) {
       return res.status(400).json({ success: false, error: 'Questa e-mail è già stata registrata' });
     }
@@ -1893,7 +1904,7 @@ app.post('/api/commerciali/registra', async (req, res) => {
       INSERT INTO commerciali (id, nome, cognome, email, data_nascita, telefono, password, stato_approvazione, data_registrazione)
       VALUES (?, ?, ?, ?, ?, ?, ?, 'Da Approvare', ?)
     `, [
-      id, nome, cognome, email, data_nascita || '', telefono || '', password, new Date().toISOString()
+      id, nome, cognome, email.toLowerCase(), data_nascita || '', telefono || '', password, new Date().toISOString()
     ]);
     
     res.json({ success: true, message: 'Registrazione completata. Il Team Leader esaminerà la tua richiesta.' });
@@ -2180,6 +2191,10 @@ app.post('/api/emails/send', async (req, res) => {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [id, dataInvio, mittente, destinatario, oggetto, corpo, tipo || 'custom', stato, id_candidato || null, id_ricerca || null]);
 
+    if (!emailResult.success && !emailResult.simulated) {
+      return res.status(500).json({ success: false, error: emailResult.error || 'Errore durante l\'invio dell\'email.' });
+    }
+
     if (id_ricerca) {
       const r = await db.get('SELECT azienda FROM ricerche WHERE id = ?', [id_ricerca]);
       const azienda = r ? r.azienda : 'Azienda';
@@ -2203,7 +2218,32 @@ app.post('/api/emails/send', async (req, res) => {
 app.delete('/api/candidati/:id', async (req, res) => {
   try {
     const id = req.params.id;
+    const cand = await db.get('SELECT link_cv, link_documenti FROM candidati WHERE id = ?', [id]);
     await db.run('DELETE FROM candidati WHERE id = ?', [id]);
+    
+    if (cand) {
+      if (cand.link_cv && cand.link_cv.startsWith('/uploads')) {
+        const filePath = path.join(dataDir, cand.link_cv);
+        try {
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        } catch (err) {
+          console.error(`Impossibile rimuovere il CV del candidato ${id}:`, err);
+        }
+      }
+      if (cand.link_documenti && cand.link_documenti.startsWith('/uploads')) {
+        const filePath = path.join(dataDir, cand.link_documenti);
+        try {
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        } catch (err) {
+          console.error(`Impossibile rimuovere il documento d'identità del candidato ${id}:`, err);
+        }
+      }
+    }
+    
     res.json({ success: true, message: 'Candidato eliminato' });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });

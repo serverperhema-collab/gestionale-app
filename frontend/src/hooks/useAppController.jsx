@@ -1197,6 +1197,46 @@ export function useAppController() {
     setLoadingEvalStorico(true);
     setEvalActiveTab('profilo');
     setShowValutazioneModal(true);
+    
+    // Reset states to prevent stale state leakage
+    setCurrentCandidato(null);
+    setEvalForm({
+      pres_personale: '',
+      puntualita: '',
+      comunicazione: '',
+      educazione: '',
+      motivazione: '',
+      interesse_az: '',
+      esperienza_lav: '',
+      competenze_tec: '',
+      cap_apprendimento: '',
+      problem_solving: '',
+      cap_organizzativa: '',
+      team_work: '',
+      autonomia: '',
+      affidabilita: '',
+      flessibilita: '',
+      orario_full_time: 0,
+      orario_part_time: 0,
+      orario_turni: 0,
+      orario_weekend: 0,
+      orario_straordinari: 0,
+      mob_automunito: 0,
+      mob_trasferte: 0,
+      mob_spostamenti: 0,
+      disp_assunzione: '',
+      punti_forza: '',
+      aree_miglioramento: '',
+      osservazioni: '',
+      valutazione_finale: '',
+      punteggio_complessivo: null
+    });
+    setEvalStorico({
+      pipeline: [],
+      appuntamenti: [],
+      logs: []
+    });
+
     try {
       // 1. Fetch personal details
       const candRes = await fetch(`${API_BASE}/candidati/${candidateId}`);
@@ -1962,7 +2002,7 @@ export function useAppController() {
     const timeStr = new Date().toLocaleTimeString('it-IT');
 
     // Filter timeline for this trial
-    const filteredLogs = (timeline || []).filter(log => log.soggetto_correlato === pipe.nomeCompleto && (log.tipo_attivita.toLowerCase().includes('prova') || log.dettagli.toLowerCase().includes('prova')));
+    const filteredLogs = (timeline || []).filter(log => log.soggetto_correlato === pipe.nomeCompleto && (((log.tipo_attivita?.toLowerCase() || '')).includes('prova') || ((log.dettagli?.toLowerCase() || '')).includes('prova')));
     const logRows = filteredLogs.map(log => {
       const logDate = new Date(log.data_attivita).toLocaleDateString('it-IT');
       const logTime = new Date(log.data_attivita).toLocaleTimeString('it-IT');
@@ -2903,7 +2943,7 @@ export function useAppController() {
     const timeStr = new Date().toLocaleTimeString('it-IT');
 
     // Filter timeline for this interview
-    const filteredLogs = (timeline || []).filter(log => log.soggetto_correlato === app.candidato && (log.tipo_attivita.includes('Colloquio') || log.tipo_attivita.includes('Riprogrammazione')));
+    const filteredLogs = (timeline || []).filter(log => log.soggetto_correlato === app.candidato && (((log.tipo_attivita || '')).includes('Colloquio') || ((log.tipo_attivita || '')).includes('Riprogrammazione')));
     const logRows = filteredLogs.map(log => {
       const logDate = new Date(log.data_attivita).toLocaleDateString('it-IT');
       const logTime = new Date(log.data_attivita).toLocaleTimeString('it-IT');

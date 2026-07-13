@@ -4,7 +4,7 @@ const EmailPreviewModal = ({ showEmailPreviewModal, setShowEmailPreviewModal, em
   return (
     <>
       {/* 5. EMAIL PREVIEW MODAL */}
-      {showEmailPreviewModal && (
+      {showEmailPreviewModal && emailData && (
         <div className="modal-overlay" style={{ zIndex: 1200 }}>
           <div className="modal-container" style={{ width: '650px' }}>
             <form onSubmit={handleSendCVEmail}>

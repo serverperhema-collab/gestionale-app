@@ -69,6 +69,10 @@ export default function App() {
     document.title = title;
   }, [ctrl.currentPage, ctrl.selectedRicercaId, ctrl.ricercaDetail]);
 
+  React.useEffect(() => {
+    ctrl.setSelectedRicercaId(null);
+  }, [ctrl.currentPage]);
+
   return (
     <div className="app-container">
       {/* SIDEBAR NAVIGATION */}
