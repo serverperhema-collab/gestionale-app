@@ -483,7 +483,7 @@ export default function RicercaDetail({
                                 <table className="data-table" style={{ width: '100%', marginTop: '10px' }}>
                                   <thead>
                                     <tr>
-                                      <th>Portali</th>
+                                      <th>Mansione / Zona</th>
                                       <th>Stato</th>
                                       <th>Azioni</th>
                                     </tr>
@@ -495,9 +495,9 @@ export default function RicercaDetail({
                                       return (
                                         <tr key={a.id}>
                                           <td>
-                                            <strong>{a.portali_annuncio || 'N/D'}</strong>
-                                            {a.mansione && <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>💼 {a.mansione} ({a.zona || 'N/D'})</div>}
-                                            <br/><small>{a.testo_annuncio ? a.testo_annuncio.substring(0,30)+'...' : ''}</small>
+                                            <strong>{a.mansione || 'N/D'} ({a.zona || 'N/D'})</strong>
+                                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>Portali: {a.portali_annuncio || 'N/D'}</div>
+                                            <small>{a.testo_annuncio ? a.testo_annuncio.substring(0,30)+'...' : ''}</small>
                                           </td>
                                           <td><span className={`badge ${a.stato_annuncio === 'Attivo' ? 'badge-success' : 'badge-secondary'}`}>{a.stato_annuncio}</span></td>
                                           <td style={{ textAlign: 'right' }}>
@@ -537,7 +537,7 @@ export default function RicercaDetail({
                             <table className="data-table">
                               <thead>
                                 <tr>
-                                  <th>Portali</th>
+                                  <th>Mansione / Zona</th>
                                   <th>Link Annuncio</th>
                                   <th>Pubblicazione</th>
                                   <th>Giorni Online</th>
@@ -551,8 +551,8 @@ export default function RicercaDetail({
                                   return (
                                     <tr key={ann.id}>
                                       <td>
-                                        <strong>{ann.portali_annuncio || 'N/D'}</strong>
-                                        {ann.mansione && <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>💼 {ann.mansione} ({ann.zona || 'N/D'})</div>}
+                                        <strong>{ann.mansione || 'N/D'} ({ann.zona || 'N/D'})</strong>
+                                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>Portali: {ann.portali_annuncio || 'N/D'}</div>
                                       </td>
                                       <td><a href={ann.link_annuncio} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>{ann.link_annuncio}</a></td>
                                       <td>{ann.data_inserimento_annuncio ? new Date(ann.data_inserimento_annuncio).toLocaleDateString('it-IT') : 'N/D'}</td>

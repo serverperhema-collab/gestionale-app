@@ -75,7 +75,7 @@ export default function GestioneAnnunci({ ctrl }) {
         <table className="table" style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)' }}>
-              <th style={{ padding: '12px', textAlign: 'left' }}>Portali</th>
+              <th style={{ padding: '12px', textAlign: 'left' }}>Mansione / Zona</th>
               <th style={{ padding: '12px', textAlign: 'left' }}>Inserimento / Scadenza</th>
               <th style={{ padding: '12px', textAlign: 'left' }}>Stato</th>
               <th style={{ padding: '12px', textAlign: 'left' }}>Ricerche Collegate</th>
@@ -86,8 +86,8 @@ export default function GestioneAnnunci({ ctrl }) {
             {annunci.map(a => (
               <tr key={a.id} style={{ borderBottom: '1px solid var(--border)' }}>
                 <td style={{ padding: '12px' }}>
-                  <strong>{a.portali_annuncio || 'N/D'}</strong>
-                  {a.mansione && <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>💼 {a.mansione} ({a.zona || 'N/D'})</div>}
+                  <strong>{a.mansione || 'N/D'} ({a.zona || 'N/D'})</strong>
+                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>Portali: {a.portali_annuncio || 'N/D'}</div>
                   {a.link_annuncio && (
                     <div style={{ marginTop: '4px' }}>
                       <a href={a.link_annuncio} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: 'var(--primary)' }}>Apri Link ↗</a>
