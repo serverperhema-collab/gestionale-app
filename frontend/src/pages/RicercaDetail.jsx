@@ -197,7 +197,21 @@ export default function RicercaDetail({
                 justifyContent: 'space-between',
                 alignItems: 'center'
               }}>
-                <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <div>
+                    <span style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: 'bold', letterSpacing: '0.5px' }}>NOME ATTIVITÀ</span>
+                    <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--primary)' }}>
+                      {ricercaDetail.ricerca.azienda ? ricercaDetail.ricerca.azienda.toUpperCase() : 'N/D'}
+                    </div>
+                  </div>
+                  <div style={{ borderLeft: '2px solid var(--border)', height: '32px', alignSelf: 'center' }}></div>
+                  <div>
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 'bold', letterSpacing: '0.5px' }}>RUOLO RICERCATO</span>
+                    <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text)' }}>
+                      {ricercaDetail.ricerca.ruolo}
+                    </div>
+                  </div>
+                  <div style={{ borderLeft: '2px solid var(--border)', height: '32px', alignSelf: 'center' }}></div>
                   <div>
                     <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>CLIENTE REFERENTE</span>
                     <div style={{ fontSize: '14px', fontWeight: 700 }}>
