@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import ValutazioneModal from './ValutazioneModal';
 import InterviewModal from './InterviewModal';
 import TrialModal from './TrialModal';
@@ -47,6 +47,14 @@ export default function GlobalModals(props) {
     handleUpdateInterviewStatus, handleUpdateTrialStatus,
     setNewAdStatus, ricercaDetail, adTimeline
   } = props;
+
+  const [newWorkplaces, setNewWorkplaces] = useState(['']);
+
+  React.useEffect(() => {
+    if (!showNewClienteModal) {
+      setNewWorkplaces(['']);
+    }
+  }, [showNewClienteModal]);
 
   return (
     <>
@@ -1448,8 +1456,43 @@ export default function GlobalModals(props) {
                   <input type="text" name="sede_legale" className="form-control" placeholder="Indirizzo legale" />
                 </div>
                 <div className="form-group">
-                  <label>Sede Operativa / Lavoro</label>
-                  <input type="text" name="sede_lavoro" className="form-control" placeholder="Indirizzo di lavoro" />
+                  <label>Sedi Operative / Lavoro</label>
+                  {newWorkplaces.map((w, index) => (
+                    <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                      <input 
+                        type="text" 
+                        name="sede_lavoro_input" 
+                        className="form-control" 
+                        value={w} 
+                        placeholder={`Sede ${index + 1}`}
+                        onChange={e => {
+                          const newSedi = [...newWorkplaces];
+                          newSedi[index] = e.target.value;
+                          setNewWorkplaces(newSedi);
+                        }} 
+                      />
+                      {newWorkplaces.length > 1 && (
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary btn-sm" 
+                          onClick={() => {
+                            const newSedi = newWorkplaces.filter((_, i) => i !== index);
+                            setNewWorkplaces(newSedi);
+                          }}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary btn-sm" 
+                    onClick={() => setNewWorkplaces([...newWorkplaces, ''])}
+                    style={{ marginTop: '4px' }}
+                  >
+                    ➕ Aggiungi Sede
+                  </button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <div className="form-group">

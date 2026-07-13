@@ -8,20 +8,26 @@ export default function Clienti({ setSelectedSubjectLog }) {
   const { showStatus } = useToast();
   const [showEditModal, setShowEditModal] = useState(false);
   const [currentClient, setCurrentClient] = useState({});
+  const [editWorkplaces, setEditWorkplaces] = useState(['']);
 
   const handleOpenEdit = (cl) => {
     setCurrentClient({ ...cl });
+    const sedi = cl.sede_lavoro ? cl.sede_lavoro.split(' | ') : [''];
+    setEditWorkplaces(sedi);
     setShowEditModal(true);
   };
 
   const handleSaveEdit = async (e) => {
     e.preventDefault();
+    const filteredSedi = editWorkplaces.filter(w => w.trim() !== '');
+    const sede_lavoro = filteredSedi.join(' | ');
+    const updatedClient = { ...currentClient, sede_lavoro };
     try {
       showStatus('loading', 'Salvataggio modifiche...');
-      const res = await fetch(`${API_BASE}/clienti/${currentClient.id}`, {
+      const res = await fetch(`${API_BASE}/clienti/${updatedClient.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(currentClient)
+        body: JSON.stringify(updatedClient)
       });
       const json = await res.json();
       if (json.success) {
@@ -73,7 +79,17 @@ export default function Clienti({ setSelectedSubjectLog }) {
             <tr key={cl.id}>
               <td><strong>{cl.nome_locale}</strong></td>
               <td><code>{cl.piva}</code></td>
-              <td style={{ fontSize: '13px' }}>Legale: {cl.sede_legale} <br/> Lavoro: {cl.sede_lavoro}</td>
+              <td style={{ fontSize: '13px' }}>
+                <strong>Legale:</strong> {cl.sede_legale || 'N/D'} <br/> 
+                <strong>Lavoro:</strong>
+                {cl.sede_lavoro ? (
+                  <div style={{ paddingLeft: '8px', marginTop: '2px', color: 'var(--text-secondary)' }}>
+                    {cl.sede_lavoro.split(' | ').map((s, idx) => (
+                      <div key={idx} style={{ marginBottom: '2px' }}>• {s}</div>
+                    ))}
+                  </div>
+                ) : ' N/D'}
+              </td>
               <td>{cl.referente}</td>
               <td>{cl.telefono_mobile} <br/> {cl.email}</td>
               <td>{cl.data_inserimento}</td>
@@ -152,15 +168,45 @@ export default function Clienti({ setSelectedSubjectLog }) {
                       onChange={e => setCurrentClient({...currentClient, sede_legale: e.target.value})} 
                     />
                   </div>
-                  <div className="form-group">
-                    <label>Sede Lavoro</label>
-                    <input 
-                      type="text" 
-                      className="form-control" 
-                      value={currentClient.sede_lavoro || ''} 
-                      onChange={e => setCurrentClient({...currentClient, sede_lavoro: e.target.value})} 
-                    />
-                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label>Sedi Operative / Lavoro</label>
+                  {editWorkplaces.map((w, index) => (
+                    <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        value={w} 
+                        placeholder={`Sede ${index + 1}`}
+                        onChange={e => {
+                          const newSedi = [...editWorkplaces];
+                          newSedi[index] = e.target.value;
+                          setEditWorkplaces(newSedi);
+                        }} 
+                      />
+                      {editWorkplaces.length > 1 && (
+                        <button 
+                          type="button" 
+                          className="btn btn-secondary btn-sm" 
+                          onClick={() => {
+                            const newSedi = editWorkplaces.filter((_, i) => i !== index);
+                            setEditWorkplaces(newSedi);
+                          }}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button 
+                    type="button" 
+                    className="btn btn-secondary btn-sm" 
+                    onClick={() => setEditWorkplaces([...editWorkplaces, ''])}
+                    style={{ marginTop: '4px' }}
+                  >
+                    ➕ Aggiungi Sede
+                  </button>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>

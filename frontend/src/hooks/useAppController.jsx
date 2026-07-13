@@ -1283,6 +1283,15 @@ export function useAppController() {
     e.preventDefault();
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData.entries());
+    
+    // Join multiple workplaces
+    const workplacesList = formData.getAll('sede_lavoro_input');
+    if (workplacesList.length > 0) {
+      data.sede_lavoro = workplacesList.filter(w => w.trim() !== '').join(' | ');
+    } else if (data.sede_lavoro) {
+      data.sede_lavoro = data.sede_lavoro.trim();
+    }
+
     try {
       const res = await fetch(`${API_BASE}/clienti`, {
         method: 'POST',
