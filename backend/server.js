@@ -1664,6 +1664,31 @@ app.post('/api/clienti', async (req, res) => {
   }
 });
 
+app.put('/api/clienti/:id', async (req, res) => {
+  try {
+    const { nome_locale } = req.body;
+    if (nome_locale !== undefined && (!nome_locale || !nome_locale.trim())) {
+      return res.status(400).json({ success: false, error: 'Nome locale è obbligatorio' });
+    }
+
+    const cliente = await db.get('SELECT * FROM clienti WHERE id = ?', [req.params.id]);
+    if (!cliente) return res.status(404).json({ success: false, error: 'Cliente non trovato' });
+
+    const updateQuery = buildUpdateQuery('clienti', req.params.id, req.body, [
+      'nome_locale', 'piva', 'sede_legale', 'sede_lavoro', 'referente', 'email', 'telefono_mobile', 'telefono_fisso',
+      'valutazione_serieta', 'valutazione_disponibilita', 'valutazione_interesse', 'valutazione_selettivita'
+    ]);
+
+    if (updateQuery) {
+      await db.run(updateQuery.sql, updateQuery.params);
+    }
+
+    res.json({ success: true, message: 'Cliente aggiornato con successo' });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // 7. EMAIL SENDING (WITH DIRECT PHYSICAL ATTACHMENTS)
 app.post('/api/email', async (req, res) => {
   try {
