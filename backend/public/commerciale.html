@@ -400,6 +400,27 @@
       font-weight: 700;
       color: #FFFFFF;
       margin-top: 2px;
+    .btn-details {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background-color: var(--card-sub);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+    
+    .btn-details:hover {
+      background-color: var(--primary);
+      border-color: var(--primary);
+      color: #FFF;
+      box-shadow: 0 0 10px rgba(99, 102, 241, 0.35);
     }
   </style>
 </head>
@@ -774,7 +795,7 @@
             </div>
             
             <div style="margin-top: 12px; text-align: right;">
-              <button class="btn btn-secondary btn-sm" onclick="toggleResearchLogs(${r.id}, this)" style="padding: 6px 12px; font-size: 11px; background-color: var(--card-sub); border-color: var(--border);">
+              <button class="btn-details" onclick="window.toggleResearchLogs(${r.id}, this)">
                 🔍 + Dettagli / Storico Log
               </button>
             </div>
@@ -793,7 +814,7 @@
   }
 
   // Toggle and load research logs
-  async function toggleResearchLogs(idRicerca, btn) {
+  window.toggleResearchLogs = async function(idRicerca, btn) {
     const container = document.getElementById(`logs-${idRicerca}`);
     if (container.style.display === 'block') {
       container.style.display = 'none';
