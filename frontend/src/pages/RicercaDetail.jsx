@@ -667,7 +667,7 @@ export default function RicercaDetail({
 
                         <div style={{ marginTop: '32px' }}>
                           <h3 style={{ fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '16px' }}>Log Attività Annunci</h3>
-                          <TimelineComponent idRicerca={selectedRicercaId} reloadTrigger={ricercaDetail} timeline={timeline} setTimeline={setTimeline} API_BASE={API_BASE} handlePrintTimelineReport={handlePrintTimelineReport} />
+                          <TimelineComponent idRicerca={selectedRicercaId} reloadTrigger={ricercaDetail} timeline={timeline} setTimeline={setTimeline} API_BASE={API_BASE} handlePrintTimelineReport={handlePrintTimelineReport} filterType="annunci" />
                         </div>
                       </div>
                   </>
@@ -970,7 +970,7 @@ export default function RicercaDetail({
 
                         <div style={{ marginTop: '32px' }}>
                           <h3 style={{ fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '16px' }}>Log Attività Candidati</h3>
-                          <TimelineComponent idRicerca={selectedRicercaId} reloadTrigger={ricercaDetail} timeline={timeline} setTimeline={setTimeline} API_BASE={API_BASE} handlePrintTimelineReport={handlePrintTimelineReport} />
+                          <TimelineComponent idRicerca={selectedRicercaId} reloadTrigger={ricercaDetail} timeline={timeline} setTimeline={setTimeline} API_BASE={API_BASE} handlePrintTimelineReport={handlePrintTimelineReport} filterType="candidati" />
                         </div>
                       </div>
 
@@ -1331,7 +1331,7 @@ export default function RicercaDetail({
 
                       <div style={{ marginTop: '32px' }}>
                         <h3 style={{ fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '16px' }}>Log Attività Colloqui</h3>
-                        <TimelineComponent idRicerca={selectedRicercaId} reloadTrigger={ricercaDetail} timeline={timeline} setTimeline={setTimeline} API_BASE={API_BASE} handlePrintTimelineReport={handlePrintTimelineReport} />
+                        <TimelineComponent idRicerca={selectedRicercaId} reloadTrigger={ricercaDetail} timeline={timeline} setTimeline={setTimeline} API_BASE={API_BASE} handlePrintTimelineReport={handlePrintTimelineReport} filterType="colloqui" />
                       </div>
                     </div>
                   )}
@@ -1526,7 +1526,7 @@ export default function RicercaDetail({
 
                       <div style={{ marginTop: '32px' }}>
                         <h3 style={{ fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '16px' }}>Log Attività Prove</h3>
-                        <TimelineComponent idRicerca={selectedRicercaId} reloadTrigger={ricercaDetail} timeline={timeline} setTimeline={setTimeline} API_BASE={API_BASE} handlePrintTimelineReport={handlePrintTimelineReport} />
+                        <TimelineComponent idRicerca={selectedRicercaId} reloadTrigger={ricercaDetail} timeline={timeline} setTimeline={setTimeline} API_BASE={API_BASE} handlePrintTimelineReport={handlePrintTimelineReport} filterType="prove" />
                       </div>
                     </div>
                   )}
@@ -1646,7 +1646,7 @@ export default function RicercaDetail({
 
                         <div style={{ marginTop: '32px' }}>
                           <h3 style={{ fontSize: '14px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '16px' }}>Log Attività Assunzioni</h3>
-                          <TimelineComponent idRicerca={selectedRicercaId} reloadTrigger={ricercaDetail} timeline={timeline} setTimeline={setTimeline} API_BASE={API_BASE} handlePrintTimelineReport={handlePrintTimelineReport} />
+                          <TimelineComponent idRicerca={selectedRicercaId} reloadTrigger={ricercaDetail} timeline={timeline} setTimeline={setTimeline} API_BASE={API_BASE} handlePrintTimelineReport={handlePrintTimelineReport} filterType="assunzioni" />
                         </div>
                       </div>
 
@@ -1928,7 +1928,7 @@ export default function RicercaDetail({
 }
 
 
-export function TimelineComponent({ idRicerca, reloadTrigger, timeline, setTimeline, API_BASE, handlePrintTimelineReport }) {
+export function TimelineComponent({ idRicerca, reloadTrigger, timeline, setTimeline, API_BASE, handlePrintTimelineReport, filterType }) {
   
 
   useEffect(() => {
@@ -1947,17 +1947,49 @@ export function TimelineComponent({ idRicerca, reloadTrigger, timeline, setTimel
     }
   };
 
+  const filteredTimeline = React.useMemo(() => {
+    if (!timeline) return [];
+    if (!filterType) return timeline;
+
+    return timeline.filter(item => {
+      const act = String(item.attivita || '').toLowerCase();
+      const det = String(item.dettagli || '').toLowerCase();
+      const tip = String(item.tipo || '').toLowerCase();
+
+      switch (filterType) {
+        case 'annunci':
+          return act.includes('annuncio') || tip.includes('annuncio');
+        case 'candidati':
+          return act.includes('cv') || act.includes('presentazione') || act.includes('ricezione') || 
+                 act.includes('associazione') || act.includes('esclusione') || act.includes('scollegato') ||
+                 tip.includes('dipendente') || det.includes('candidato');
+        case 'colloqui':
+          return act.includes('colloquio') || act.includes('appuntamento') || act.includes('colloqui');
+        case 'prove':
+          return act.includes('prova') || det.includes('in prova');
+        case 'assunzioni':
+          return act.includes('assun') || act.includes('hiring') || act.includes('scheda') || det.includes('assunto') || det.includes('assunzione');
+        default:
+          return true;
+      }
+    });
+  }, [timeline, filterType]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
         <button 
           className="btn btn-secondary btn-sm"
-          onClick={() => handlePrintTimelineReport('Storico Ricerca Mandato', `Timeline delle attività e degli avanzamenti per la ricerca ID: ${idRicerca}`, timeline)}
+          onClick={() => handlePrintTimelineReport(
+            filterType ? `Report Attività - ${filterType.toUpperCase()}` : 'Storico Ricerca Mandato', 
+            filterType ? `Timeline delle attività relative a ${filterType}` : `Timeline delle attività e degli avanzamenti per la ricerca ID: ${idRicerca}`, 
+            filteredTimeline
+          )}
         >
           🖨️ Stampa Report Mandato
         </button>
       </div>
-      {timeline.map(item => (
+      {filteredTimeline.map(item => (
         <div key={item.id} style={{
           borderLeft: '3px solid var(--primary)',
           paddingLeft: '16px',
@@ -1973,12 +2005,11 @@ export function TimelineComponent({ idRicerca, reloadTrigger, timeline, setTimel
           <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>{item.dettagli}</p>
         </div>
       ))}
-      {timeline.length === 0 && (
+      {filteredTimeline.length === 0 && (
         <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px 0' }}>
-          Nessuna attività registrata per questa ricerca.
+          Nessuna attività registrata per questa sezione.
         </div>
       )}
-        {/* END Modal Assunzione */}
     </div>
   );
 }
