@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { API_BASE, renderCandidateStars, getCapFromAddress, estimateDistanceByCap, getAdActiveDaysInfo } from '../utils';
 import { useToast } from '../contexts/ToastContext';
 import { useGlobalState } from '../contexts/GlobalStateContext';
@@ -121,6 +121,7 @@ export default function RicercaDetail({
   handleUnlinkAnnuncio
 }) {
   const { annunci: annunciGlobali } = useGlobalState();
+  const [isExpanded, setIsExpanded] = useState(false);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -447,7 +448,57 @@ export default function RicercaDetail({
               </div>
 
               {/* Tab Panels */}
-              <div style={{ flexGrow: 1, overflowY: 'auto', background: 'var(--bg-secondary)', borderRadius: '12px', border: '1px solid var(--border)', padding: '24px' }}>
+              {isExpanded && (
+                <div 
+                  className="modal-overlay" 
+                  style={{ zIndex: 1199 }}
+                  onClick={() => setIsExpanded(false)}
+                />
+              )}
+              <div 
+                style={isExpanded ? {
+                  position: 'fixed',
+                  top: '2vh',
+                  left: '2vw',
+                  width: '96vw',
+                  height: '96vh',
+                  zIndex: 1200,
+                  background: 'var(--bg-secondary)',
+                  borderRadius: '12px',
+                  border: '2px solid var(--primary)',
+                  padding: '24px',
+                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflowY: 'auto'
+                } : {
+                  flexGrow: 1,
+                  overflowY: 'auto',
+                  background: 'var(--bg-secondary)',
+                  borderRadius: '12px',
+                  border: '1px solid var(--border)',
+                  padding: '24px'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border)', paddingBottom: '12px' }}>
+                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {activeTab === 'dati' ? '📢 Dati Annuncio' :
+                     activeTab === 'invio' ? '👥 Stato Candidati' :
+                     activeTab === 'colloquio' ? '🗓️ Gestione Colloqui' :
+                     activeTab === 'prova' ? '🧪 Prove Pratiche' :
+                     activeTab === 'assunzione' ? '📄 Genera Assunzione' :
+                     activeTab === 'storico' ? '📜 Storico Mandato' :
+                     activeTab === 'note_ricerca' ? '📝 Note & Commenti' : ''}
+                  </h3>
+                  <button 
+                    type="button"
+                    className="btn btn-secondary btn-sm" 
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, padding: '6px 12px' }}
+                  >
+                    {isExpanded ? '🗗 Riduci Vista' : '🗖 Espandi Vista'}
+                  </button>
+                </div>
                 
                 {/* TAB 1: DATI ANNUNCIO */}
                 {activeTab === 'dati' && (
