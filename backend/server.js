@@ -2272,6 +2272,38 @@ app.delete('/api/clienti/:id', async (req, res) => {
   }
 });
 
+// Temporary endpoint to clear test data for Rossi Marco
+app.post('/api/clean-test-rossi', async (req, res) => {
+  try {
+    // 1. Get Rossi Marco candidate IDs
+    const candidates = await db.all("SELECT id FROM candidati WHERE LOWER(nome) = 'marco' AND LOWER(cognome) = 'rossi'");
+    const candIds = candidates.map(c => c.id);
+
+    // 2. Delete from appuntamenti, pipeline_assunzioni, candidati
+    if (candIds.length > 0) {
+      const placeholders = candIds.map(() => '?').join(',');
+      await db.run(`DELETE FROM appuntamenti WHERE id_candidato IN (${placeholders})`, candIds);
+      await db.run(`DELETE FROM pipeline_assunzioni WHERE id_candidato IN (${placeholders})`, candIds);
+      await db.run(`DELETE FROM candidati WHERE id IN (${placeholders})`, candIds);
+      
+      // Delete from storico by id_soggetto
+      await db.run(`DELETE FROM storico WHERE tipo_soggetto = 'CANDIDATO' AND id_soggetto IN (${placeholders})`, candIds);
+    }
+
+    // 3. Delete from storico table by name match
+    await db.run(`
+      DELETE FROM storico 
+      WHERE LOWER(nome_soggetto) LIKE '%rossi marco%' 
+         OR LOWER(soggetto_correlato) LIKE '%rossi marco%'
+         OR LOWER(dettagli) LIKE '%rossi marco%'
+    `);
+
+    res.json({ success: true, message: 'Dati Rossi Marco eliminati con successo' });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // Initialize database and start server
 initDatabase().then(() => {
   app.listen(PORT, () => {

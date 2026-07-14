@@ -199,7 +199,28 @@ export default function App() {
               : 'Anagrafica Potenziali Clienti'
             }
           </h1>
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <button 
+              className="btn btn-sm" 
+              style={{ backgroundColor: '#dc3545', color: '#fff', fontWeight: 'bold', border: 'none', borderRadius: '4px', padding: '6px 12px', cursor: 'pointer' }} 
+              onClick={async () => {
+                if (window.confirm("Sei sicuro di voler eliminare DEFINITIVAMENTE tutti i log e i dati di test di Rossi Marco?")) {
+                  try {
+                    const res = await fetch(`${ctrl.API_BASE}/clean-test-rossi`, { method: 'POST' });
+                    const data = await res.json();
+                    if (data.success) {
+                      alert("Pulizia completata con successo!");
+                    } else {
+                      alert("Errore durante la pulizia: " + data.error);
+                    }
+                  } catch (err) {
+                    alert("Errore di rete: " + err.message);
+                  }
+                }
+              }}
+            >
+              ⚠️ ELIMINA TEST ROSSI MARCO
+            </button>
             {ctrl.currentPage === 'ricerche' && !ctrl.selectedRicercaId && (
               <button className="btn btn-primary btn-sm" onClick={ctrl.openNewRicercaModal}>➕ Nuova Ricerca</button>
             )}
