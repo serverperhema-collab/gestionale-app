@@ -91,7 +91,7 @@ export default function App() {
   };
 
   const navList = getNavigableRicerche();
-  const currentIndex = navList.findIndex(r => r.id === ctrl.selectedRicercaId);
+  const currentIndex = navList.findIndex(r => String(r.id) === String(ctrl.selectedRicercaId));
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex !== -1 && currentIndex < navList.length - 1;
 

@@ -10,7 +10,7 @@ export default function Candidati({
   setCurrentCandidato,
   setShowNewCVCandidatoModal
 }) {
-  const { candidati, fetchCandidati } = useGlobalState();
+  const { candidati = [], fetchCandidati } = useGlobalState() || {};
   const { showStatus } = useToast();
 
   const handleDeleteCandidato = async (id, nomeCompleto) => {

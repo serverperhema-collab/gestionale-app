@@ -22,7 +22,7 @@ const formatDateSafe = (dateString, options = { day: '2-digit', month: '2-digit'
 };
 
 export default function GestioneCommerciali() {
-  const { commerciali, fetchCommerciali, operatori, fetchOperatori } = useGlobalState();
+  const { commerciali = [], fetchCommerciali, operatori = [], fetchOperatori } = useGlobalState() || {};
   const { showStatus } = useToast();
   const [showCommercialeLinkModal, setShowCommercialeLinkModal] = useState(false);
 

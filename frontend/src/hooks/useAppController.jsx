@@ -633,7 +633,7 @@ export function useAppController() {
       }));
       return;
     }
-    const cl = clienti.find(c => c.id == clientId);
+    const cl = (clienti || []).find(c => c.id == clientId);
     if (cl) {
       setNewSearchForm(prev => ({
         ...prev,
@@ -736,7 +736,8 @@ export function useAppController() {
         <strong>${log.attivita}:</strong> ${log.dettagli}
       </div>
     `).join('') || '<div>Nessuna attività registrata</div>';
-    const starsText = evalForm.punteggio_complessivo !== null ? '★'.repeat(Math.round(evalForm.punteggio_complessivo / 10)) + '☆'.repeat(10 - Math.round(evalForm.punteggio_complessivo / 10)) : 'Non valutato';
+    const score = Number(evalForm.punteggio_complessivo);
+    const starsText = (!isNaN(score) && evalForm.punteggio_complessivo != null) ? '★'.repeat(Math.round(score / 10)) + '☆'.repeat(10 - Math.round(score / 10)) : 'Non valutato';
     const htmlContent = `
       <!DOCTYPE html>
       <html>

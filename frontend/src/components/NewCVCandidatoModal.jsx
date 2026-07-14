@@ -30,7 +30,7 @@ const NewCVCandidatoModal = ({ showNewCVCandidatoModal, setShowNewCVCandidatoMod
                   </div>
                   <div className="form-group">
                     <label>Email</label>
-                    <input type="text" name="email" className="form-control" placeholder="mario@mail.it" />
+                    <input type="email" name="email" className="form-control" placeholder="mario@mail.it" />
                   </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', gap: '16px' }}>

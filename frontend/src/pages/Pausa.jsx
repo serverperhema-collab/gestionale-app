@@ -2,7 +2,7 @@ import React from 'react';
 import { useGlobalState } from '../contexts/GlobalStateContext';
 
 export default function Pausa({ handleApprovalAction, setSelectedRicercaId }) {
-  const { ricerche } = useGlobalState();
+  const { ricerche = [] } = useGlobalState() || {};
 
   return (
     <div>

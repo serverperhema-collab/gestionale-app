@@ -4,7 +4,7 @@ import { API_BASE } from '../utils';
 import { useToast } from '../contexts/ToastContext';
 
 export default function Clienti({ setSelectedSubjectLog }) {
-  const { clienti, fetchClienti } = useGlobalState();
+  const { clienti = [], fetchClienti } = useGlobalState() || {};
   const { showStatus } = useToast();
   const [showEditModal, setShowEditModal] = useState(false);
   const [currentClient, setCurrentClient] = useState({});

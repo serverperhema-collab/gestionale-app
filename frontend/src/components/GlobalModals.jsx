@@ -126,7 +126,7 @@ export default function GlobalModals(props) {
                     </div>
                     <div className="form-group" style={{ margin: 0 }}>
                       <label>Email</label>
-                      <input type="text" name="email" className="form-control" defaultValue={currentCandidato.email} />
+                      <input type="email" name="email" className="form-control" defaultValue={currentCandidato.email} />
                     </div>
                   </div>
                   
@@ -2239,7 +2239,7 @@ export default function GlobalModals(props) {
                             <div className="form-group">
                               <label>Link Annuncio Web *</label>
                               <input 
-                                type="text" 
+                                type="url" 
                                 name="link_annuncio" 
                                 className="form-control" 
                                 required
@@ -2465,6 +2465,7 @@ export default function GlobalModals(props) {
                     id="docUploadInput" 
                     className="form-control" 
                     accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                    required
                   />
                 </div>
               </div>

@@ -48,7 +48,7 @@ const AnnuncioModal = ({ selectedAnnuncio, setSelectedAnnuncio, adTimeline, rice
                             <div className="form-group">
                               <label>Link Annuncio Web *</label>
                               <input 
-                                type="text" 
+                                type="url" 
                                 name="link_annuncio" 
                                 className="form-control" 
                                 required

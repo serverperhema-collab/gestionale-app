@@ -509,7 +509,7 @@ export default function RicercaDetail({
                                   <div className="form-group" style={{ margin: 0 }}>
                                     <label>Link Annuncio Web *</label>
                                     <input 
-                                      type="text" 
+                                      type="url" 
                                       name="link_annuncio" 
                                       className="form-control" 
                                       required

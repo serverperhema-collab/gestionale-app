@@ -148,7 +148,7 @@ export default function GestioneAnnunci({ ctrl }) {
                   </div>
                   <div className="form-group">
                     <label>Link Diretto</label>
-                    <input type="text" className="form-control" value={formData.link_annuncio || ''} onChange={e => setFormData({...formData, link_annuncio: e.target.value})} />
+                    <input type="url" className="form-control" value={formData.link_annuncio || ''} onChange={e => setFormData({...formData, link_annuncio: e.target.value})} />
                   </div>
                   <div className="form-group">
                     <label>Data Pubblicazione *</label>
