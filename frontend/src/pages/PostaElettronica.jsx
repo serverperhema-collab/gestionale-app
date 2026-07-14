@@ -60,6 +60,10 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
   const [selectedRicercaId, setSelectedRicercaId] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('custom');
 
+  // IMAP Sync States
+  const [syncing, setSyncing] = useState(false);
+  const [offset, setOffset] = useState(0);
+
   // Load emails
   const fetchEmails = async () => {
     try {
@@ -73,6 +77,40 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSyncEmails = async (isLoadMore = false) => {
+    try {
+      setSyncing(true);
+      const nextOffset = isLoadMore ? offset + 50 : 0;
+      
+      showStatus('loading', 'Sincronizzazione...', isLoadMore ? 'Recupero messaggi meno recenti...' : 'Sincronizzazione con il server Aruba in corso...');
+      
+      const res = await fetch(`${API_BASE}/emails/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ limit: 50, offset: nextOffset })
+      });
+      const json = await res.json();
+      if (json.success) {
+        showStatus('success', 'Sincronizzazione completata!', isLoadMore 
+          ? `Caricati altri messaggi (nuovi messaggi salvati: ${json.addedCount || 0}).`
+          : `La casella postale è aggiornata (nuovi messaggi scaricati: ${json.addedCount || 0}).`);
+        
+        if (isLoadMore) {
+          setOffset(nextOffset);
+        } else {
+          setOffset(0); // Reset offset on fresh sync
+        }
+        await fetchEmails();
+      } else {
+        showStatus('error', 'Errore sincronizzazione', json.error || 'Impossibile connettersi ad Aruba.');
+      }
+    } catch (err) {
+      showStatus('error', 'Errore di connessione', err.message);
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -595,6 +633,9 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
             />
           </div>
           <button className="btn btn-secondary btn-sm" onClick={fetchEmails}>🔄 Ricarica</button>
+          <button className="btn btn-primary btn-sm" onClick={() => handleSyncEmails(false)} disabled={syncing}>
+            {syncing ? '⏳ Sincronizzazione...' : '🔄 Sincronizza con Aruba'}
+          </button>
         </div>
 
         {/* 2. List or Detail View */}
@@ -741,6 +782,18 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
                     </div>
                   );
                 })
+              )}
+              {currentFolder === 'inbox' && currentFolderEmails.length > 0 && (
+                <div style={{ textAlign: 'center', padding: '16px 0', borderTop: '1px solid var(--border)', background: 'var(--bg-primary)' }}>
+                  <button 
+                    className="btn btn-secondary btn-sm" 
+                    onClick={() => handleSyncEmails(true)}
+                    disabled={syncing}
+                    style={{ padding: '8px 24px', borderRadius: '20px', fontWeight: 600 }}
+                  >
+                    {syncing ? '⏳ Caricamento...' : '⬇️ Carica altre e-mail (meno recenti)'}
+                  </button>
+                </div>
               )}
             </div>
 

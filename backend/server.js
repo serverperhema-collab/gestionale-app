@@ -4,6 +4,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const nodemailer = require('nodemailer');
+const { ImapFlow } = require('imapflow');
+const { simpleParser } = require('mailparser');
 const { db, initDatabase } = require('./database');
 
 const app = express();
@@ -2058,7 +2060,13 @@ app.get('/api/configurazione-email', async (req, res) => {
           port: '465',
           user: '',
           pass: '',
-          secure: true
+          secure: true,
+          imap_host: 'imaps.aruba.it',
+          imap_port: '993',
+          imap_secure: true,
+          imap_user: '',
+          imap_pass: '',
+          use_smtp_creds: true
         }
       });
     }
@@ -2069,12 +2077,28 @@ app.get('/api/configurazione-email', async (req, res) => {
 
 app.post('/api/configurazione-email', async (req, res) => {
   try {
-    const { host, port, user, pass, secure } = req.body;
+    const { 
+      host, port, user, pass, secure,
+      imap_host, imap_port, imap_secure, imap_user, imap_pass, use_smtp_creds 
+    } = req.body;
+    
     if (!host || !port || !user) {
       return res.status(400).json({ success: false, error: 'Dati SMTP incompleti' });
     }
     
-    const valore = JSON.stringify({ host, port, user, pass: pass || '', secure });
+    const valore = JSON.stringify({ 
+      host, 
+      port, 
+      user, 
+      pass: pass || '', 
+      secure,
+      imap_host: imap_host || 'imaps.aruba.it',
+      imap_port: imap_port || '993',
+      imap_secure: imap_secure !== undefined ? imap_secure : true,
+      imap_user: imap_user || '',
+      imap_pass: imap_pass || '',
+      use_smtp_creds: use_smtp_creds !== undefined ? use_smtp_creds : true
+    });
     
     // Check if configuration already exists
     const existing = await db.get("SELECT chiave FROM configurazione_email WHERE chiave = 'smtp_config'");
@@ -2084,7 +2108,117 @@ app.post('/api/configurazione-email', async (req, res) => {
       await db.run("INSERT INTO configurazione_email (chiave, valore) VALUES ('smtp_config', ?)", [valore]);
     }
     
-    res.json({ success: true, message: 'Configurazione SMTP salvata con successo!' });
+    res.json({ success: true, message: 'Configurazione server salvata con successo!' });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Helper function to sync emails from IMAP server
+async function syncImapEmails(config, limit = 50, offset = 0) {
+  const host = config.imap_host || 'imaps.aruba.it';
+  const port = parseInt(config.imap_port) || 993;
+  const secure = config.imap_secure !== undefined ? config.imap_secure : true;
+  const user = config.use_smtp_creds ? config.user : (config.imap_user || config.user);
+  const pass = config.use_smtp_creds ? config.pass : (config.imap_pass || config.pass);
+
+  if (!host || !user || !pass) {
+    throw new Error('Configurazione IMAP incompleta.');
+  }
+
+  const client = new ImapFlow({
+    host,
+    port,
+    secure,
+    auth: {
+      user,
+      pass
+    },
+    logger: false
+  });
+
+  await client.connect();
+
+  const lock = await client.getMailboxLock('INBOX');
+  let newCount = 0;
+  
+  try {
+    const total = client.mailbox.exists; // Total emails in folder
+    
+    if (total > 0) {
+      // Fetch window of message headers/sources
+      const endSeq = Math.max(1, total - offset);
+      const startSeq = Math.max(1, total - offset - limit + 1);
+
+      if (endSeq >= startSeq) {
+        const messages = client.fetch(`${startSeq}:${endSeq}`, {
+          source: true,
+          envelope: true,
+          flags: true,
+          uid: true
+        });
+
+        for await (const message of messages) {
+          try {
+            const dateStr = message.envelope.date ? new Date(message.envelope.date).toISOString() : new Date().toISOString();
+            const subject = message.envelope.subject || 'Senza Oggetto';
+            const fromEmail = message.envelope.from && message.envelope.from[0] 
+              ? `${message.envelope.from[0].address}` 
+              : 'sconosciuto@mittente.com';
+            
+            // Check in local database (either by UID or date+subject+from)
+            const id = `EM_IMAP_${message.uid}`;
+            const existing = await db.get(
+              "SELECT id FROM emails WHERE id = ? OR (mittente = ? AND data_invio = ? AND oggetto = ?)",
+              [id, fromEmail, dateStr, subject]
+            );
+
+            if (!existing) {
+              const parsed = await simpleParser(message.source);
+              const mittente = fromEmail;
+              const destinatario = user;
+              const oggetto = parsed.subject || subject;
+              const corpo = parsed.text || parsed.html || '(Corpo del messaggio vuoto o non leggibile)';
+              const dataInvio = dateStr;
+              const tipo = 'incoming';
+              const stato = 'Ricevuta';
+              const cartella = 'inbox';
+              const letto = message.flags.has('\\Seen') ? 1 : 0;
+              const preferito = message.flags.has('\\Flagged') ? 1 : 0;
+
+              // Insert into SQLite
+              await db.run(`
+                INSERT INTO emails (id, data_invio, mittente, destinatario, oggetto, corpo, tipo, stato, cartella, letto, preferito)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `, [id, dataInvio, mittente, destinatario, oggetto, corpo, tipo, stato, cartella, letto, preferito]);
+              
+              newCount++;
+            }
+          } catch (err) {
+            console.error("Errore durante il parsing del singolo messaggio IMAP:", err.message);
+          }
+        }
+      }
+    }
+  } finally {
+    lock.release();
+  }
+
+  await client.logout();
+  return newCount;
+}
+
+// Endpoint to trigger IMAP synchronization
+app.post('/api/emails/sync', async (req, res) => {
+  try {
+    const { limit, offset } = req.body;
+    const configRow = await db.get("SELECT valore FROM configurazione_email WHERE chiave = 'smtp_config'");
+    if (!configRow) {
+      return res.status(400).json({ success: false, error: 'Configurazione e-mail mancante. Vai nella scheda Configurazione.' });
+    }
+    const config = JSON.parse(configRow.valore);
+    const addedCount = await syncImapEmails(config, parseInt(limit) || 50, parseInt(offset) || 0);
+    res.json({ success: true, addedCount });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
