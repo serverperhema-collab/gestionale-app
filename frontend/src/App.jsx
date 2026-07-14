@@ -73,6 +73,35 @@ export default function App() {
     ctrl.setSelectedRicercaId(null);
   }, [ctrl.currentPage]);
 
+  // Next/Prev navigation logic for details page
+  const getNavigableRicerche = () => {
+    const all = ctrl.ricerche || [];
+    switch (ctrl.currentPage) {
+      case 'approvazioni':
+        return all.filter(r => r.stato_approvazione_tl === 'In attesa di approvazione');
+      case 'riserva':
+        return all.filter(r => r.stato_approvazione_tl === 'Approvata con Riserva');
+      case 'pausa':
+        return all.filter(r => r.stato_approvazione_tl === 'In Pausa');
+      case 'cestinati':
+        return all.filter(r => r.stato_approvazione_tl === 'Cestinato');
+      default:
+        return all.filter(r => r.stato_approvazione_tl === 'Approvata' || r.stato_approvazione_tl === 'Approvata con Riserva');
+    }
+  };
+
+  const navList = getNavigableRicerche();
+  const currentIndex = navList.findIndex(r => r.id === ctrl.selectedRicercaId);
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex !== -1 && currentIndex < navList.length - 1;
+
+  const handlePrev = () => {
+    if (hasPrev) ctrl.setSelectedRicercaId(navList[currentIndex - 1].id);
+  };
+  const handleNext = () => {
+    if (hasNext) ctrl.setSelectedRicercaId(navList[currentIndex + 1].id);
+  };
+
   return (
     <div className="app-container">
       {/* SIDEBAR NAVIGATION */}
@@ -181,7 +210,32 @@ export default function App() {
               <button className="btn btn-primary btn-sm" onClick={() => { ctrl.setCurrentCandidato(null); ctrl.setShowNewCVCandidatoModal(true); }}>➕ Inserisci CV</button>
             )}
             {ctrl.selectedRicercaId && (
-              <button className="btn btn-secondary btn-sm" onClick={() => ctrl.setSelectedRicercaId(null)}>↩️ Torna alla Lista</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button 
+                  type="button"
+                  className="btn btn-secondary btn-sm" 
+                  onClick={handlePrev} 
+                  disabled={!hasPrev}
+                  style={{ opacity: hasPrev ? 1 : 0.4, cursor: hasPrev ? 'pointer' : 'not-allowed' }}
+                  title="Mandato Precedente"
+                >
+                  ⬅️ Prec
+                </button>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', minWidth: '40px', textAlign: 'center' }}>
+                  {currentIndex + 1} / {navList.length}
+                </span>
+                <button 
+                  type="button"
+                  className="btn btn-secondary btn-sm" 
+                  onClick={handleNext} 
+                  disabled={!hasNext}
+                  style={{ opacity: hasNext ? 1 : 0.4, cursor: hasNext ? 'pointer' : 'not-allowed' }}
+                  title="Mandato Successivo"
+                >
+                  Succ ➡️
+                </button>
+                <button type="button" className="btn btn-secondary btn-sm" style={{ marginLeft: '8px' }} onClick={() => ctrl.setSelectedRicercaId(null)}>↩️ Torna alla Lista</button>
+              </div>
             )}
           </div>
         </header>
