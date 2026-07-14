@@ -7,7 +7,7 @@
     },
     {
       "source": "/api/:path*",
-      "destination": "https://gestionale-backend.onrender.com/api/:path*"
+      "destination": "https://gestionale-backend-mfph.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",
