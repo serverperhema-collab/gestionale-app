@@ -457,6 +457,118 @@ async function initDatabase() {
       try { await db.exec('ROLLBACK;'); await db.exec('PRAGMA foreign_keys=on;'); } catch(err) {}
     }
 
+    // Email client migrations
+    try {
+      await db.exec("ALTER TABLE emails ADD COLUMN cartella TEXT DEFAULT 'inbox'");
+    } catch(e) {}
+    try {
+      await db.exec("ALTER TABLE emails ADD COLUMN letto INTEGER DEFAULT 0");
+    } catch(e) {}
+    try {
+      await db.exec("ALTER TABLE emails ADD COLUMN preferito INTEGER DEFAULT 0");
+    } catch(e) {}
+    try {
+      await db.exec("ALTER TABLE emails ADD COLUMN data_posticipato TEXT DEFAULT NULL");
+    } catch(e) {}
+
+    // Seeding mock emails
+    try {
+      const emailCount = await db.get("SELECT COUNT(*) as count FROM emails WHERE cartella = 'inbox'");
+      if (emailCount && emailCount.count === 0) {
+        console.log("Seeding mock emails...");
+        const mockEmails = [
+          {
+            id: 'EM_MOCK_1',
+            data_invio: new Date(Date.now() - 3600000 * 2).toISOString(),
+            mittente: 'marco.rossi90@gmail.com',
+            destinatario: 'hema.selezione@gmail.com',
+            oggetto: 'Candidatura per posizione Barista / Banconiere',
+            corpo: 'Spettabile HEMA Selezione,\n\nvi contatto in merito al vostro annuncio per la ricerca di un Barista. Allego il mio Curriculum Vitae aggiornato per la vostra valutazione.\n\nResto a disposizione per un eventuale colloquio conoscitivo.\n\nCordiali saluti,\nMarco Rossi\nTel: 333-1234567',
+            tipo: 'custom',
+            stato: 'Inviata',
+            cartella: 'inbox',
+            letto: 0,
+            preferito: 1
+          },
+          {
+            id: 'EM_MOCK_2',
+            data_invio: new Date(Date.now() - 3600000 * 8).toISOString(),
+            mittente: 'amministrazione@gardencaffe.it',
+            destinatario: 'hema.selezione@gmail.com',
+            oggetto: 'Conferma ricezione candidati per selezione sala',
+            corpo: 'Buongiorno,\n\nabbiamo ricevuto la scheda del candidato che ci avete proposto per la prova. Riteniamo il profilo molto interessante e vorremmo fissare la prova per questo giovedì alle ore 16:00.\n\nPotete confermare l\'appuntamento con il candidato?\n\nGrazie e cordiali saluti,\nLa Direzione - Garden Caffè',
+            tipo: 'custom',
+            stato: 'Inviata',
+            cartella: 'inbox',
+            letto: 0,
+            preferito: 0
+          },
+          {
+            id: 'EM_MOCK_3',
+            data_invio: new Date(Date.now() - 3600000 * 24).toISOString(),
+            mittente: 'investimenti.sicuri@spammail.com',
+            destinatario: 'hema.selezione@gmail.com',
+            oggetto: '⚠️ OFFERTA UNICA: Guadagna da casa con il trading online!',
+            corpo: 'Ciao!\n\nVuoi scoprire come guadagnare fino a 500€ al giorno dedicando solo 10 minuti del tuo tempo? Clicca sul link qui sotto e registrati gratis al webinar di stasera.\n\nNon perdere questa opportunità irripetibile!\n\nCordiali saluti,\nIl Team di Investimenti Facili',
+            tipo: 'custom',
+            stato: 'Inviata',
+            cartella: 'spam',
+            letto: 0,
+            preferito: 0
+          },
+          {
+            id: 'EM_MOCK_4',
+            data_invio: new Date(Date.now() - 3600000 * 48).toISOString(),
+            mittente: 'newsletter@linkedin.com',
+            destinatario: 'hema.selezione@gmail.com',
+            oggetto: 'LinkedIn: 15 nuove persone hanno visualizzato il tuo profilo questa settimana',
+            corpo: 'Gentile HEMA Selezione,\n\nil tuo profilo sta attirando l\'attenzione! Scopri chi ha visitato la tua pagina e connettiti con nuovi professionisti nel tuo settore.\n\nAccedi a LinkedIn per visualizzare l\'elenco completo.\n\nIl Team di LinkedIn',
+            tipo: 'custom',
+            stato: 'Inviata',
+            cartella: 'inbox',
+            letto: 1,
+            preferito: 0
+          },
+          {
+            id: 'EM_MOCK_5',
+            data_invio: new Date(Date.now() - 3600000 * 72).toISOString(),
+            mittente: 'candidature@lavoro-ristorazione.it',
+            destinatario: 'hema.selezione@gmail.com',
+            oggetto: 'Candidatura Spontanea - Aiuto Cuoco / Lavapiatti',
+            corpo: 'Gentili signori,\n\nmi chiamo Ahmed e sono alla ricerca attiva di un lavoro come aiuto cuoco o lavapiatti nella zona di Bologna. Ho maturato 2 anni di esperienza nel settore ristorazione.\n\nSono automunito e disponibile a lavorare su turni e nei weekend.\n\nIn allegato trovate il mio CV.\n\nCordialmente,\nAhmed Rahal\nCell: 329-8765432',
+            tipo: 'custom',
+            stato: 'Inviata',
+            cartella: 'inbox',
+            letto: 1,
+            preferito: 0
+          },
+          {
+            id: 'EM_MOCK_6',
+            data_invio: new Date(Date.now() - 3600000 * 96).toISOString(),
+            mittente: 'marketing.offerte@cheapservices.com',
+            destinatario: 'hema.selezione@gmail.com',
+            oggetto: 'Fornitura energia elettrica aziendale - Risparmia il 40%',
+            corpo: 'Spettabile azienda,\n\nvi presentiamo la nostra nuova tariffa business a prezzo bloccato per 24 mesi. Compilate il modulo per essere ricontattati da un nostro consulente senza impegno.\n\nCordiali saluti,\nEnergia Libera S.p.A.',
+            tipo: 'custom',
+            stato: 'Inviata',
+            cartella: 'trash',
+            letto: 1,
+            preferito: 0
+          }
+        ];
+        
+        for (const mail of mockEmails) {
+          await db.run(`
+            INSERT INTO emails (id, data_invio, mittente, destinatario, oggetto, corpo, tipo, stato, cartella, letto, preferito)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `, [mail.id, mail.data_invio, mail.mittente, mail.destinatario, mail.oggetto, mail.corpo, mail.tipo, mail.stato, mail.cartella, mail.letto, mail.preferito]);
+        }
+        console.log("Mock emails seeded successfully!");
+      }
+    } catch(e) {
+      console.log("Mock emails seeding failed:", e.message);
+    }
+
     console.log("Database initialized successfully!");
   } catch (err) {
     console.error("Database initialization failed:", err);

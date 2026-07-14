@@ -1,24 +1,57 @@
 import React, { useState, useEffect, useMemo } from 'react';
 
-const formatDateSafe = (dateString, options = { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) => {
+// Safe date formatter helper
+const formatDateSafe = (dateString) => {
   if (!dateString) return 'N/D';
-  if (dateString instanceof Date) {
-    return isNaN(dateString.getTime()) ? 'Data Invalida' : dateString.toLocaleString('it-IT', options);
-  }
   const parsed = new Date(dateString);
   if (isNaN(parsed.getTime())) {
     return String(dateString);
   }
-  return parsed.toLocaleString('it-IT', options);
+  const now = new Date();
+  
+  // If today: show HH:MM
+  if (parsed.toDateString() === now.toDateString()) {
+    return parsed.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+  }
+  
+  // If this year: show Day Month (e.g. 13 lug)
+  if (parsed.getFullYear() === now.getFullYear()) {
+    return parsed.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' });
+  }
+  
+  // Older: show DD/MM/YYYY
+  return parsed.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+// Pastel colors for sender avatars
+const getAvatarColor = (name = '') => {
+  const colors = [
+    '#f87171', '#fb923c', '#fbbf24', '#34d399', '#2dd4bf', 
+    '#38bdf8', '#60a5fa', '#818cf8', '#a78bfa', '#f472b6'
+  ];
+  let sum = 0;
+  for (let i = 0; i < name.length; i++) {
+    sum += name.charCodeAt(i);
+  }
+  return colors[sum % colors.length];
 };
 
 export default function PostaElettronica({ candidati = [], clienti = [], ricerche = [], showStatus, API_BASE }) {
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState(null);
-  const [isComposing, setIsComposing] = useState(false);
+  
+  // Navigation & Folders
+  const [currentFolder, setCurrentFolder] = useState('inbox');
   const [searchQuery, setSearchQuery] = useState('');
-
+  
+  // Selection
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  
+  // Floating Compose Drawer
+  const [isComposing, setIsComposing] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+  
   // Form states
   const [destinatario, setDestinatario] = useState('');
   const [oggetto, setOggetto] = useState('');
@@ -35,9 +68,6 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
       const json = await res.json();
       if (json.success) {
         setEmails(json.data || []);
-        if (json.data && json.data.length > 0 && !selectedEmail && !isComposing) {
-          setSelectedEmail(json.data[0]);
-        }
       }
     } catch (e) {
       console.error(e);
@@ -56,7 +86,7 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
     colloquio: {
       label: 'Richiesta di Colloquio',
       subject: 'Convocazione Colloquio Conoscitivo - HEMA Selezione',
-      body: 'Gentile Candidato,\n\nin merito alla sua candidatura inserita nel nostro database, vorremmo concordare un colloquio conoscitivo in presenza o video-call.\n\nLe chiediamo cortesemente di comunicarci la sua disponibilità per i prossimi giorni.\n\nUn cordiale saluto,\nTeam Risorse Umane'
+      body: 'Gentile Candidato,\n\nin merito alla sua candidatura inserita nel nostro database, vorremmo concordare un colloquio conoscitivo in presenza o video-call.\n\nLe chiediamo cortesemente di comunicarci la sua disponibilità per i primi giorni della prossima settimana.\n\nUn cordiale saluto,\nTeam Risorse Umane'
     },
     presentazione_cv: {
       label: 'Presentazione CV al Cliente',
@@ -89,7 +119,6 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
       const cand = candidati.find(c => String(c.id) === id);
       if (cand) {
         setDestinatario(cand.email || '');
-        // Customize template if selected
         if (selectedTemplate !== 'custom') {
           let updatedBody = templates[selectedTemplate].body
             .replace('Gentile Candidato', `Gentile ${cand.nome} ${cand.cognome}`)
@@ -100,17 +129,164 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
     }
   };
 
-  // Filter emails list
-  const filteredEmails = useMemo(() => {
-    if (!searchQuery.trim()) return emails;
-    const q = searchQuery.toLowerCase();
-    return emails.filter(e => 
-      (e.destinatario || '').toLowerCase().includes(q) ||
-      (e.oggetto || '').toLowerCase().includes(q) ||
-      (e.corpo || '').toLowerCase().includes(q) ||
-      (e.mittente || '').toLowerCase().includes(q)
-    );
-  }, [emails, searchQuery]);
+  // Toggle favorite / star status
+  const toggleStar = async (id, currentVal, e) => {
+    if (e) e.stopPropagation();
+    const newVal = currentVal === 1 ? 0 : 1;
+    // Optimistic UI update
+    setEmails(prev => prev.map(item => item.id === id ? { ...item, preferito: newVal } : item));
+    if (selectedEmail && selectedEmail.id === id) {
+      setSelectedEmail(prev => ({ ...prev, preferito: newVal }));
+    }
+    
+    try {
+      await fetch(`${API_BASE}/emails/${id}/preferito`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preferito: newVal })
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Toggle read/unread status
+  const toggleReadStatus = async (id, currentVal, e) => {
+    if (e) e.stopPropagation();
+    const newVal = currentVal === 1 ? 0 : 1;
+    setEmails(prev => prev.map(item => item.id === id ? { ...item, letto: newVal } : item));
+    if (selectedEmail && selectedEmail.id === id) {
+      setSelectedEmail(prev => ({ ...prev, letto: newVal }));
+    }
+
+    try {
+      await fetch(`${API_BASE}/emails/${id}/letto`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ letto: newVal })
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Move single or batch to folder (trash, spam, etc.)
+  const moveToFolder = async (ids, folder, e) => {
+    if (e) e.stopPropagation();
+    const idList = Array.isArray(ids) ? ids : [ids];
+    
+    // Optimistic update
+    setEmails(prev => prev.map(item => idList.includes(item.id) ? { ...item, cartella: folder } : item));
+    if (selectedEmail && idList.includes(selectedEmail.id)) {
+      setSelectedEmail(null);
+    }
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      idList.forEach(id => next.delete(id));
+      return next;
+    });
+
+    try {
+      await Promise.all(idList.map(id => 
+        fetch(`${API_BASE}/emails/${id}/cartella`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cartella: folder })
+        })
+      ));
+      showStatus('success', 'Operazione completata', `E-mail spostate in ${folder === 'trash' ? 'Cestino' : folder}.`);
+    } catch (err) {
+      console.error(err);
+      showStatus('error', 'Errore', 'Impossibile completare lo spostamento.');
+    }
+  };
+
+  // Permanently delete from trash
+  const deletePermanently = async (ids, e) => {
+    if (e) e.stopPropagation();
+    const idList = Array.isArray(ids) ? ids : [ids];
+    
+    if (!window.confirm("Sei sicuro di voler eliminare DEFINITIVAMENTE questi messaggi? Non potrai più recuperarli.")) {
+      return;
+    }
+
+    setEmails(prev => prev.filter(item => !idList.includes(item.id)));
+    if (selectedEmail && idList.includes(selectedEmail.id)) {
+      setSelectedEmail(null);
+    }
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      idList.forEach(id => next.delete(id));
+      return next;
+    });
+
+    try {
+      await Promise.all(idList.map(id => 
+        fetch(`${API_BASE}/emails/${id}`, { method: 'DELETE' })
+      ));
+      showStatus('success', 'Eliminazione completata', 'Messaggi eliminati definitivamente.');
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Batch actions
+  const handleBatchStar = async (starred) => {
+    const list = Array.from(selectedIds);
+    setEmails(prev => prev.map(item => list.includes(item.id) ? { ...item, preferito: starred ? 1 : 0 } : item));
+    setSelectedIds(new Set());
+    try {
+      await Promise.all(list.map(id => 
+        fetch(`${API_BASE}/emails/${id}/preferito`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ preferito: starred ? 1 : 0 })
+        })
+      ));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleBatchRead = async (read) => {
+    const list = Array.from(selectedIds);
+    setEmails(prev => prev.map(item => list.includes(item.id) ? { ...item, letto: read ? 1 : 0 } : item));
+    setSelectedIds(new Set());
+    try {
+      await Promise.all(list.map(id => 
+        fetch(`${API_BASE}/emails/${id}/letto`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ letto: read ? 1 : 0 })
+        })
+      ));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Selection toggle
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      const ids = currentFolderEmails.map(item => item.id);
+      setSelectedIds(new Set(ids));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleSelectRow = (id, e) => {
+    e.stopPropagation();
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   // Handle send email
   const handleSend = async (e) => {
@@ -159,290 +335,775 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
     }
   };
 
+  // Reply email
+  const handleReply = (email) => {
+    setDestinatario(email.mittente);
+    setOggetto(`Risp: ${email.oggetto}`);
+    setCorpo(`\n\n--- Il giorno ${new Date(email.data_invio).toLocaleString('it-IT')} <${email.mittente}> ha scritto:\n> ${email.corpo.split('\n').join('\n> ')}`);
+    setIsComposing(true);
+    setIsMinimized(false);
+  };
+
+  // Filter and display current folder emails
+  const currentFolderEmails = useMemo(() => {
+    let list = emails;
+    if (currentFolder === 'speciali') {
+      list = emails.filter(e => e.preferito === 1 && e.cartella !== 'trash');
+    } else if (currentFolder === 'posticipati') {
+      list = emails.filter(e => e.data_posticipato != null && e.cartella !== 'trash');
+    } else {
+      list = emails.filter(e => e.cartella === currentFolder);
+    }
+
+    if (!searchQuery.trim()) return list;
+    const q = searchQuery.toLowerCase();
+    return list.filter(e => 
+      (e.destinatario || '').toLowerCase().includes(q) ||
+      (e.oggetto || '').toLowerCase().includes(q) ||
+      (e.corpo || '').toLowerCase().includes(q) ||
+      (e.mittente || '').toLowerCase().includes(q)
+    );
+  }, [emails, currentFolder, searchQuery]);
+
+  // Unread folder counts
+  const counts = useMemo(() => {
+    return {
+      inbox: emails.filter(e => e.cartella === 'inbox' && e.letto === 0).length,
+      spam: emails.filter(e => e.cartella === 'spam' && e.letto === 0).length,
+      trash: emails.filter(e => e.cartella === 'trash' && e.letto === 0).length,
+    };
+  }, [emails]);
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '24px', height: 'calc(100vh - 120px)', minHeight: '550px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: '20px', height: 'calc(100vh - 120px)', minHeight: '600px', position: 'relative' }}>
       
-      {/* LEFT PANE: EMAIL LIST */}
-      <div style={{ 
-        background: 'var(--bg-secondary)', 
-        border: '1px solid var(--border)', 
-        borderRadius: '12px', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        overflow: 'hidden' 
-      }}>
-        {/* Header Left */}
-        <div style={{ padding: '20px', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <button 
-            className="btn btn-primary" 
-            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-            onClick={() => {
-              setIsComposing(true);
-              setSelectedEmail(null);
-            }}
-          >
-            ➕ Nuova Email
-          </button>
+      {/* Styles Injection */}
+      <style>{`
+        .gmail-sidebar-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 8px 16px;
+          border-radius: 0 20px 20px 0;
+          cursor: pointer;
+          font-size: 14px;
+          margin-bottom: 2px;
+          font-weight: 500;
+          color: var(--text-secondary);
+          transition: all 0.15s ease;
+          border-left: 3px solid transparent;
+        }
+        .gmail-sidebar-item:hover {
+          background-color: var(--border);
+          color: var(--text-primary);
+        }
+        .gmail-sidebar-item.active {
+          background-color: rgba(79, 70, 229, 0.12);
+          color: var(--primary);
+          font-weight: 700;
+          border-left: 3px solid var(--primary);
+        }
+        .email-row {
+          display: grid;
+          grid-template-columns: 40px 30px 200px 1fr 100px;
+          align-items: center;
+          padding: 10px 16px;
+          border-bottom: 1px solid var(--border);
+          cursor: pointer;
+          transition: all 0.15s ease;
+          background: var(--bg-secondary);
+        }
+        .email-row:hover {
+          box-shadow: inset 1px 0 0 #dadce0, inset -1px 0 0 #dadce0, 0 1px 2px 0 rgba(60,64,67,.3), 0 1px 3px 1px rgba(60,64,67,.15);
+          z-index: 2;
+          background: var(--bg-primary);
+        }
+        .email-row.unread {
+          background: var(--bg-primary);
+          font-weight: bold;
+          color: var(--text-primary);
+        }
+        .email-row.selected {
+          background: rgba(79, 70, 229, 0.08);
+        }
+        .hover-actions-trigger {
+          position: relative;
+        }
+        .hover-actions {
+          display: none;
+          position: absolute;
+          right: 16px;
+          top: 50%;
+          transform: translateY(-50%);
+          background: var(--bg-primary);
+          padding: 4px 8px;
+          border-radius: 4px;
+          border: 1px solid var(--border);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          gap: 6px;
+        }
+        .email-row:hover .hover-actions {
+          display: flex;
+        }
+      `}</style>
+
+      {/* LEFT SIDEBAR (Gmail design) */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', paddingTop: '10px' }}>
+        
+        {/* Pill Scrivi Button */}
+        <button
+          className="btn btn-primary"
+          style={{
+            borderRadius: '24px',
+            padding: '12px 24px',
+            fontSize: '15px',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px',
+            boxShadow: '0 1px 3px 0 rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15)',
+            width: '180px',
+            marginBottom: '10px',
+            border: 'none',
+            cursor: 'pointer'
+          }}
+          onClick={() => {
+            setIsComposing(true);
+            setIsMinimized(false);
+          }}
+        >
+          <span style={{ fontSize: '20px' }}>✏️</span>
+          Scrivi
+        </button>
+
+        {/* Folders List */}
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
           
-          <input 
-            type="text" 
-            className="form-control" 
-            placeholder="Cerca e-mail..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ width: '100%' }}
-          />
+          <div 
+            className={`gmail-sidebar-item ${currentFolder === 'inbox' ? 'active' : ''}`}
+            onClick={() => { setCurrentFolder('inbox'); setSelectedEmail(null); }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span>📥</span>
+              <span>Posta in arrivo</span>
+            </div>
+            {counts.inbox > 0 && (
+              <span className="badge" style={{ backgroundColor: 'rgba(79, 70, 229, 0.15)', color: 'var(--primary)', padding: '2px 8px', borderRadius: '10px', fontSize: '12px' }}>
+                {counts.inbox}
+              </span>
+            )}
+          </div>
+
+          <div 
+            className={`gmail-sidebar-item ${currentFolder === 'speciali' ? 'active' : ''}`}
+            onClick={() => { setCurrentFolder('speciali'); setSelectedEmail(null); }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span>⭐</span>
+              <span>Speciali</span>
+            </div>
+          </div>
+
+          <div 
+            className={`gmail-sidebar-item ${currentFolder === 'posticipati' ? 'active' : ''}`}
+            onClick={() => { setCurrentFolder('posticipati'); setSelectedEmail(null); }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span>⏰</span>
+              <span>Posticipati</span>
+            </div>
+          </div>
+
+          <div 
+            className={`gmail-sidebar-item ${currentFolder === 'sent' ? 'active' : ''}`}
+            onClick={() => { setCurrentFolder('sent'); setSelectedEmail(null); }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span>📤</span>
+              <span>Inviate</span>
+            </div>
+          </div>
+
+          <div 
+            className={`gmail-sidebar-item ${currentFolder === 'spam' ? 'active' : ''}`}
+            onClick={() => { setCurrentFolder('spam'); setSelectedEmail(null); }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span>🚫</span>
+              <span>Spam</span>
+            </div>
+            {counts.spam > 0 && (
+              <span className="badge" style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#EF4444', padding: '2px 8px', borderRadius: '10px', fontSize: '12px' }}>
+                {counts.spam}
+              </span>
+            )}
+          </div>
+
+          <div 
+            className={`gmail-sidebar-item ${currentFolder === 'trash' ? 'active' : ''}`}
+            onClick={() => { setCurrentFolder('trash'); setSelectedEmail(null); }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span>🗑️</span>
+              <span>Cestino</span>
+            </div>
+          </div>
+
         </div>
 
-        {/* Message list scrollable */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '8px' }}>
-          {loading && emails.length === 0 ? (
-            <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '20px' }}>Caricamento...</div>
-          ) : filteredEmails.length === 0 ? (
-            <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '20px' }}>Nessun messaggio trovato</div>
-          ) : (
-            filteredEmails.map(e => {
-              const dateStr = formatDateSafe(e.data_invio);
-              
-              const isSelected = selectedEmail && selectedEmail.id === e.id;
-              
-              return (
-                <div 
-                  key={e.id}
-                  onClick={() => {
-                    setSelectedEmail(e);
-                    setIsComposing(false);
-                  }}
-                  style={{
-                    padding: '12px 16px',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    marginBottom: '8px',
-                    transition: 'all 0.2s ease',
-                    background: isSelected ? 'rgba(79, 70, 229, 0.15)' : 'transparent',
-                    border: isSelected ? '1px solid var(--primary)' : '1px solid transparent',
-                  }}
-                  className="email-item-hover"
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{dateStr}</span>
-                    <span className="badge" style={{
-                      fontSize: '9px',
-                      padding: '2px 6px',
-                      fontWeight: 800,
-                      backgroundColor: e.stato === 'Inviata' ? 'rgba(16, 185, 129, 0.15)' : e.stato === 'Simulata' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                      color: e.stato === 'Inviata' ? '#10B981' : e.stato === 'Simulata' ? '#F59E0B' : '#EF4444'
-                    }}>
-                      {e.stato}
-                    </span>
-                  </div>
-                  <strong style={{ display: 'block', fontSize: '13px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {e.destinatario}
-                  </strong>
-                  <span style={{ display: 'block', fontSize: '12px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
-                    {e.oggetto}
-                  </span>
-                </div>
-              );
-            })
-          )}
-        </div>
       </div>
 
-      {/* RIGHT PANE: DETAIL OR COMPOSER */}
+      {/* RIGHT PANE: LIST OR VIEW */}
       <div style={{ 
         background: 'var(--bg-secondary)', 
         border: '1px solid var(--border)', 
-        borderRadius: '12px', 
-        padding: '28px',
-        display: 'flex',
-        flexDirection: 'column',
-        overflowY: 'auto'
+        borderRadius: '16px', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        overflow: 'hidden',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
       }}>
-        {isComposing ? (
-          /* COMPOSER FORM */
-          <form onSubmit={handleSend} style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: '100%' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, borderBottom: '1px solid var(--border)', paddingBottom: '12px' }}>
-              📨 Componi Nuovo Messaggio
-            </h2>
+
+        {/* 1. Gmail-Style Top Search Bar */}
+        <div style={{ 
+          padding: '16px 20px', 
+          borderBottom: '1px solid var(--border)', 
+          background: 'var(--bg-primary)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '16px'
+        }}>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            background: 'var(--bg-secondary)', 
+            borderRadius: '24px', 
+            padding: '8px 16px',
+            flex: 1,
+            maxWidth: '720px',
+            border: '1px solid var(--border)'
+          }}>
+            <span style={{ fontSize: '16px', marginRight: '10px', color: 'var(--text-secondary)' }}>🔍</span>
+            <input 
+              type="text" 
+              className="form-control" 
+              placeholder="Cerca nella posta..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ background: 'transparent', border: 'none', padding: 0, outline: 'none', boxShadow: 'none', width: '100%', color: 'var(--text-primary)' }}
+            />
+          </div>
+          <button className="btn btn-secondary btn-sm" onClick={fetchEmails}>🔄 Ricarica</button>
+        </div>
+
+        {/* 2. List or Detail View */}
+        {!selectedEmail ? (
+          /* EMAIL LISTING */
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div className="form-group">
-                <label style={{ fontWeight: 600, fontSize: '13px' }}>Modello Email (Template)</label>
-                <select 
-                  className="form-control" 
-                  value={selectedTemplate} 
-                  onChange={(e) => handleTemplateChange(e.target.value)}
-                  style={{ marginTop: '6px' }}
-                >
-                  {Object.entries(templates).map(([key, val]) => (
-                    <option key={key} value={key}>{val.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label style={{ fontWeight: 600, fontSize: '13px' }}>Seleziona Candidato (Opzionale)</label>
-                <select 
-                  className="form-control" 
-                  value={selectedCandidatoId} 
-                  onChange={(e) => handleCandidatoSelect(e.target.value)}
-                  style={{ marginTop: '6px' }}
-                >
-                  <option value="">-- Seleziona per autocompilare --</option>
-                  {candidati.map(c => (
-                    <option key={c.id} value={c.id}>{c.cognome} {c.nome} ({c.email || 'N/D'})</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div className="form-group">
-                <label style={{ fontWeight: 600, fontSize: '13px' }}>Destinatario E-mail *</label>
-                <input 
-                  type="email" 
-                  className="form-control" 
-                  required
-                  placeholder="destinatario@azienda.it" 
-                  value={destinatario}
-                  onChange={(e) => setDestinatario(e.target.value)}
-                  style={{ marginTop: '6px' }}
-                />
-              </div>
-
-              <div className="form-group">
-                <label style={{ fontWeight: 600, fontSize: '13px' }}>Collega a Ricerca (Opzionale)</label>
-                <select 
-                  className="form-control" 
-                  value={selectedRicercaId} 
-                  onChange={(e) => setSelectedRicercaId(e.target.value)}
-                  style={{ marginTop: '6px' }}
-                >
-                  <option value="">-- Nessuna ricerca collegata --</option>
-                  {ricerche.map(r => (
-                    <option key={r.id} value={r.id}>{r.azienda} - {r.ruolo}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label style={{ fontWeight: 600, fontSize: '13px' }}>Oggetto *</label>
-              <input 
-                type="text" 
-                className="form-control" 
-                required
-                placeholder="Oggetto dell'email..." 
-                value={oggetto}
-                onChange={(e) => setOggetto(e.target.value)}
-                style={{ marginTop: '6px' }}
-              />
-            </div>
-
-            <div className="form-group" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <label style={{ fontWeight: 600, fontSize: '13px' }}>Corpo del Messaggio *</label>
-              <textarea 
-                className="form-control" 
-                required
-                placeholder="Scrivi qui il corpo del messaggio..." 
-                value={corpo}
-                onChange={(e) => setCorpo(e.target.value)}
-                style={{ marginTop: '6px', flex: 1, minHeight: '200px', resize: 'vertical', fontFamily: 'inherit' }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button 
-                type="button" 
-                className="btn btn-secondary" 
-                onClick={() => {
-                  setIsComposing(false);
-                  if (emails.length > 0) setSelectedEmail(emails[0]);
-                }}
-              >
-                Annulla
-              </button>
-              <button type="submit" className="btn btn-primary">
-                🚀 Invia Email
-              </button>
-            </div>
-          </form>
-        ) : selectedEmail ? (
-          /* DETAILED EMAIL VIEW */
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', height: '100%' }}>
-            
-            {/* Header Info */}
-            <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <span className="badge" style={{
-                  fontWeight: 800,
-                  backgroundColor: selectedEmail.stato === 'Inviata' ? 'rgba(16, 185, 129, 0.15)' : selectedEmail.stato === 'Simulata' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                  color: selectedEmail.stato === 'Inviata' ? '#10B981' : selectedEmail.stato === 'Simulata' ? '#F59E0B' : '#EF4444'
-                }}>
-                  {selectedEmail.stato === 'Simulata' ? '⚠️ INVIO SIMULATO' : selectedEmail.stato === 'Inviata' ? '✓ INVIATA CON SUCCESSO' : '✕ INVIO FALLITO'}
-                </span>
-                <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                  {formatDateSafe(selectedEmail.data_invio, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </div>
-              <h2 style={{ fontSize: '20px', fontWeight: 800, margin: '8px 0', color: 'var(--text-primary)' }}>
-                {selectedEmail.oggetto}
-              </h2>
-            </div>
-
-            {/* From/To Metadata Box */}
+            {/* Action Bar (Top Controls) */}
             <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              padding: '10px 20px', 
               background: 'var(--bg-primary)', 
-              borderRadius: '8px', 
-              padding: '16px', 
-              border: '1px solid var(--border)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '6px',
-              fontSize: '13px'
+              borderBottom: '1px solid var(--border)'
             }}>
-              <div>
-                <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Da:</span>{' '}
-                <code style={{ color: 'var(--primary)', fontWeight: 600 }}>{selectedEmail.mittente}</code>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <input 
+                  type="checkbox" 
+                  checked={currentFolderEmails.length > 0 && selectedIds.size === currentFolderEmails.length}
+                  onChange={handleSelectAll} 
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                
+                {/* Batch Actions buttons */}
+                {selectedIds.size > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <button className="btn btn-secondary btn-xs" onClick={() => handleBatchRead(true)}>📩 Segna Letto</button>
+                    <button className="btn btn-secondary btn-xs" onClick={() => handleBatchRead(false)}>✉️ Segna Non Letto</button>
+                    <button className="btn btn-secondary btn-xs" onClick={() => handleBatchStar(true)}>⭐ Speciale</button>
+                    
+                    {currentFolder !== 'trash' ? (
+                      <button className="btn btn-danger btn-xs" onClick={() => moveToFolder(Array.from(selectedIds), 'trash')}>🗑️ Cestino</button>
+                    ) : (
+                      <button className="btn btn-danger btn-xs" onClick={() => deletePermanently(Array.from(selectedIds))}>🗑️ Elimina Definitivamente</button>
+                    )}
+                    {currentFolder !== 'spam' && currentFolder !== 'trash' && (
+                      <button className="btn btn-secondary btn-xs" onClick={() => moveToFolder(Array.from(selectedIds), 'spam')}>🚫 Spam</button>
+                    )}
+                  </div>
+                )}
               </div>
-              <div>
-                <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>A:</span>{' '}
-                <code style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{selectedEmail.destinatario}</code>
+
+              {/* Pagination */}
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                {currentFolderEmails.length > 0 ? `1-${currentFolderEmails.length} di ${currentFolderEmails.length}` : '0-0 di 0'}
               </div>
-              {selectedEmail.tipo && (
-                <div>
-                  <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Tipologia:</span>{' '}
-                  <span style={{ textTransform: 'capitalize', color: 'var(--text-primary)' }}>{selectedEmail.tipo.replace('_', ' ')}</span>
+
+            </div>
+
+            {/* Emails Scrollable Area */}
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              {loading && emails.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+                  <span style={{ fontSize: '24px' }}>⏳</span> Caricamento in corso...
                 </div>
+              ) : currentFolderEmails.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-secondary)' }}>
+                  <span style={{ fontSize: '48px', display: 'block', marginBottom: '12px' }}>✉️</span>
+                  Nessun messaggio trovato in questa cartella.
+                </div>
+              ) : (
+                currentFolderEmails.map(e => {
+                  const isStarred = e.preferito === 1;
+                  const isRead = e.letto === 1;
+                  const isChecked = selectedIds.has(e.id);
+                  const senderName = e.cartella === 'sent' ? `A: ${e.destinatario}` : e.mittente.split('@')[0];
+
+                  return (
+                    <div 
+                      key={e.id}
+                      className={`email-row ${!isRead ? 'unread' : ''} ${isChecked ? 'selected' : ''}`}
+                      onClick={() => {
+                        setSelectedEmail(e);
+                        // Automatically mark as read when opened
+                        if (!isRead) {
+                          toggleReadStatus(e.id, 0);
+                        }
+                      }}
+                    >
+                      {/* Checkbox */}
+                      <input 
+                        type="checkbox" 
+                        checked={isChecked}
+                        onChange={(event) => handleSelectRow(e.id, event)}
+                        onClick={e => e.stopPropagation()}
+                        style={{ width: '15px', height: '15px', cursor: 'pointer' }}
+                      />
+
+                      {/* Star */}
+                      <span 
+                        onClick={(event) => toggleStar(e.id, e.preferito, event)}
+                        style={{ fontSize: '16px', color: isStarred ? '#f59e0b' : '#9ca3af', cursor: 'pointer' }}
+                      >
+                        {isStarred ? '★' : '☆'}
+                      </span>
+
+                      {/* Sender */}
+                      <span style={{ fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', paddingRight: '12px' }}>
+                        {senderName}
+                      </span>
+
+                      {/* Subject and snippet */}
+                      <div style={{ display: 'flex', gap: '8px', overflow: 'hidden', fontSize: '13px' }}>
+                        <span style={{ color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>{e.oggetto}</span>
+                        <span style={{ color: '#9ca3af', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          — {e.corpo}
+                        </span>
+                      </div>
+
+                      {/* Date / Hover actions */}
+                      <div className="hover-actions-trigger" style={{ textAlign: 'right', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                        <span>{formatDateSafe(e.data_invio)}</span>
+                        
+                        {/* Hover Actions */}
+                        <div className="hover-actions">
+                          <span 
+                            title={isRead ? "Segna come da leggere" : "Segna come letto"}
+                            onClick={(event) => toggleReadStatus(e.id, e.letto, event)}
+                            style={{ cursor: 'pointer', fontSize: '14px' }}
+                          >
+                            {isRead ? '📧' : '📩'}
+                          </span>
+                          {e.cartella !== 'trash' ? (
+                            <span 
+                              title="Sposta nel Cestino"
+                              onClick={(event) => moveToFolder(e.id, 'trash', event)}
+                              style={{ cursor: 'pointer', fontSize: '14px' }}
+                            >
+                              🗑️
+                            </span>
+                          ) : (
+                            <span 
+                              title="Elimina definitivamente"
+                              onClick={(event) => deletePermanently(e.id, event)}
+                              style={{ cursor: 'pointer', fontSize: '14px' }}
+                            >
+                              ❌
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
 
-            {/* Email Body content */}
-            <div style={{ 
-              flex: 1, 
-              background: 'var(--bg-primary)', 
-              borderRadius: '8px', 
-              border: '1px solid var(--border)', 
-              padding: '24px', 
-              whiteSpace: 'pre-wrap', 
-              fontFamily: 'inherit', 
-              fontSize: '14px', 
-              color: 'var(--text-primary)', 
-              lineHeight: 1.6,
-              overflowY: 'auto'
-            }}>
-              {selectedEmail.corpo}
-            </div>
-            
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--text-secondary)' }}>
-            <span style={{ fontSize: '48px', marginBottom: '16px' }}>📨</span>
-            <p>Seleziona un messaggio per visualizzarne i dettagli o componi una nuova e-mail.</p>
+          /* DETAILED EMAIL VIEW */
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg-primary)' }}>
+            
+            {/* Detail Actions Top Bar */}
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '20px', 
+              padding: '12px 20px', 
+              borderBottom: '1px solid var(--border)',
+              background: 'var(--bg-secondary)'
+            }}>
+              
+              <button 
+                className="btn btn-secondary btn-sm" 
+                onClick={() => setSelectedEmail(null)}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                ⬅️ Torna alla lista
+              </button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', borderLeft: '1px solid var(--border)', paddingLeft: '20px' }}>
+                <span 
+                  title="Aggiungi/Rimuovi da Speciali"
+                  onClick={() => toggleStar(selectedEmail.id, selectedEmail.preferito)}
+                  style={{ fontSize: '20px', cursor: 'pointer', color: selectedEmail.preferito === 1 ? '#f59e0b' : '#9ca3af' }}
+                >
+                  {selectedEmail.preferito === 1 ? '★' : '☆'}
+                </span>
+
+                <span 
+                  title={selectedEmail.letto === 1 ? "Segna come da leggere" : "Segna come letto"}
+                  onClick={() => { toggleReadStatus(selectedEmail.id, selectedEmail.letto); setSelectedEmail(null); }}
+                  style={{ fontSize: '18px', cursor: 'pointer' }}
+                >
+                  {selectedEmail.letto === 1 ? '📧' : '📩'}
+                </span>
+
+                {selectedEmail.cartella !== 'trash' ? (
+                  <button 
+                    className="btn btn-danger btn-xs" 
+                    title="Sposta nel Cestino"
+                    onClick={() => moveToFolder(selectedEmail.id, 'trash')}
+                  >
+                    🗑️ Sposta nel Cestino
+                  </button>
+                ) : (
+                  <button 
+                    className="btn btn-danger btn-xs" 
+                    title="Elimina Definitivamente"
+                    onClick={() => deletePermanently(selectedEmail.id)}
+                  >
+                    🗑️ Elimina Definitivamente
+                  </button>
+                )}
+
+                {selectedEmail.cartella !== 'spam' && selectedEmail.cartella !== 'trash' && (
+                  <button 
+                    className="btn btn-secondary btn-xs"
+                    onClick={() => moveToFolder(selectedEmail.id, 'spam')}
+                  >
+                    🚫 Segna come Spam
+                  </button>
+                )}
+                
+                {selectedEmail.cartella === 'trash' || selectedEmail.cartella === 'spam' ? (
+                  <button 
+                    className="btn btn-secondary btn-xs"
+                    onClick={() => moveToFolder(selectedEmail.id, 'inbox')}
+                  >
+                    📥 Sposta in Posta in Arrivo
+                  </button>
+                ) : null}
+              </div>
+
+            </div>
+
+            {/* Email Header Metadata */}
+            <div style={{ padding: '24px 28px', borderBottom: '1px solid var(--border)' }}>
+              
+              <h2 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>
+                {selectedEmail.oggetto}
+              </h2>
+
+              <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+                {/* Sender Avatar */}
+                <div style={{ 
+                  width: '40px', 
+                  height: '40px', 
+                  borderRadius: '50%', 
+                  background: getAvatarColor(selectedEmail.mittente), 
+                  color: 'white', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  fontWeight: 'bold',
+                  fontSize: '18px'
+                }}>
+                  {(selectedEmail.mittente || 'H')[0].toUpperCase()}
+                </div>
+
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <strong style={{ fontSize: '14px', color: 'var(--text-primary)' }}>{selectedEmail.mittente}</strong>
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                      {new Date(selectedEmail.data_invio).toLocaleString('it-IT', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    a {selectedEmail.destinatario}
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Email Content scrollable area */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '28px', background: 'var(--bg-primary)' }}>
+              
+              {/* Linked Subject Metadata Box */}
+              {(selectedEmail.id_candidato || selectedEmail.id_ricerca) && (
+                <div style={{ 
+                  background: 'var(--bg-secondary)', 
+                  border: '1px solid var(--border)', 
+                  borderRadius: '10px', 
+                  padding: '12px 16px',
+                  marginBottom: '24px',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '16px',
+                  fontSize: '13px'
+                }}>
+                  {selectedEmail.id_candidato && (
+                    <div>
+                      🔗 <strong>Candidato:</strong>{' '}
+                      <span style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                        {candidati.find(c => String(c.id) === String(selectedEmail.id_candidato))?.cognome || 'Vedi Profilo'} 
+                        {' '}{candidati.find(c => String(c.id) === String(selectedEmail.id_candidato))?.nome || ''}
+                      </span>
+                    </div>
+                  )}
+                  {selectedEmail.id_ricerca && (
+                    <div>
+                      💼 <strong>Mandato:</strong>{' '}
+                      <span style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                        {ricerche.find(r => String(r.id) === String(selectedEmail.id_ricerca))?.azienda || 'Vedi Ricerca'} 
+                        {' '}- {ricerche.find(r => String(r.id) === String(selectedEmail.id_ricerca))?.ruolo || ''}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ 
+                whiteSpace: 'pre-wrap', 
+                lineHeight: 1.6, 
+                fontSize: '14px', 
+                color: 'var(--text-primary)',
+                fontFamily: 'inherit'
+              }}>
+                {selectedEmail.corpo}
+              </div>
+
+              {/* Action reply at bottom */}
+              <div style={{ marginTop: '40px', borderTop: '1px solid var(--border)', paddingTop: '20px', display: 'flex', gap: '12px' }}>
+                <button className="btn btn-secondary btn-sm" onClick={() => handleReply(selectedEmail)}>
+                  ↩️ Rispondi
+                </button>
+                <button 
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    setOggetto(`Inoltra: ${selectedEmail.oggetto}`);
+                    setCorpo(`\n\n---------- Messaggio inoltrato ----------\nDa: <${selectedEmail.mittente}>\nData: ${new Date(selectedEmail.data_invio).toLocaleString('it-IT')}\nOggetto: ${selectedEmail.oggetto}\nA: <${selectedEmail.destinatario}>\n\n${selectedEmail.corpo}`);
+                    setDestinatario('');
+                    setIsComposing(true);
+                    setIsMinimized(false);
+                  }}
+                >
+                  ➡️ Inoltra
+                </button>
+              </div>
+
+            </div>
+
           </div>
         )}
+
       </div>
+
+      {/* 3. FLOATING COMPOSE WIDGET (Gmail-Style Drawer at bottom-right) */}
+      {isComposing && (
+        <div style={{
+          position: 'fixed',
+          bottom: 0,
+          right: '80px',
+          width: '600px',
+          height: isMinimized ? '44px' : '520px',
+          background: 'var(--bg-primary)',
+          border: '1px solid var(--border)',
+          borderRadius: '12px 12px 0 0',
+          boxShadow: '0 8px 10px 1px rgba(0,0,0,0.14), 0 3px 14px 2px rgba(0,0,0,0.12), 0 5px 5px -3px rgba(0,0,0,0.2)',
+          display: 'flex',
+          flexDirection: 'column',
+          zIndex: 1000,
+          overflow: 'hidden',
+          transition: 'height 0.25s ease'
+        }}>
+          
+          {/* Header Compose Widget */}
+          <div style={{
+            background: '#202124',
+            color: 'white',
+            padding: '10px 16px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            cursor: 'pointer'
+          }} onClick={() => setIsMinimized(!isMinimized)}>
+            <strong style={{ fontSize: '14px' }}>Nuovo Messaggio</strong>
+            <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+              <span style={{ fontSize: '18px', fontWeight: 'bold' }} title="Riduci/Ingrandisci">
+                {isMinimized ? '🗖' : '🗕'}
+              </span>
+              <span 
+                style={{ fontSize: '18px', fontWeight: 'bold' }} 
+                title="Chiudi bozza" 
+                onClick={(e) => { e.stopPropagation(); setIsComposing(false); }}
+              >
+                ✕
+              </span>
+            </div>
+          </div>
+
+          {/* Form Content (visible only when not minimized) */}
+          {!isMinimized && (
+            <form onSubmit={handleSend} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              
+              <div style={{ overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+                
+                {/* Autocompletes Row */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="form-group">
+                    <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Modello Email</label>
+                    <select 
+                      className="form-control" 
+                      value={selectedTemplate} 
+                      onChange={(e) => handleTemplateChange(e.target.value)}
+                      style={{ height: '32px', padding: '4px 8px', fontSize: '13px' }}
+                    >
+                      {Object.entries(templates).map(([key, val]) => (
+                        <option key={key} value={key}>{val.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Collega Candidato</label>
+                    <select 
+                      className="form-control" 
+                      value={selectedCandidatoId} 
+                      onChange={(e) => handleCandidatoSelect(e.target.value)}
+                      style={{ height: '32px', padding: '4px 8px', fontSize: '13px' }}
+                    >
+                      <option value="">-- Seleziona --</option>
+                      {candidati.map(c => (
+                        <option key={c.id} value={c.id}>{c.cognome} {c.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Destinatario & Ricerca */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="form-group">
+                    <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>A *</label>
+                    <input 
+                      type="email" 
+                      className="form-control" 
+                      required
+                      placeholder="destinatario@mail.it" 
+                      value={destinatario}
+                      onChange={(e) => setDestinatario(e.target.value)}
+                      style={{ height: '32px', padding: '4px 8px', fontSize: '13px' }}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Collega Ricerca</label>
+                    <select 
+                      className="form-control" 
+                      value={selectedRicercaId} 
+                      onChange={(e) => setSelectedRicercaId(e.target.value)}
+                      style={{ height: '32px', padding: '4px 8px', fontSize: '13px' }}
+                    >
+                      <option value="">-- Nessuna --</option>
+                      {ricerche.map(r => (
+                        <option key={r.id} value={r.id}>{r.azienda} - {r.ruolo}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Oggetto */}
+                <div className="form-group">
+                  <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Oggetto *</label>
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    required
+                    placeholder="Oggetto dell'e-mail..." 
+                    value={oggetto}
+                    onChange={(e) => setOggetto(e.target.value)}
+                    style={{ height: '32px', padding: '4px 8px', fontSize: '13px' }}
+                  />
+                </div>
+
+                {/* Message Body */}
+                <div className="form-group" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}>Corpo del Messaggio *</label>
+                  <textarea 
+                    className="form-control" 
+                    required
+                    placeholder="Scrivi il messaggio qui..." 
+                    value={corpo}
+                    onChange={(e) => setCorpo(e.target.value)}
+                    style={{ flex: 1, resize: 'none', padding: '10px', fontSize: '13px', minHeight: '160px', fontFamily: 'inherit', marginTop: '4px' }}
+                  />
+                </div>
+
+              </div>
+
+              {/* Compose Footer Actions */}
+              <div style={{ 
+                padding: '12px 16px', 
+                borderTop: '1px solid var(--border)', 
+                background: 'var(--bg-secondary)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <button type="submit" className="btn btn-primary" style={{ padding: '8px 24px', borderRadius: '18px', fontWeight: 600 }}>
+                  🚀 Invia
+                </button>
+                
+                <span 
+                  title="Elimina Bozza"
+                  onClick={() => setIsComposing(false)}
+                  style={{ fontSize: '20px', cursor: 'pointer', padding: '4px' }}
+                >
+                  🗑️
+                </span>
+              </div>
+
+            </form>
+          )}
+
+        </div>
+      )}
 
     </div>
   );

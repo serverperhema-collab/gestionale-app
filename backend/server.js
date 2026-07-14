@@ -2168,7 +2168,17 @@ app.get('/api/report', async (req, res) => {
 // 12. GESTIONE E-MAIL CLIENT (STORICO E INVIO)
 app.get('/api/emails', async (req, res) => {
   try {
-    const list = await db.all('SELECT * FROM emails ORDER BY data_invio DESC');
+    const { cartella } = req.query;
+    let list;
+    if (cartella === 'speciali') {
+      list = await db.all('SELECT * FROM emails WHERE preferito = 1 ORDER BY data_invio DESC');
+    } else if (cartella === 'posticipati') {
+      list = await db.all('SELECT * FROM emails WHERE data_posticipato IS NOT NULL ORDER BY data_invio DESC');
+    } else if (cartella) {
+      list = await db.all('SELECT * FROM emails WHERE cartella = ? ORDER BY data_invio DESC', [cartella]);
+    } else {
+      list = await db.all('SELECT * FROM emails ORDER BY data_invio DESC');
+    }
     res.json({ success: true, data: list });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
@@ -2198,8 +2208,8 @@ app.post('/api/emails/send', async (req, res) => {
     const dataInvio = new Date().toISOString();
 
     await db.run(`
-      INSERT INTO emails (id, data_invio, mittente, destinatario, oggetto, corpo, tipo, stato, id_candidato, id_ricerca)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO emails (id, data_invio, mittente, destinatario, oggetto, corpo, tipo, stato, id_candidato, id_ricerca, cartella, letto)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'sent', 1)
     `, [id, dataInvio, mittente, destinatario, oggetto, corpo, tipo || 'custom', stato, id_candidato || null, id_ricerca || null]);
 
     if (!emailResult.success && !emailResult.simulated) {
@@ -2218,6 +2228,55 @@ app.post('/api/emails/send', async (req, res) => {
     }
 
     res.json({ success: true, id, stato });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.put('/api/emails/:id/preferito', async (req, res) => {
+  try {
+    const { preferito } = req.body;
+    await db.run('UPDATE emails SET preferito = ? WHERE id = ?', [preferito ? 1 : 0, req.params.id]);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.put('/api/emails/:id/letto', async (req, res) => {
+  try {
+    const { letto } = req.body;
+    await db.run('UPDATE emails SET letto = ? WHERE id = ?', [letto ? 1 : 0, req.params.id]);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.put('/api/emails/:id/cartella', async (req, res) => {
+  try {
+    const { cartella } = req.body;
+    await db.run('UPDATE emails SET cartella = ?, data_posticipato = NULL WHERE id = ?', [cartella, req.params.id]);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.put('/api/emails/:id/snooze', async (req, res) => {
+  try {
+    const { data_posticipato } = req.body;
+    await db.run('UPDATE emails SET data_posticipato = ?, cartella = \'inbox\' WHERE id = ?', [data_posticipato || null, req.params.id]);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.delete('/api/emails/:id', async (req, res) => {
+  try {
+    await db.run('DELETE FROM emails WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
