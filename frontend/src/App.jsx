@@ -44,6 +44,22 @@ class ErrorBoundary extends React.Component {
 
 export default function App() {
   const ctrl = useAppController();
+  const [isAuthenticated, setIsAuthenticated] = React.useState(() => {
+    return sessionStorage.getItem('hr_authenticated') === 'true';
+  });
+  const [passwordInput, setPasswordInput] = React.useState('');
+  const [authError, setAuthError] = React.useState('');
+
+  const handleAuthSubmit = (e) => {
+    e.preventDefault();
+    if (passwordInput === 'HemaWork2026!') {
+      setIsAuthenticated(true);
+      sessionStorage.setItem('hr_authenticated', 'true');
+      setAuthError('');
+    } else {
+      setAuthError('Password errata!');
+    }
+  };
 
   React.useEffect(() => {
     let title = "HR Management";
@@ -101,6 +117,119 @@ export default function App() {
   const handleNext = () => {
     if (hasNext) ctrl.setSelectedRicercaId(navList[currentIndex + 1].id);
   };
+
+  if (!isAuthenticated) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        background: 'radial-gradient(circle at center, #1e1b4b 0%, #0f172a 100%)',
+        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        color: '#f8fafc',
+        padding: '20px',
+        boxSizing: 'border-box'
+      }}>
+        <div style={{
+          background: 'rgba(30, 41, 59, 0.7)',
+          backdropFilter: 'blur(16px)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          borderRadius: '16px',
+          padding: '40px',
+          width: '100%',
+          maxWidth: '400px',
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.5)',
+          textAlign: 'center',
+          boxSizing: 'border-box'
+        }}>
+          <div style={{
+            fontSize: '48px',
+            marginBottom: '16px',
+            userSelect: 'none'
+          }}>🔒</div>
+          <h2 style={{
+            fontSize: '24px',
+            fontWeight: '700',
+            margin: '0 0 8px 0',
+            background: 'linear-gradient(to right, #818cf8, #c084fc)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            letterSpacing: '-0.5px'
+          }}>HEMA WORK / MDI</h2>
+          <p style={{
+            fontSize: '13px',
+            color: '#94a3b8',
+            margin: '0 0 32px 0',
+            fontWeight: '500'
+          }}>HR Management Portal</p>
+          
+          <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ textAlign: 'left' }}>
+              <label style={{
+                display: 'block',
+                fontSize: '11px',
+                fontWeight: '600',
+                color: '#94a3b8',
+                marginBottom: '6px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>Password di Accesso</label>
+              <input
+                type="password"
+                placeholder="Inserisci la password..."
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  background: 'rgba(15, 23, 42, 0.6)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '8px',
+                  color: '#fff',
+                  fontSize: '14px',
+                  outline: 'none',
+                  transition: 'border-color 0.2s',
+                  boxSizing: 'border-box'
+                }}
+                autoFocus
+              />
+            </div>
+            {authError && (
+              <div style={{
+                color: '#f87171',
+                fontSize: '13px',
+                fontWeight: '500',
+                textAlign: 'left'
+              }}>
+                ⚠️ {authError}
+              </div>
+            )}
+            <button
+              type="submit"
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: 'linear-gradient(to right, #6366f1, #a855f7)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'opacity 0.2s',
+                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
+              onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
+            >
+              ACCEDI AL PORTALE
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-container">
@@ -173,6 +302,12 @@ export default function App() {
           </li>
           <li>
             <button className={`menu-item ${ctrl.currentPage === 'email_config' ? 'active' : ''}`} onClick={() => { ctrl.setCurrentPage('email_config'); ctrl.setSelectedRicercaId(null); }}>⚙️ Configurazione E-mail</button>
+          </li>
+          <li>
+            <button className="menu-item" onClick={() => {
+              sessionStorage.removeItem('hr_authenticated');
+              setIsAuthenticated(false);
+            }} style={{ color: '#ef4444' }}>🚪 Esci</button>
           </li>
         </ul>
       </aside>
