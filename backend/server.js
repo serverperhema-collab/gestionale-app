@@ -2235,6 +2235,12 @@ app.post('/api/emails/sync', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Configurazione e-mail mancante. Vai nella scheda Configurazione.' });
     }
     const config = JSON.parse(configRow.valore);
+    
+    // Automatic cleanup of old cached emails that do not have attachments loaded
+    if (!offset || parseInt(offset) === 0) {
+      await db.run("DELETE FROM emails WHERE id LIKE 'EM_IMAP_%' AND allegati IS NULL");
+    }
+
     const addedCount = await syncImapEmails(config, parseInt(limit) || 50, parseInt(offset) || 0);
     res.json({ success: true, addedCount });
   } catch (e) {
