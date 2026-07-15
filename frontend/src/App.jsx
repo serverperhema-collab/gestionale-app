@@ -288,7 +288,7 @@ export default function App() {
           </li>
           <li>
             <button className={`menu-item ${ctrl.currentPage === 'commerciali_gestione' ? 'active' : ''}`} onClick={() => { ctrl.setCurrentPage('commerciali_gestione'); ctrl.setSelectedRicercaId(null); }} style={{ position: 'relative' }}>
-              🤝 Commerciali, Clienti & Accessi
+              🤝 Accessi Esterni
               {ctrl.pendingChecklist.filter(item => item.tipo === 'ACCOUNT' || item.tipo === 'CLIENT_ACCOUNT').length > 0 && (
                 <span className="badge-notification">{ctrl.pendingChecklist.filter(item => item.tipo === 'ACCOUNT' || item.tipo === 'CLIENT_ACCOUNT').length}</span>
               )}
@@ -327,7 +327,7 @@ export default function App() {
               : ctrl.currentPage === 'ricerche' ? 'Mandati e Ricerche Attive'
               : ctrl.currentPage === 'candidati' ? 'Database Curricula'
               : ctrl.currentPage === 'annunci' ? 'Bacheca Annunci Globali'
-              : ctrl.currentPage === 'commerciali_gestione' ? 'Gestione Profili Commerciali'
+              : ctrl.currentPage === 'commerciali_gestione' ? 'Gestione Accessi Esterni (Commerciali e Clienti)'
               : ctrl.currentPage === 'email_config' ? 'Configurazione Server E-mail'
               : ctrl.currentPage === 'posta' ? 'Client Posta Elettronica'
               : ctrl.currentPage === 'whatsapp' ? 'Integrazione WhatsApp Web'

@@ -132,6 +132,15 @@ export default function GestioneCommerciali() {
           </div>
         </div>
         <button 
+          className="btn btn-secondary btn-sm"
+          onClick={() => {
+            const link = window.location.port && window.location.port !== '3001' ? `http://${window.location.hostname}:3001/commerciale` : window.location.origin + '/commerciale';
+            window.open(link, '_blank');
+          }}
+        >
+          🌐 Apri Portale
+        </button>
+        <button 
           className="btn btn-secondary btn-sm" 
           onClick={() => {
             const link = window.location.port && window.location.port !== '3001' ? `http://${window.location.hostname}:3001/commerciale` : window.location.origin + '/commerciale';
@@ -288,6 +297,15 @@ export default function GestioneCommerciali() {
               {window.location.port && window.location.port !== '3001' ? `http://${window.location.hostname}:3001/cliente` : window.location.origin + '/cliente'}
             </div>
           </div>
+          <button 
+            className="btn btn-secondary btn-sm"
+            onClick={() => {
+              const link = window.location.port && window.location.port !== '3001' ? `http://${window.location.hostname}:3001/cliente` : window.location.origin + '/cliente';
+              window.open(link, '_blank');
+            }}
+          >
+            🌐 Apri Portale
+          </button>
           <button 
             className="btn btn-secondary btn-sm" 
             onClick={() => {
