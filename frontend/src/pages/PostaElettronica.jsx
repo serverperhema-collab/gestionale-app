@@ -49,6 +49,19 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
 
   const handleConfirmLink = async (att) => {
     if (!linkingCandidateId) return;
+
+    // Check if candidate already has a linked file of this type
+    const cand = candidati.find(c => String(c.id) === String(linkingCandidateId));
+    if (cand) {
+      if (linkingDocType === 'cv' && cand.link_cv) {
+        const confirmOverwrite = window.confirm(`Il candidato ${cand.nome} ${cand.cognome} ha già un Curriculum Vitae collegato. Vuoi sostituirlo con questo allegato?`);
+        if (!confirmOverwrite) return;
+      } else if (linkingDocType === 'doc' && cand.link_documenti) {
+        const confirmOverwrite = window.confirm(`Il candidato ${cand.nome} ${cand.cognome} ha già un Documento d'identità collegato. Vuoi sostituirlo con questo allegato?`);
+        if (!confirmOverwrite) return;
+      }
+    }
+
     try {
       setSubmittingLink(true);
       showStatus('loading', 'Collegamento allegato...', 'Collegamento del file alla scheda candidato in corso...');
@@ -154,6 +167,9 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
 
   useEffect(() => {
     fetchEmails();
+    if (typeof fetchCandidati === 'function') {
+      fetchCandidati();
+    }
   }, []);
 
   // Templates definition
