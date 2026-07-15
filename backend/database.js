@@ -242,6 +242,25 @@ async function initDatabase() {
       )
     `);
 
+    // 7b. Table Clienti Portale (Portal clients)
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS clienti_portale (
+        id TEXT PRIMARY KEY,
+        nome_locale TEXT NOT NULL,
+        piva TEXT,
+        sede_legale TEXT,
+        sede_lavoro TEXT,
+        referente TEXT,
+        email TEXT UNIQUE NOT NULL,
+        telefono_mobile TEXT,
+        telefono_fisso TEXT,
+        password TEXT NOT NULL,
+        stato_approvazione TEXT DEFAULT 'Da Approvare',
+        data_registrazione TEXT,
+        id_cliente_inserito TEXT
+      )
+    `);
+
     // 8. Table Configurazione Email (SMTP config)
     await db.exec(`
       CREATE TABLE IF NOT EXISTS configurazione_email (

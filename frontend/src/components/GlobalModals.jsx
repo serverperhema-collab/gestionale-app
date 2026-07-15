@@ -36,7 +36,8 @@ export default function GlobalModals(props) {
     selectedAnnuncio, setSelectedAnnuncio, handleUpdateAnnuncioDetail,
     handleSaveStatusMotivation, newAdStatus, adStatusMotivation, setAdStatusMotivation, showFeedbackModal, setShowFeedbackModal,
     feedbackNoteText, setFeedbackNoteText, showAdStatusModal, setShowAdStatusModal, handleUpdateAdStatus,
-    newMandatePopup, setNewMandatePopup, newCommercialPopup, setNewCommercialPopup, setCurrentPage,
+    newMandatePopup, setNewMandatePopup, newCommercialPopup, setNewCommercialPopup,
+    newClientPopup, setNewClientPopup, setCurrentPage,
     handleFeedbackPositivo, handleFeedbackNegativo,
     scheduleInterviewOption, setScheduleInterviewOption,
     interviewDate, setInterviewDate,
@@ -2241,6 +2242,37 @@ export default function GlobalModals(props) {
               <button 
                 className="btn btn-secondary" 
                 onClick={() => setNewCommercialPopup(null)}
+              >
+                Chiudi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 8b. NEW CLIENT REGISTRATION NOTIFICATION POPUP */}
+      {newClientPopup && (
+        <div className="modal-overlay">
+          <div className="modal-container" style={{ width: '420px', textAlign: 'center', padding: '32px 24px' }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>🏢</div>
+            <h2 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '12px' }}>Nuova Registrazione Cliente!</h2>
+            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '24px', lineHeight: '1.5' }}>
+              Il cliente <strong>{newClientPopup.nome_locale}</strong> (Referente: {newClientPopup.referente}) ha richiesto l'abilitazione ad accedere al portale clienti.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button 
+                className="btn btn-primary" 
+                onClick={() => {
+                  setCurrentPage('commerciali_gestione');
+                  setSelectedRicercaId(null);
+                  setNewClientPopup(null);
+                }}
+              >
+                🔍 Vai a Commerciali, Clienti & Accessi
+              </button>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => setNewClientPopup(null)}
               >
                 Chiudi
               </button>

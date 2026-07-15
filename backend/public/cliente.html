@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HEMA WORK - Portale Clienti</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0B0F19;
+      --card-bg: #111827;
+      --card-sub: #1F2937;
+      --primary: #6366F1;
+      --primary-hover: #4F46E5;
+      --text: #F3F4F6;
+      --text-muted: #9CA3AF;
+      --border: rgba(255, 255, 255, 0.08);
+      --success: #10B981;
+      --danger: #EF4444;
+      --warning: #F59E0B;
+      --radius: 16px;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 800px;
+      padding: 24px 16px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #FFF 0%, var(--primary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header p {
+      margin: 8px 0 0 0;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      margin-bottom: 24px;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .form-control {
+      font-family: inherit;
+      background-color: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border);
+      color: #FFFFFF;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .form-control:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    }
+
+    .form-control:disabled {
+      background-color: rgba(255,255,255,0.03);
+      color: var(--text-muted);
+      cursor: not-allowed;
+    }
+
+    textarea.form-control {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 600px) {
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .auth-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+
+    .auth-tab {
+      flex: 1;
+      text-align: center;
+      padding: 12px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      transition: all 0.2s;
+      border-bottom: 2px solid transparent;
+    }
+
+    .auth-tab.active {
+      color: #FFFFFF;
+      border-bottom-color: var(--primary);
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+      color: #FFFFFF;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    }
+
+    .btn-submit:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(99, 102, 241, 0.45);
+    }
+
+    .btn-secondary {
+      padding: 10px 16px;
+      background-color: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary:hover {
+      background-color: rgba(255, 255, 255, 0.05);
+      color: #FFFFFF;
+    }
+
+    /* Portal Dashboard Styles */
+    .dashboard-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 600px) {
+      .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+    }
+
+    .welcome-text h2 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .welcome-text p {
+      margin: 4px 0 0 0;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .btn-action {
+      padding: 10px 20px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+      color: #FFFFFF;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+    }
+
+    .btn-action:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(99, 102, 241, 0.35);
+    }
+
+    .logout-link {
+      color: var(--danger);
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* Table Styles */
+    .table-container {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background-color: rgba(0, 0, 0, 0.2);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      text-align: left;
+    }
+
+    th {
+      background-color: rgba(255, 255, 255, 0.02);
+      padding: 12px 16px;
+      font-weight: 600;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      text-transform: uppercase;
+      font-size: 10px;
+      letter-spacing: 0.05em;
+    }
+
+    td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge-pending {
+      background-color: rgba(245, 158, 11, 0.15);
+      color: var(--warning);
+    }
+
+    .badge-approved {
+      background-color: rgba(16, 185, 129, 0.15);
+      color: var(--success);
+    }
+
+    .badge-rejected {
+      background-color: rgba(239, 68, 110, 0.15);
+      color: var(--danger);
+    }
+
+    /* Modal dialog custom style */
+    .custom-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+    }
+
+    .custom-modal-container {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 90%;
+      max-width: 500px;
+      padding: 24px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Notification box */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background-color: var(--card-sub);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transform: translateY(150%);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .toast.active {
+      transform: translateY(0);
+    }
+
+    .toast-success { border-left: 4px solid var(--success); }
+    .toast-error { border-left: 4px solid var(--danger); }
+    .toast-info { border-left: 4px solid var(--primary); }
+
+  </style>
+</head>
+<body>
+
+<div class="container">
+  
+  <div class="header">
+    <h1>💼 PORTALE CLIENTI HEMA</h1>
+    <p>Monitoraggio e Inserimento Richieste Mandato</p>
+  </div>
+
+  <!-- AUTHENTICATION CARD -->
+  <div class="card" id="authCard">
+    <div class="auth-tabs" id="authTabs">
+      <div class="auth-tab active" onclick="switchTab('login')">Accedi</div>
+      <div class="auth-tab" onclick="switchTab('register')">Registrati</div>
+    </div>
+
+    <!-- Login Form -->
+    <form id="loginForm" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label for="loginEmail">Indirizzo E-mail *</label>
+        <input type="email" id="loginEmail" class="form-control" required placeholder="mario.rossi@azienda.it">
+      </div>
+      <div class="form-group">
+        <label for="loginPassword">Password *</label>
+        <input type="password" id="loginPassword" class="form-control" required placeholder="••••••••">
+      </div>
+      <button type="submit" class="btn-submit" style="margin-top: 12px;">Accedi all'Area Clienti</button>
+    </form>
+
+    <!-- Registration Form -->
+    <form id="registerForm" onsubmit="handleRegister(event)" style="display: none;">
+      <h3 style="font-size: 13px; color: var(--primary); text-transform: uppercase; margin-bottom: 16px;">Dati Aziendali</h3>
+      <div class="form-group">
+        <label for="regNomeLocale">Ragione Sociale / Nome Azienda *</label>
+        <input type="text" id="regNomeLocale" class="form-control" required placeholder="Garden Caffè S.r.l.">
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="regPiva">Partita IVA</label>
+          <input type="text" id="regPiva" class="form-control" placeholder="12345678901">
+        </div>
+        <div class="form-group">
+          <label for="regSedeLegale">Sede Legale</label>
+          <input type="text" id="regSedeLegale" class="form-control" placeholder="Via Roma 12, Milano">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="regSedeLavoro">Sede Operativa di Lavoro *</label>
+        <input type="text" id="regSedeLavoro" class="form-control" required placeholder="Via del Corso 45, Roma">
+      </div>
+
+      <h3 style="font-size: 13px; color: var(--primary); text-transform: uppercase; margin-top: 24px; margin-bottom: 16px;">Dettagli Referente & Accesso</h3>
+
+      <div class="form-group">
+        <label for="regReferente">Nome Referente per Ricerche *</label>
+        <input type="text" id="regReferente" class="form-control" required placeholder="Mario Rossi (Team Leader)">
+      </div>
+
+      <div class="form-group">
+        <label for="regEmail">E-mail di Accesso *</label>
+        <input type="email" id="regEmail" class="form-control" required placeholder="contatti@azienda.it">
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="regTelMobile">Telefono Referente (Cellulare) *</label>
+          <input type="text" id="regTelMobile" class="form-control" required placeholder="3331234567">
+        </div>
+        <div class="form-group">
+          <label for="regTelFisso">Telefono Fisso Azienda</label>
+          <input type="text" id="regTelFisso" class="form-control" placeholder="06123456">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="regPassword">Scegli Password *</label>
+        <input type="password" id="regPassword" class="form-control" required placeholder="••••••••">
+      </div>
+
+      <button type="submit" class="btn-submit" style="margin-top: 16px;">Invia Richiesta di Registrazione</button>
+    </form>
+  </div>
+
+  <!-- DASHBOARD AREA (HIDDEN BY DEFAULT) -->
+  <div id="dashboardArea" style="display: none;">
+    <div class="card">
+      <div class="dashboard-header">
+        <div class="welcome-text">
+          <h2 id="welcomeClientName">Benvenuto Cliente</h2>
+          <p id="welcomeClientDetails">mario.rossi@azienda.it</p>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <button class="btn-action" onclick="openNewMandateForm()">
+            <span>➕ Inserisci Mandato</span>
+          </button>
+          <span class="logout-link" onclick="handleLogout()">Disconnetti</span>
+        </div>
+      </div>
+
+      <span class="section-title">Andamento delle tue Ricerche</span>
+      
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Ruolo</th>
+              <th>Sede Lavoro</th>
+              <th>Data Inserimento</th>
+              <th>Approvazione</th>
+              <th>Stato Selezione</th>
+              <th>Candidati Proposti</th>
+            </tr>
+          </thead>
+          <tbody id="researchesTableBody">
+            <tr>
+              <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 24px;">
+                Caricamento ricerche in corso...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- NEW MANDATE FORM CARD (HIDDEN BY DEFAULT) -->
+  <div id="newMandateArea" style="display: none;">
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 20px;">
+        <h2 style="margin: 0; font-size: 18px; font-weight: 700;">Nuova Richiesta Mandato di Ricerca</h2>
+        <button class="btn-secondary" onclick="closeNewMandateForm()">Annulla</button>
+      </div>
+
+      <form id="newMandateForm" onsubmit="handleSubmitMandate(event)">
+        <!-- Pre-filled hidden fields -->
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Azienda / Locale</label>
+            <input type="text" id="mandateAzienda" class="form-control" disabled>
+          </div>
+          <div class="form-group">
+            <label>Partita IVA</label>
+            <input type="text" id="mandatePiva" class="form-control" disabled>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="mandateRuolo">Ruolo del Candidato Richiesto *</label>
+          <input type="text" id="mandateRuolo" class="form-control" required placeholder="es. Cameriere di sala, Cuoco capopartita, Barista">
+        </div>
+
+        <!-- Sede di lavoro selection -->
+        <div class="form-group">
+          <label for="mandateSedeLavoroSelect">Sede di Lavoro Operativa *</label>
+          <select id="mandateSedeLavoroSelect" class="form-control" style="background-color: var(--card-sub); border: 1px solid var(--border); color: white;" onchange="handleSedeLavoroChange()">
+            <!-- Loaded dynamically -->
+            <option value="new">+ Aggiungi una nuova sede di lavoro</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="mandateSedeLavoroNuovaContainer">
+          <label for="mandateSedeLavoroNuova">Indirizzo Nuova Sede di Lavoro *</label>
+          <input type="text" id="mandateSedeLavoroNuova" class="form-control" placeholder="es. Via Milano 40, Milano">
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="mandateReferente">Persona Referente *</label>
+            <input type="text" id="mandateReferente" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="mandateEmail">E-mail di Contatto *</label>
+            <input type="email" id="mandateEmail" class="form-control" required>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="mandateTelefono">Telefono Referente *</label>
+            <input type="text" id="mandateTelefono" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="mandateNrRisorse">Numero Risorse Richieste *</label>
+            <input type="number" id="mandateNrRisorse" class="form-control" min="1" value="1" required>
+          </div>
+        </div>
+
+        <h3 style="font-size: 13px; color: var(--primary); text-transform: uppercase; margin-top: 24px; margin-bottom: 16px;">Caratteristiche del Candidato</h3>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="mandateCcnl">Livello & CCNL Proposto</label>
+            <input type="text" id="mandateCcnl" class="form-control" placeholder="es. 5° Livello Turismo">
+          </div>
+          <div class="form-group">
+            <label for="mandateRetribuzione">Retribuzione Mensile Netta Proposta</label>
+            <input type="text" id="mandateRetribuzione" class="form-control" placeholder="es. € 1.500 - 1.700">
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="mandateOreLavoro">Ore di lavoro</label>
+            <input type="number" id="mandateOreLavoro" class="form-control" placeholder="es. 40">
+          </div>
+          <div class="form-group">
+            <label for="mandateOreLavoroTipo">Frequenza Ore</label>
+            <select id="mandateOreLavoroTipo" class="form-control" style="background-color: var(--card-sub); border: 1px solid var(--border); color: white;">
+              <option value="Settimanali">Settimanali</option>
+              <option value="Mensili">Mensili</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="form-group">
+            <label for="mandateOrario">Orario di lavoro</label>
+            <input type="text" id="mandateOrario" class="form-control" placeholder="es. Spezzato pranzo/cena, Turno unico">
+          </div>
+          <div class="form-group">
+            <label for="mandateSettore">Settore d'Impiego</label>
+            <input type="text" id="mandateSettore" class="form-control" placeholder="es. Ristorazione, Hotellerie">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="mandateCompetenze">Competenze Tecniche o Chiave Richieste</label>
+          <textarea id="mandateCompetenze" class="form-control" placeholder="es. Conoscenza caffetteria, Uso cassa, Gestione comande..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="mandateNote">Note Aggiuntive</label>
+          <textarea id="mandateNote" class="form-control" placeholder="Inserisci altre informazioni utili sulla ricerca..."></textarea>
+        </div>
+
+        <button type="submit" class="btn-submit" style="margin-top: 16px;">Invia Richiesta Mandato al Gestionale</button>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOAST MESSAGE BOX -->
+<div class="toast" id="toastBox">
+  <span id="toastIcon">ℹ️</span>
+  <div style="display: flex; flex-direction: column;">
+    <strong id="toastTitle" style="font-size: 13px; color: white;">Notifica</strong>
+    <span id="toastText" style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Messaggio...</span>
+  </div>
+</div>
+
+<!-- CLIENTE SCRIPTS -->
+<script>
+  let loggedUser = null;
+  const API_BASE = '/api';
+
+  // Check login session on load
+  window.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('hema_client_session');
+    if (saved) {
+      try {
+        loggedUser = JSON.parse(saved);
+        showDashboard();
+      } catch(e) {
+        localStorage.removeItem('hema_client_session');
+      }
+    }
+  });
+
+  // Switch between Login and Register tabs
+  function switchTab(tab) {
+    const tabs = document.querySelectorAll('.auth-tab');
+    tabs.forEach(t => t.classList.remove('active'));
+    
+    if (tab === 'login') {
+      tabs[0].classList.add('active');
+      document.getElementById('loginForm').style.display = 'block';
+      document.getElementById('registerForm').style.display = 'none';
+    } else {
+      tabs[1].classList.add('active');
+      document.getElementById('loginForm').style.display = 'none';
+      document.getElementById('registerForm').style.display = 'block';
+    }
+  }
+
+  // Toast Helper
+  function showToast(type, title, text) {
+    const toast = document.getElementById('toastBox');
+    toast.className = `toast toast-${type} active`;
+    document.getElementById('toastTitle').innerText = title;
+    document.getElementById('toastText').innerText = text;
+    document.getElementById('toastIcon').innerText = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+
+    setTimeout(() => {
+      toast.classList.remove('active');
+    }, 4000);
+  }
+
+  // Login handler
+  async function handleLogin(e) {
+    e.preventDefault();
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+
+    try {
+      const res = await fetch(`${API_BASE}/clienti/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const json = await res.json();
+      if (json.success) {
+        loggedUser = json.user;
+        localStorage.setItem('hema_client_session', JSON.stringify(loggedUser));
+        showToast('success', 'Accesso Effettuato!', 'Benvenuto nell\'area riservata clienti.');
+        showDashboard();
+      } else {
+        showToast('error', 'Errore Accesso', json.error || 'Credenziali non valide');
+      }
+    } catch(err) {
+      showToast('error', 'Errore di Rete', err.message);
+    }
+  }
+
+  // Register handler
+  async function handleRegister(e) {
+    e.preventDefault();
+    const nome_locale = document.getElementById('regNomeLocale').value;
+    const piva = document.getElementById('regPiva').value;
+    const sede_legale = document.getElementById('regSedeLegale').value;
+    const sede_lavoro = document.getElementById('regSedeLavoro').value;
+    const referente = document.getElementById('regReferente').value;
+    const email = document.getElementById('regEmail').value;
+    const telefono_mobile = document.getElementById('regTelMobile').value;
+    const telefono_fisso = document.getElementById('regTelFisso').value;
+    const password = document.getElementById('regPassword').value;
+
+    try {
+      const res = await fetch(`${API_BASE}/clienti/registra`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome_locale, piva, sede_legale, sede_lavoro, referente,
+          email, telefono_mobile, telefono_fisso, password
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast('success', 'Richiesta Inviata!', json.message);
+        switchTab('login');
+        document.getElementById('registerForm').reset();
+      } else {
+        showToast('error', 'Errore Registrazione', json.error);
+      }
+    } catch(err) {
+      showToast('error', 'Errore di Rete', err.message);
+    }
+  }
+
+  // Logout handler
+  function handleLogout() {
+    loggedUser = null;
+    localStorage.removeItem('hema_client_session');
+    document.getElementById('dashboardArea').style.display = 'none';
+    document.getElementById('newMandateArea').style.display = 'none';
+    document.getElementById('authCard').style.display = 'block';
+    showToast('info', 'Arrivederci', 'Disconnessione effettuata con successo.');
+  }
+
+  // Show dashboard content
+  function showDashboard() {
+    document.getElementById('authCard').style.display = 'none';
+    document.getElementById('dashboardArea').style.display = 'block';
+    
+    document.getElementById('welcomeClientName').innerText = `🏢 ${loggedUser.nome_locale}`;
+    document.getElementById('welcomeClientDetails').innerText = `Referente: ${loggedUser.referente} | E-mail: ${loggedUser.email}`;
+
+    loadResearches();
+  }
+
+  // Load client's researches list
+  async function loadResearches() {
+    const tableBody = document.getElementById('researchesTableBody');
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 24px;">
+          Aggiornamento ricerche in corso...
+        </td>
+      </tr>
+    `;
+
+    try {
+      const query = `piva=${encodeURIComponent(loggedUser.piva || '')}&azienda=${encodeURIComponent(loggedUser.nome_locale || '')}`;
+      const res = await fetch(`${API_BASE}/clienti/portale/ricerche?${query}`);
+      const json = await res.json();
+      
+      if (json.success && json.data.length > 0) {
+        tableBody.innerHTML = '';
+        json.data.forEach(r => {
+          const badgeClass = r.stato_approvazione_tl === 'Approvata' || r.stato_approvazione_tl === 'Approvata con Riserva'
+            ? 'badge-approved' : r.stato_approvazione_tl === 'Cestinata' || r.stato_approvazione_tl === 'Rifiutata'
+            ? 'badge-rejected' : 'badge-pending';
+          
+          const labelApprovazione = r.stato_approvazione_tl || 'In attesa';
+          const candidatesCount = r.nr_proposti || 0;
+
+          const candidatesText = candidatesCount > 0 
+            ? `<span style="color: var(--primary); cursor: pointer; text-decoration: underline;" onclick="showCandidatesModal('${r.id}', '${r.ruolo.replace(/'/g, "\\'")}')">👥 ${candidatesCount} Candidati</span>`
+            : '<span style="color: var(--text-muted);">Nessun candidato</span>';
+
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td style="font-weight: 600;">${r.id}</td>
+            <td style="font-weight: 700; color: white;">${r.ruolo}</td>
+            <td>${r.sede_lavoro || 'N/D'}</td>
+            <td>${r.data_inserimento || 'N/D'}</td>
+            <td><span class="badge ${badgeClass}">${labelApprovazione}</span></td>
+            <td style="font-weight: 600; color: #E5E7EB;">${r.stato_ricerca || 'In elaborazione'}</td>
+            <td>${candidatesText}</td>
+          `;
+          tableBody.appendChild(tr);
+        });
+      } else {
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 32px;">
+              Nessuna ricerca inserita o attiva al momento.
+            </td>
+          </tr>
+        `;
+      }
+    } catch(err) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="7" style="text-align: center; color: var(--danger); padding: 24px;">
+            Errore nel caricamento delle ricerche: ${err.message}
+          </td>
+        </tr>
+      `;
+    }
+  }
+
+  // Candidates detail modal
+  async function showCandidatesModal(ricercaId, ruolo) {
+    try {
+      const query = `piva=${encodeURIComponent(loggedUser.piva || '')}&azienda=${encodeURIComponent(loggedUser.nome_locale || '')}`;
+      const res = await fetch(`${API_BASE}/clienti/portale/ricerche?${query}`);
+      const json = await res.json();
+      if (!json.success) return;
+
+      const r = json.data.find(item => item.id === ricercaId);
+      if (!r || !r.candidati || r.candidati.length === 0) return;
+
+      const modalOverlay = document.createElement('div');
+      modalOverlay.className = 'custom-modal-overlay';
+      modalOverlay.id = 'candidatesModal';
+
+      const container = document.createElement('div');
+      container.className = 'custom-modal-container';
+
+      let listItems = '';
+      r.candidati.forEach(c => {
+        listItems += `
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background-color: var(--card-sub); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px;">
+            <strong style="color: white;">${c.cognome} ${c.nome}</strong>
+            <span class="badge badge-approved" style="font-size: 10px;">${c.stato_avanzamento || 'N/D'}</span>
+          </div>
+        `;
+      });
+
+      container.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;">
+          <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: white;">👥 Candidati Proposti - ${ruolo}</h3>
+          <button class="btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="closeCandidatesModal()">Chiudi</button>
+        </div>
+        <div style="max-height: 300px; overflow-y: auto; padding-right: 4px;">
+          ${listItems}
+        </div>
+      `;
+      modalOverlay.appendChild(container);
+      document.body.appendChild(modalOverlay);
+    } catch(err) {
+      showToast('error', 'Errore', 'Impossibile caricare i candidati');
+    }
+  }
+
+  function closeCandidatesModal() {
+    const modal = document.getElementById('candidatesModal');
+    if (modal) modal.remove();
+  }
+
+  // Open New Mandate Form
+  async function openNewMandateForm() {
+    document.getElementById('dashboardArea').style.display = 'none';
+    document.getElementById('newMandateArea').style.display = 'block';
+    
+    // Fill client defaults
+    document.getElementById('mandateAzienda').value = loggedUser.nome_locale;
+    document.getElementById('mandatePiva').value = loggedUser.piva || '';
+    document.getElementById('mandateReferente').value = loggedUser.referente || '';
+    document.getElementById('mandateEmail').value = loggedUser.email || '';
+    document.getElementById('mandateTelefono').value = loggedUser.telefono_mobile || '';
+
+    // Load workplace options
+    try {
+      const res = await fetch(`${API_BASE}/clienti/portale/sedi?piva=${encodeURIComponent(loggedUser.piva || '')}`);
+      const json = await res.json();
+      const select = document.getElementById('mandateSedeLavoroSelect');
+      
+      select.innerHTML = '<option value="new">+ Aggiungi una nuova sede di lavoro</option>';
+      
+      if (json.success && json.data.length > 0) {
+        json.data.forEach(sede => {
+          const opt = document.createElement('option');
+          opt.value = sede;
+          opt.innerText = sede;
+          select.insertBefore(opt, select.firstChild);
+        });
+        
+        select.selectedIndex = 0;
+      }
+      handleSedeLavoroChange();
+    } catch(err) {
+      console.error(err);
+    }
+  }
+
+  function closeNewMandateForm() {
+    document.getElementById('newMandateArea').style.display = 'none';
+    document.getElementById('dashboardArea').style.display = 'block';
+    document.getElementById('newMandateForm').reset();
+  }
+
+  function handleSedeLavoroChange() {
+    const select = document.getElementById('mandateSedeLavoroSelect');
+    const container = document.getElementById('mandateSedeLavoroNuovaContainer');
+    const input = document.getElementById('mandateSedeLavoroNuova');
+    
+    if (select.value === 'new') {
+      container.style.display = 'block';
+      input.setAttribute('required', 'true');
+    } else {
+      container.style.display = 'none';
+      input.removeAttribute('required');
+    }
+  }
+
+  // Handle mandate form submission
+  async function handleSubmitMandate(e) {
+    e.preventDefault();
+    const azienda = loggedUser.nome_locale;
+    const piva = loggedUser.piva;
+    const ruolo = document.getElementById('mandateRuolo').value;
+    const selectSede = document.getElementById('mandateSedeLavoroSelect').value;
+    const sede_lavoro = selectSede === 'new' 
+      ? document.getElementById('mandateSedeLavoroNuova').value 
+      : selectSede;
+
+    const referente = document.getElementById('mandateReferente').value;
+    const email = document.getElementById('mandateEmail').value;
+    const telefono_mobile = document.getElementById('mandateTelefono').value;
+    const nr_risorse = document.getElementById('mandateNrRisorse').value;
+    const ccnl_livello = document.getElementById('mandateCcnl').value;
+    const retribuzione = document.getElementById('mandateRetribuzione').value;
+    const ore_lavoro = document.getElementById('mandateOreLavoro').value;
+    const ore_lavoro_tipo = document.getElementById('mandateOreLavoroTipo').value;
+    const orario_lavoro = document.getElementById('mandateOrario').value;
+    const settore = document.getElementById('mandateSettore').value;
+    const competenze_tecniche = document.getElementById('mandateCompetenze').value;
+    const note = document.getElementById('mandateNote').value;
+
+    try {
+      const res = await fetch(`${API_BASE}/clienti/portale/ricerche`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          azienda, piva, ruolo, sede_lavoro, referente, email, telefono_mobile,
+          nr_risorse, ccnl_livello, retribuzione, ore_lavoro, ore_lavoro_tipo,
+          orario_lavoro, settore, competenze_tecniche, note
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast('success', 'Richiesta Inviata!', json.message);
+        closeNewMandateForm();
+        loadResearches();
+      } else {
+        showToast('error', 'Errore Invio Mandato', json.error);
+      }
+    } catch(err) {
+      showToast('error', 'Errore di Rete', err.message);
+    }
+  }
+
+</script>
+</body>
+</html>

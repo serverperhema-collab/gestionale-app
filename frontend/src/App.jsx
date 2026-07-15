@@ -288,9 +288,9 @@ export default function App() {
           </li>
           <li>
             <button className={`menu-item ${ctrl.currentPage === 'commerciali_gestione' ? 'active' : ''}`} onClick={() => { ctrl.setCurrentPage('commerciali_gestione'); ctrl.setSelectedRicercaId(null); }} style={{ position: 'relative' }}>
-              🤝 Commerciali & Accessi
-              {ctrl.commerciali.filter(c => c.stato_approvazione === 'Da Approvare').length > 0 && (
-                <span className="badge-notification">{ctrl.commerciali.filter(c => c.stato_approvazione === 'Da Approvare').length}</span>
+              🤝 Commerciali, Clienti & Accessi
+              {ctrl.pendingChecklist.filter(item => item.tipo === 'ACCOUNT' || item.tipo === 'CLIENT_ACCOUNT').length > 0 && (
+                <span className="badge-notification">{ctrl.pendingChecklist.filter(item => item.tipo === 'ACCOUNT' || item.tipo === 'CLIENT_ACCOUNT').length}</span>
               )}
             </button>
           </li>

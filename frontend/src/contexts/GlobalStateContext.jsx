@@ -18,8 +18,10 @@ export const GlobalStateProvider = ({ children }) => {
 
   const [lastPendingCount, setLastPendingCount] = useState(0);
   const [lastPendingCommercialCount, setLastPendingCommercialCount] = useState(0);
+  const [lastPendingClientCount, setLastPendingClientCount] = useState(0);
   const [newMandatePopup, setNewMandatePopup] = useState(null);
   const [newCommercialPopup, setNewCommercialPopup] = useState(null);
+  const [newClientPopup, setNewClientPopup] = useState(null);
 
   // --- React Query Hooks ---
 
@@ -60,6 +62,18 @@ export const GlobalStateProvider = ({ children }) => {
     queryKey: ['pendingChecklist'],
     queryFn: apiFetchPendingChecklist,
     refetchInterval: 10000,
+  });
+
+  // Client Accounts (Portale)
+  const fetchClientAccountsFn = async () => {
+    const res = await fetch(`${API_BASE}/clienti/portale`);
+    const json = await res.json();
+    return json.success ? json.data : [];
+  };
+  const { data: clientAccountsData = [], refetch: fetchClientAccounts } = useQuery({
+    queryKey: ['clientAccounts'],
+    queryFn: fetchClientAccountsFn,
+    refetchInterval: 5000,
   });
 
   // Annunci
@@ -115,6 +129,22 @@ export const GlobalStateProvider = ({ children }) => {
     }
   }, [commercialiData, lastPendingCommercialCount]);
 
+  const prevClientAccountsRef = useRef([]);
+
+  useEffect(() => {
+    // Client Accounts Notifications
+    if (clientAccountsData.length > 0) {
+      const pendingList = clientAccountsData.filter(c => c.stato_approvazione === 'Da Approvare');
+      
+      if (pendingList.length > lastPendingClientCount && prevClientAccountsRef.current.length > 0) {
+        const newItems = pendingList.filter(p => !prevClientAccountsRef.current.some(c => c.id === p.id));
+        if (newItems.length > 0) setNewClientPopup(newItems[0]);
+      }
+      setLastPendingClientCount(pendingList.length);
+      prevClientAccountsRef.current = clientAccountsData;
+    }
+  }, [clientAccountsData, lastPendingClientCount]);
+
   // --- Backward compatibility setters ---
   // To avoid breaking useAppController destructured variables and components that might expect setters (even if they don't call them).
   // Ideally, components should use mutations, but since we discovered they only do API calls then refetch, this is perfectly fine.
@@ -142,8 +172,11 @@ export const GlobalStateProvider = ({ children }) => {
       emailConfig, setEmailConfig, fetchEmailConfig,
       newMandatePopup, setNewMandatePopup,
       newCommercialPopup, setNewCommercialPopup,
+      newClientPopup, setNewClientPopup,
       lastPendingCount, setLastPendingCount,
-      lastPendingCommercialCount, setLastPendingCommercialCount
+      lastPendingCommercialCount, setLastPendingCommercialCount,
+      lastPendingClientCount, setLastPendingClientCount,
+      clientAccounts: clientAccountsData, fetchClientAccounts
     }}>
       {children}
     </GlobalStateContext.Provider>

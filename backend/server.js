@@ -54,6 +54,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/commerciale', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'commerciale.html'));
 });
+app.get('/cliente', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'cliente.html'));
+});
 
 // Configure Multer for CV & Identity Documents uploads
 const storage = multer.diskStorage({
@@ -1713,6 +1716,18 @@ app.get('/api/dashboard/pending', async (req, res) => {
       });
     });
 
+    // 3b. Pending Client Accounts to Approve
+    const clientAccounts = await db.all(`
+      SELECT * FROM clienti_portale WHERE stato_approvazione = 'Da Approvare'
+    `);
+    clientAccounts.forEach(c => {
+      pendingList.push({
+        id: `client-account-${c.id}`,
+        tipo: 'CLIENT_ACCOUNT',
+        testo: `Richiesta di abilitazione account per il cliente ${c.nome_locale} (${c.email}) in attesa di approvazione.`
+      });
+    });
+
     // 4. Pending Mandates to Approve
     const researches = await db.all(`
       SELECT * FROM ricerche WHERE stato_approvazione_tl = 'In attesa di approvazione'
@@ -2130,6 +2145,248 @@ app.delete('/api/commerciali/:id', async (req, res) => {
   try {
     await db.run('DELETE FROM commerciali WHERE id = ?', [req.params.id]);
     res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// 11c. PORTALE CLIENTI
+app.post('/api/clienti/registra', async (req, res) => {
+  try {
+    const { 
+      nome_locale, piva, sede_legale, sede_lavoro, referente, 
+      email, telefono_mobile, telefono_fisso, password 
+    } = req.body;
+
+    if (!nome_locale || !email || !password) {
+      return res.status(400).json({ success: false, error: 'I campi Nome Azienda, Email e Password sono obbligatori' });
+    }
+
+    const existing = await db.get('SELECT id FROM clienti_portale WHERE LOWER(email) = ?', [email.toLowerCase()]);
+    if (existing) {
+      return res.status(400).json({ success: false, error: 'Esiste già un account registrato con questa e-mail.' });
+    }
+
+    const id = generateID('CP');
+    const dataReg = new Date().toISOString().substring(0, 10);
+
+    await db.run(`
+      INSERT INTO clienti_portale (
+        id, nome_locale, piva, sede_legale, sede_lavoro, referente,
+        email, telefono_mobile, telefono_fisso, password, stato_approvazione,
+        data_registrazione
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Da Approvare', ?)
+    `, [
+      id, nome_locale, piva || '', sede_legale || '', sede_lavoro || '', referente || '',
+      email, telefono_mobile || '', telefono_fisso || '', password, dataReg
+    ]);
+
+    res.json({ success: true, message: 'Richiesta di registrazione inviata con successo. Verrà esaminata a breve.' });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/clienti/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ success: false, error: 'Email e password sono obbligatorie' });
+    }
+
+    const user = await db.get('SELECT * FROM clienti_portale WHERE LOWER(email) = ?', [email.toLowerCase()]);
+    if (!user) {
+      return res.status(400).json({ success: false, error: 'Credenziali non valide o utente non trovato.' });
+    }
+
+    if (user.password !== password) {
+      return res.status(400).json({ success: false, error: 'Password errata' });
+    }
+
+    if (user.stato_approvazione === 'Da Approvare') {
+      return res.status(400).json({ success: false, error: 'Il tuo account è in attesa di approvazione.' });
+    }
+
+    if (user.stato_approvazione === 'Rifiutato') {
+      return res.status(400).json({ success: false, error: 'La tua richiesta di registrazione è stata rifiutata.' });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        nome_locale: user.nome_locale,
+        email: user.email,
+        piva: user.piva,
+        referente: user.referente,
+        id_cliente_inserito: user.id_cliente_inserito
+      }
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.get('/api/clienti/portale', async (req, res) => {
+  try {
+    const list = await db.all('SELECT * FROM clienti_portale ORDER BY data_registrazione DESC');
+    res.json({ success: true, data: list });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.put('/api/clienti/portale/:id/stato', async (req, res) => {
+  try {
+    const { stato_approvazione } = req.body;
+    if (!stato_approvazione) {
+      return res.status(400).json({ success: false, error: 'Stato obbligatorio' });
+    }
+
+    const user = await db.get('SELECT * FROM clienti_portale WHERE id = ?', [req.params.id]);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'Account cliente non trovato' });
+    }
+
+    let idClienteInserito = user.id_cliente_inserito;
+
+    if (stato_approvazione === 'Approvato' && !idClienteInserito) {
+      idClienteInserito = generateID('CL');
+
+      const dataReg = new Date().toISOString().substring(0, 10);
+      await db.run(`
+        INSERT INTO clienti (
+          id, nome_locale, piva, sede_legale, sede_lavoro, referente,
+          email, telefono_mobile, telefono_fisso, data_inserimento,
+          valutazione_serieta, valutazione_disponibilita, valutazione_interesse, valutazione_selettivita
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 3, 3, 3, 3)
+      `, [
+        idClienteInserito, user.nome_locale, user.piva, user.sede_legale, user.sede_lavoro, user.referente,
+        user.email, user.telefono_mobile, user.telefono_fisso, dataReg
+      ]);
+
+      await logActivity('CLIENTE', idClienteInserito, user.nome_locale, 'Nuovo Cliente', 'Cliente approvato dal Portale Registrazioni');
+    }
+
+    await db.run('UPDATE clienti_portale SET stato_approvazione = ?, id_cliente_inserito = ? WHERE id = ?', [stato_approvazione, idClienteInserito, req.params.id]);
+
+    if (stato_approvazione === 'Approvato') {
+      try {
+        const mailSubject = 'HEMA WORK - Portale Clienti Attivo!';
+        const mailBody = `Gentile ${user.referente || user.nome_locale},\n\nil tuo account aziendale per il nostro portale clienti è stato approvato!\n\nDa questo momento puoi effettuare l'accesso per monitorare le tue ricerche ed inserire nuove richieste di mandato.\n\nCordiali saluti,\nTeam Selezione`;
+        await inviaEmailHelper(user.email, mailSubject, mailBody);
+      } catch (mailErr) {
+        console.error("Errore invio mail approvazione cliente:", mailErr);
+      }
+    }
+
+    res.json({ success: true, id_cliente_inserito: idClienteInserito });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.delete('/api/clienti/portale/:id', async (req, res) => {
+  try {
+    await db.run('DELETE FROM clienti_portale WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.get('/api/clienti/portale/ricerche', async (req, res) => {
+  try {
+    const { piva, azienda } = req.query;
+    if (!piva && !azienda) {
+      return res.status(400).json({ success: false, error: 'P.IVA o Azienda obbligatoria' });
+    }
+
+    let query = 'SELECT * FROM ricerche WHERE 1=0';
+    let params = [];
+    if (piva && azienda) {
+      query = 'SELECT * FROM ricerche WHERE piva = ? OR azienda = ? ORDER BY data_inserimento DESC';
+      params = [piva, azienda];
+    } else if (piva) {
+      query = 'SELECT * FROM ricerche WHERE piva = ? ORDER BY data_inserimento DESC';
+      params = [piva];
+    } else {
+      query = 'SELECT * FROM ricerche WHERE azienda = ? ORDER BY data_inserimento DESC';
+      params = [azienda];
+    }
+
+    const list = await db.all(query, params);
+    
+    for (let r of list) {
+      const candidates = await db.all(`
+        SELECT p.id, p.stato_avanzamento, c.cognome, c.nome
+        FROM pipeline_assunzioni p
+        JOIN candidati c ON p.id_candidato = c.id
+        WHERE p.id_ricerca = ?
+      `, [r.id]);
+      r.candidati = candidates;
+      r.nr_proposti = candidates.length;
+    }
+
+    res.json({ success: true, data: list });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.post('/api/clienti/portale/ricerche', async (req, res) => {
+  try {
+    const {
+      azienda, ruolo, referente, telefono_mobile, telefono_fisso, email, sede_lavoro,
+      nr_risorse, ccnl_livello, retribuzione, competenze_tecniche, note,
+      piva, sede_legale, settore, ore_lavoro, orario_lavoro, ore_lavoro_tipo
+    } = req.body;
+
+    if (!azienda || !ruolo) {
+      return res.status(400).json({ success: false, error: 'Azienda e Ruolo sono obbligatori' });
+    }
+
+    const id = generateID('R');
+    const approvazione = 'In attesa di approvazione';
+    const dataReg = new Date().toISOString().substring(0, 10);
+
+    await db.run(`
+      INSERT INTO ricerche (
+        id, data_inserimento, azienda, ruolo, referente, telefono_mobile, telefono_fisso, email, 
+        sede_lavoro, nr_risorse, ccnl_livello, retribuzione, competenze_tecniche, 
+        note, stato_ricerca, stato_approvazione_tl, consulente_commerciale, outbound, piva, 
+        sede_legale, settore, ore_lavoro, orario_lavoro, ore_lavoro_tipo
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, 'Portale Clienti', '', ?, ?, ?, ?, ?, ?)
+    `, [
+      id, dataReg, azienda, ruolo, referente || '', telefono_mobile || '', telefono_fisso || '', email || '', 
+      sede_lavoro || '', nr_risorse ? parseInt(nr_risorse) : 1, ccnl_livello || '', retribuzione || '', competenze_tecniche || '', 
+      note || '', approvazione, piva || '', sede_legale || '', settore || '', 
+      ore_lavoro ? parseInt(ore_lavoro) : null, orario_lavoro || '', ore_lavoro_tipo || 'Settimanali'
+    ]);
+
+    await logActivity('CLIENTE', id, azienda, 'Nuovo Mandato', `Aperta richiesta di ricerca per ruolo ${ruolo} direttamente dal Portale Clienti`, id, referente);
+
+    res.json({ success: true, message: 'Richiesta di mandato inserita con successo e in attesa di approvazione.' });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+app.get('/api/clienti/portale/sedi', async (req, res) => {
+  try {
+    const { piva } = req.query;
+    if (!piva) {
+      return res.json({ success: true, data: [] });
+    }
+    const rows = await db.all('SELECT DISTINCT sede_lavoro FROM ricerche WHERE piva = ? AND sede_lavoro IS NOT NULL AND sede_lavoro != ""', [piva]);
+    const sedi = rows.map(r => r.sede_lavoro);
+    
+    const primary = await db.get('SELECT sede_lavoro FROM clienti_portale WHERE piva = ?', [piva]);
+    if (primary && primary.sede_lavoro && !sedi.includes(primary.sede_lavoro)) {
+      sedi.push(primary.sede_lavoro);
+    }
+    
+    res.json({ success: true, data: sedi });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }

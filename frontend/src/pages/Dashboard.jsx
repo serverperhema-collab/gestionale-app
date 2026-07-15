@@ -72,7 +72,7 @@ export default function Dashboard({
                 border: '1px solid var(--border)',
                 borderLeft: `4px solid ${
                   item.tipo === 'ANNUNCIO_SCADENZA' ? '#ef4444'
-                  : item.tipo === 'ACCOUNT' || item.tipo === 'MANDATO' ? '#f59e0b'
+                  : item.tipo === 'ACCOUNT' || item.tipo === 'CLIENT_ACCOUNT' || item.tipo === 'MANDATO' ? '#f59e0b'
                   : 'var(--primary)'
                 }`
               }}>
@@ -81,13 +81,14 @@ export default function Dashboard({
                     fontSize: '11px', 
                     fontWeight: 800, 
                     color: item.tipo === 'ANNUNCIO_SCADENZA' ? '#ef4444'
-                           : item.tipo === 'ACCOUNT' || item.tipo === 'MANDATO' ? '#f59e0b'
+                           : item.tipo === 'ACCOUNT' || item.tipo === 'CLIENT_ACCOUNT' || item.tipo === 'MANDATO' ? '#f59e0b'
                            : 'var(--primary)',
                     textTransform: 'uppercase',
                     letterSpacing: '0.05em'
                   }}>
                     {item.tipo === 'ANNUNCIO_SCADENZA' ? '⏳ SCADENZA ANNUNCIO'
-                     : item.tipo === 'ACCOUNT' ? '👤 ABILITAZIONE ACCOUNT'
+                     : item.tipo === 'ACCOUNT' ? '👤 ABILITAZIONE ACCOUNT COMMERCIALI'
+                     : item.tipo === 'CLIENT_ACCOUNT' ? '🏢 ABILITAZIONE ACCOUNT CLIENTE'
                      : item.tipo === 'MANDATO' ? '📋 APPROVAZIONE MANDATO'
                      : item.tipo === 'CV' ? '✉️ ESITO INVIO CV'
                      : item.tipo === 'COLLOQUIO' ? '🗓️ ESITO COLLOQUIO'
@@ -116,7 +117,7 @@ export default function Dashboard({
                     Gestisci ➡️
                   </button>
                 )}
-                {!item.idRicerca && item.tipo === 'ACCOUNT' && (
+                {!item.idRicerca && (item.tipo === 'ACCOUNT' || item.tipo === 'CLIENT_ACCOUNT') && (
                   <button 
                     className="btn btn-secondary btn-sm"
                     onClick={() => {

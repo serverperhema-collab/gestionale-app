@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGlobalState } from '../contexts/GlobalStateContext';
 import { useToast } from '../contexts/ToastContext';
 import { API_BASE } from '../utils';
@@ -25,6 +25,63 @@ export default function GestioneCommerciali() {
   const { commerciali = [], fetchCommerciali, operatori = [], fetchOperatori } = useGlobalState() || {};
   const { showStatus } = useToast();
   const [showCommercialeLinkModal, setShowCommercialeLinkModal] = useState(false);
+  
+  // Client Accounts local state
+  const [clientAccounts, setClientAccounts] = useState([]);
+  const [showClientLinkModal, setShowClientLinkModal] = useState(false);
+
+  const fetchClientAccounts = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/clienti/portale`);
+      const json = await res.json();
+      if (json.success) {
+        setClientAccounts(json.data);
+      }
+    } catch (err) {
+      console.error("Errore fetch account clienti:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchClientAccounts();
+  }, []);
+
+  const handleClientAccountStatus = async (id, status) => {
+    try {
+      const res = await fetch(`${API_BASE}/clienti/portale/${id}/stato`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stato_approvazione: status })
+      });
+      const json = await res.json();
+      if (json.success) {
+        showStatus('success', 'Stato Aggiornato!', `L'account cliente è stato impostato come ${status}.`);
+        fetchClientAccounts();
+      } else {
+        showStatus('error', 'Errore', json.error);
+      }
+    } catch (err) {
+      showStatus('error', 'Errore di connessione', err.message);
+    }
+  };
+
+  const handleDeleteClientAccount = async (id) => {
+    if (!window.confirm("Sei sicuro di voler eliminare questo account cliente dal portale?")) return;
+    try {
+      const res = await fetch(`${API_BASE}/clienti/portale/${id}`, {
+        method: 'DELETE'
+      });
+      const json = await res.json();
+      if (json.success) {
+        showStatus('success', 'Eliminato!', 'Account cliente rimosso dal portale.');
+        fetchClientAccounts();
+      } else {
+        showStatus('error', 'Errore', json.error);
+      }
+    } catch (err) {
+      showStatus('error', 'Errore di connessione', err.message);
+    }
+  };
 
   const handleCommercialStatus = async (id, status) => {
     try {
@@ -220,6 +277,106 @@ export default function GestioneCommerciali() {
         </table>
       </div>
 
+      {/* Gestione Account Clienti (Portale) */}
+      <div style={{ marginTop: '40px', marginBottom: '40px' }}>
+        <h2 style={{ fontSize: '16px', marginBottom: '16px', fontWeight: 700 }}>Gestione Account Clienti (Portale)</h2>
+
+        <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', alignItems: 'center', backgroundColor: 'var(--bg-secondary)', padding: '16px', borderRadius: '10px', border: '1px solid var(--border)' }}>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ fontSize: '14px', marginBottom: '4px', fontWeight: 700 }}>Link Accesso Portale Clienti</h3>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+              {window.location.port && window.location.port !== '3001' ? `http://${window.location.hostname}:3001/cliente` : window.location.origin + '/cliente'}
+            </div>
+          </div>
+          <button 
+            className="btn btn-secondary btn-sm" 
+            onClick={() => {
+              const link = window.location.port && window.location.port !== '3001' ? `http://${window.location.hostname}:3001/cliente` : window.location.origin + '/cliente';
+              navigator.clipboard.writeText(link);
+              showStatus('success', 'Copiato', 'Link portale clienti copiato negli appunti');
+            }}
+          >
+            Copia Link
+          </button>
+          <button 
+            className="btn btn-primary btn-sm"
+            onClick={() => setShowClientLinkModal(true)}
+            style={{ backgroundColor: '#25D366', color: 'white', border: 'none' }}
+          >
+            Invia Link su WhatsApp
+          </button>
+        </div>
+
+        <div className="table-container">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Ragione Sociale</th>
+                <th>Referente</th>
+                <th>Email / Telefono</th>
+                <th>Sedi Lavoro / Legale</th>
+                <th>P.IVA</th>
+                <th>Password</th>
+                <th>Stato</th>
+                <th style={{ textAlign: 'center', width: '220px' }}>Azioni</th>
+              </tr>
+            </thead>
+            <tbody>
+              {clientAccounts.map(c => (
+                <tr key={c.id}>
+                  <td><strong>{c.nome_locale}</strong></td>
+                  <td>{c.referente || 'N/D'}</td>
+                  <td>{c.email} <br/> {c.telefono_mobile || c.telefono_fisso || 'N/D'}</td>
+                  <td>
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Sede Operativa: {c.sede_lavoro || 'N/D'}</span>
+                    <br/>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Sede Legale: {c.sede_legale || 'N/D'}</span>
+                  </td>
+                  <td><code>{c.piva || 'N/D'}</code></td>
+                  <td><code>{c.password}</code></td>
+                  <td>
+                    <span className={`badge ${
+                      c.stato_approvazione === 'Approvato' ? 'badge-success'
+                      : c.stato_approvazione === 'Da Approvare' ? 'badge-warning'
+                      : 'badge-danger'
+                    }`}>
+                      {c.stato_approvazione}
+                    </span>
+                  </td>
+                  <td>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                      {c.stato_approvazione === 'Da Approvare' && (
+                        <>
+                          <button className="btn btn-success btn-sm" onClick={() => handleClientAccountStatus(c.id, 'Approvato')}>
+                            ✓ Approva
+                          </button>
+                          <button className="btn btn-danger btn-sm" onClick={() => handleClientAccountStatus(c.id, 'Rifiutato')}>
+                            ✕ Rifiuta
+                          </button>
+                        </>
+                      )}
+                      {c.stato_approvazione !== 'Da Approvare' && (
+                        <button className="btn btn-secondary btn-sm" onClick={() => handleClientAccountStatus(c.id, 'Da Approvare')}>
+                          Rimetti in Attesa
+                        </button>
+                      )}
+                      <button className="btn btn-danger btn-sm" style={{ backgroundColor: '#EF4444' }} onClick={() => handleDeleteClientAccount(c.id)}>
+                        Elimina
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {clientAccounts.length === 0 && (
+                <tr>
+                  <td colSpan="8" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>Nessun account cliente registrato.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Gestione Operatori (Outbound) */}
       <div style={{ marginTop: '40px' }}>
         <h2 style={{ fontSize: '16px', marginBottom: '16px', fontWeight: 700 }}>Gestione Operatori (Outbound)</h2>
@@ -363,6 +520,53 @@ export default function GestioneCommerciali() {
             </div>
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={() => setShowCommercialeLinkModal(false)}>Chiudi</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showClientLinkModal && (
+        <div className="modal-overlay" style={{ zIndex: 9999 }}>
+          <div className="modal-container" style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h2>Invia Link a Cliente</h2>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowClientLinkModal(false)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                Seleziona un cliente a cui inviare il link di accesso su WhatsApp. Verranno mostrati solo i clienti con un numero di telefono cellulare.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
+                {clientAccounts.filter(c => c.telefono_mobile).length === 0 ? (
+                  <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)', borderRadius: '8px' }}>
+                    Nessun cliente con numero di cellulare salvato.
+                  </div>
+                ) : (
+                  clientAccounts.filter(c => c.telefono_mobile).map(c => (
+                    <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', border: '1px solid var(--border)', borderRadius: '8px', backgroundColor: 'var(--bg-secondary)' }}>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '14px' }}>{c.nome_locale}</div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Ref: {c.referente} ({c.telefono_mobile})</div>
+                      </div>
+                      <button 
+                        className="btn btn-primary btn-sm"
+                        style={{ backgroundColor: '#25D366', color: 'white', border: 'none' }}
+                        onClick={() => {
+                          const phone = c.telefono_mobile.replace(/\D/g, '');
+                          const url = window.location.port && window.location.port !== '3001' ? `http://${window.location.hostname}:3001/cliente` : window.location.origin + '/cliente';
+                          const msg = encodeURIComponent(`Gentile ${c.referente || c.nome_locale}, ecco il link per accedere al Portale Clienti HEMA:\n${url}`);
+                          window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
+                          setShowClientLinkModal(false);
+                        }}
+                      >
+                        Invia su WhatsApp
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setShowClientLinkModal(false)}>Chiudi</button>
             </div>
           </div>
         </div>

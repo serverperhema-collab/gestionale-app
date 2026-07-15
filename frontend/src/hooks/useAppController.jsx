@@ -36,10 +36,14 @@ export function useAppController() {
     setNewMandatePopup,
     newCommercialPopup,
     setNewCommercialPopup,
+    newClientPopup,
+    setNewClientPopup,
     lastPendingCount,
     setLastPendingCount,
     lastPendingCommercialCount,
-    setLastPendingCommercialCount
+    setLastPendingCommercialCount,
+    clientAccounts,
+    fetchClientAccounts
   } = useGlobalState();
 
   // Search detail state
@@ -3668,10 +3672,14 @@ export function useAppController() {
     setNewMandatePopup,
     newCommercialPopup,
     setNewCommercialPopup,
+    newClientPopup,
+    setNewClientPopup,
     lastPendingCount,
     setLastPendingCount,
     lastPendingCommercialCount,
     setLastPendingCommercialCount,
+    clientAccounts,
+    fetchClientAccounts,
     selectedRicercaId,
     setSelectedRicercaId,
     ricercaDetail,
