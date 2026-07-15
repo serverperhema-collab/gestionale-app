@@ -388,7 +388,7 @@ export default function App() {
               <Route path="/cestinati" element={<Cestinati handleApprovalAction={ctrl.handleApprovalAction} />} />
               <Route path="/pausa" element={<Pausa handleApprovalAction={ctrl.handleApprovalAction} setSelectedRicercaId={ctrl.setSelectedRicercaId} />} />
               <Route path="/commerciali_gestione" element={<GestioneCommerciali />} />
-              <Route path="/posta" element={<PostaElettronica candidati={ctrl.candidati} clienti={ctrl.clienti} ricerche={ctrl.ricerche} showStatus={ctrl.showStatus} API_BASE={ctrl.API_BASE} />} />
+              <Route path="/posta" element={<PostaElettronica candidati={ctrl.candidati} clienti={ctrl.clienti} ricerche={ctrl.ricerche} showStatus={ctrl.showStatus} API_BASE={ctrl.API_BASE} fetchCandidati={ctrl.fetchCandidati} />} />
               <Route path="/email_config" element={<ConfigurazioneEmail />} />
               <Route path="/candidati" element={<Candidati handleOpenValutazione={ctrl.handleOpenValutazione} setSelectedSubjectLog={ctrl.setSelectedSubjectLog} handleLinkCandidatoToRicerca={ctrl.handleLinkCandidatoToRicerca} setCurrentCandidato={ctrl.setCurrentCandidato} setShowNewCVCandidatoModal={ctrl.setShowNewCVCandidatoModal} />} />
               <Route path="/annunci" element={<GestioneAnnunci ctrl={ctrl} />} />

@@ -826,6 +826,71 @@ app.post('/api/candidati/:id/cv', upload.single('cvFile'), async (req, res) => {
   }
 });
 
+// Link email attachment to candidate as CV or identity document
+app.post('/api/candidati/:id/collega-allegato', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { localName, filename, tipo_documento } = req.body;
+    
+    if (!localName || !tipo_documento) {
+      return res.status(400).json({ success: false, error: 'Dati incompleti per collegare l\'allegato.' });
+    }
+
+    const cand = await db.get('SELECT * FROM candidati WHERE id = ?', [id]);
+    if (!cand) {
+      return res.status(404).json({ success: false, error: 'Candidato non trovato' });
+    }
+
+    // Source path of the attachment
+    const srcPath = path.join(uploadsDir, 'doc', localName);
+    if (!fs.existsSync(srcPath)) {
+      return res.status(404).json({ success: false, error: 'File allegato non trovato sul server.' });
+    }
+
+    if (tipo_documento === 'cv') {
+      // Copy to cv folder
+      const destName = `${id}_${Date.now()}_${localName.split('_').slice(3).join('_') || 'cv.pdf'}`;
+      const destPath = path.join(uploadsDir, 'cv', destName);
+      fs.copyFileSync(srcPath, destPath);
+
+      // Delete old CV file if existed and was in uploads
+      if (cand.link_cv && cand.link_cv.startsWith('/uploads')) {
+        const oldPath = path.join(dataDir, cand.link_cv);
+        if (fs.existsSync(oldPath)) {
+          try { fs.unlinkSync(oldPath); } catch(err) {}
+        }
+      }
+
+      const linkCV = `/uploads/cv/${destName}`;
+      await db.run('UPDATE candidati SET link_cv = ? WHERE id = ?', [linkCV, id]);
+      await logActivity('CANDIDATO', id, `${cand.cognome} ${cand.nome}`, 'Collegamento CV', `Collegato CV da allegato email: ${filename}`);
+
+      res.json({ success: true, link: linkCV });
+    } else {
+      // Copy to new name inside doc folder with candidate ID
+      const destName = `${id}_${Date.now()}_${localName.split('_').slice(3).join('_') || 'documento.pdf'}`;
+      const destPath = path.join(uploadsDir, 'doc', destName);
+      fs.copyFileSync(srcPath, destPath);
+
+      // Delete old identity document file if existed
+      if (cand.link_documenti && cand.link_documenti.startsWith('/uploads')) {
+        const oldPath = path.join(dataDir, cand.link_documenti);
+        if (fs.existsSync(oldPath)) {
+          try { fs.unlinkSync(oldPath); } catch(err) {}
+        }
+      }
+
+      const linkDoc = `/uploads/doc/${destName}`;
+      await db.run('UPDATE candidati SET link_documenti = ? WHERE id = ?', [linkDoc, id]);
+      await logActivity('CANDIDATO', id, `${cand.cognome} ${cand.nome}`, 'Collegamento Doc', `Collegato Documento d'identità da allegato email: ${filename}`);
+
+      res.json({ success: true, link: linkDoc });
+    }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // Create candidate with CV and doc upload
 app.post('/api/candidati', upload.fields([{ name: 'cvFile', maxCount: 1 }, { name: 'docIdFile', maxCount: 1 }]), async (req, res) => {
   try {

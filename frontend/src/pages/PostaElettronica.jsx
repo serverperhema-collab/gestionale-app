@@ -36,10 +36,48 @@ const getAvatarColor = (name = '') => {
   return colors[sum % colors.length];
 };
 
-export default function PostaElettronica({ candidati = [], clienti = [], ricerche = [], showStatus, API_BASE }) {
+export default function PostaElettronica({ candidati = [], clienti = [], ricerche = [], showStatus, API_BASE, fetchCandidati }) {
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedEmail, setSelectedEmail] = useState(null);
+
+  // Attachment linking states
+  const [linkingAttachment, setLinkingAttachment] = useState(null);
+  const [linkingCandidateId, setLinkingCandidateId] = useState('');
+  const [linkingDocType, setLinkingDocType] = useState('cv');
+  const [submittingLink, setSubmittingLink] = useState(false);
+
+  const handleConfirmLink = async (att) => {
+    if (!linkingCandidateId) return;
+    try {
+      setSubmittingLink(true);
+      showStatus('loading', 'Collegamento allegato...', 'Collegamento del file alla scheda candidato in corso...');
+      const res = await fetch(`${API_BASE}/candidati/${linkingCandidateId}/collega-allegato`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          localName: att.localName,
+          filename: att.filename,
+          tipo_documento: linkingDocType
+        })
+      });
+      const json = await res.json();
+      if (json.success) {
+        showStatus('success', 'Allegato collegato!', `L'allegato "${att.filename}" è stato collegato con successo.`);
+        setLinkingAttachment(null);
+        setLinkingCandidateId('');
+        if (typeof fetchCandidati === 'function') {
+          await fetchCandidati();
+        }
+      } else {
+        showStatus('error', 'Errore di collegamento', json.error || 'Impossibile collegare l\'allegato.');
+      }
+    } catch (err) {
+      showStatus('error', 'Errore di rete', err.message);
+    } finally {
+      setSubmittingLink(false);
+    }
+  };
   
   // Navigation & Folders
   const [currentFolder, setCurrentFolder] = useState('inbox');
@@ -1006,58 +1044,159 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       {parsedAllegati.map((att, i) => {
                         const fileUrl = `${API_BASE.replace('/api', '')}/uploads/doc/${att.localName}`;
+                        const isCurrentlyLinking = linkingAttachment && linkingAttachment.localName === att.localName;
                         return (
                           <div key={i} style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            justifyContent: 'space-between',
-                            padding: '10px 14px', 
                             background: 'var(--bg-primary)', 
                             border: '1px solid var(--border)', 
                             borderRadius: '8px',
+                            padding: '10px 14px', 
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '10px',
                             fontSize: '13px'
                           }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
-                              <span style={{ fontSize: '18px' }}>📄</span>
-                              <span style={{ 
-                                fontWeight: 500, 
-                                color: 'var(--text-primary)', 
-                                textOverflow: 'ellipsis', 
-                                overflow: 'hidden', 
-                                whiteSpace: 'nowrap' 
-                              }}>
-                                {att.filename}
-                              </span>
-                              <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>
-                                ({formatSize(att.size)})
-                              </span>
+                            {/* Main row */}
+                            <div style={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'space-between',
+                              width: '100%'
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+                                <span style={{ fontSize: '18px' }}>📄</span>
+                                <span style={{ 
+                                  fontWeight: 500, 
+                                  color: 'var(--text-primary)', 
+                                  textOverflow: 'ellipsis', 
+                                  overflow: 'hidden', 
+                                  whiteSpace: 'nowrap' 
+                                }}>
+                                  {att.filename}
+                                </span>
+                                <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>
+                                  ({formatSize(att.size)})
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (isCurrentlyLinking) {
+                                      setLinkingAttachment(null);
+                                      setLinkingCandidateId('');
+                                    } else {
+                                      setLinkingAttachment(att);
+                                      setLinkingCandidateId('');
+                                    }
+                                  }}
+                                  style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    background: isCurrentlyLinking ? 'var(--border)' : 'rgba(79, 70, 229, 0.1)',
+                                    color: isCurrentlyLinking ? 'var(--text-secondary)' : 'var(--primary)',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    padding: '6px 12px',
+                                    fontWeight: 600,
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                    transition: 'background 0.2s'
+                                  }}
+                                >
+                                  🔗 Collega
+                                </button>
+                                <a 
+                                  href={fileUrl} 
+                                  download={att.filename}
+                                  target="_blank" 
+                                  rel="noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ 
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    background: 'var(--primary)',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    padding: '6px 12px',
+                                    textDecoration: 'none',
+                                    fontWeight: 600,
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                    transition: 'opacity 0.2s'
+                                  }}
+                                  onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
+                                  onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
+                                >
+                                  ⬇️ Scarica
+                                </a>
+                              </div>
                             </div>
-                            <a 
-                              href={fileUrl} 
-                              download={att.filename}
-                              target="_blank" 
-                              rel="noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              style={{ 
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                background: 'var(--primary)',
-                                color: 'white',
-                                border: 'none',
+
+                            {/* Inline linking container */}
+                            {isCurrentlyLinking && (
+                              <div style={{ 
+                                padding: '12px', 
+                                background: 'var(--bg-secondary)', 
+                                border: '1px dashed var(--primary)', 
                                 borderRadius: '6px',
-                                padding: '6px 12px',
-                                textDecoration: 'none',
-                                fontWeight: 600,
-                                fontSize: '12px',
-                                cursor: 'pointer',
-                                transition: 'opacity 0.2s'
-                              }}
-                              onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
-                              onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
-                            >
-                              ⬇️ Scarica
-                            </a>
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '10px',
+                                marginTop: '4px'
+                              }}>
+                                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                  Collega questo allegato ad un candidato:
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                  <select 
+                                    value={linkingCandidateId} 
+                                    onChange={(e) => setLinkingCandidateId(e.target.value)}
+                                    className="form-control"
+                                    style={{ flex: 1, minWidth: '180px', height: '32px', fontSize: '13px', padding: '4px 8px' }}
+                                  >
+                                    <option value="">-- Seleziona Candidato --</option>
+                                    {[...candidati].sort((a,b) => `${a.cognome} ${a.nome}`.localeCompare(`${b.cognome} ${b.nome}`)).map(c => (
+                                      <option key={c.id} value={c.id}>{c.cognome} {c.nome} ({c.email || 'N/D'})</option>
+                                    ))}
+                                  </select>
+
+                                  <select 
+                                    value={linkingDocType} 
+                                    onChange={(e) => setLinkingDocType(e.target.value)}
+                                    className="form-control"
+                                    style={{ width: '180px', height: '32px', fontSize: '13px', padding: '4px 8px' }}
+                                  >
+                                    <option value="cv">Curriculum Vitae (CV)</option>
+                                    <option value="doc">Documento Identità</option>
+                                  </select>
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                  <button 
+                                    type="button" 
+                                    className="btn btn-secondary btn-xs"
+                                    onClick={() => {
+                                      setLinkingAttachment(null);
+                                      setLinkingCandidateId('');
+                                    }}
+                                  >
+                                    Annulla
+                                  </button>
+                                  <button 
+                                    type="button" 
+                                    className="btn btn-primary btn-xs"
+                                    disabled={!linkingCandidateId || submittingLink}
+                                    onClick={() => handleConfirmLink(att)}
+                                  >
+                                    {submittingLink ? 'Collegamento...' : 'Conferma Collegamento'}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
