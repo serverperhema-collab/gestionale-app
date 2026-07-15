@@ -1,5 +1,5 @@
 @echo off
-title HEMA WORK & MDI - Condivisione Remota (Cellulari)
+title GRUPPO HEMA - Condivisione Remota (Cellulari)
 echo ========================================================
 echo   CONDIVISIONE GESTIONALE PER CELLULARI E SMARTPHONE
 echo ========================================================

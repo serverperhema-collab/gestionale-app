@@ -545,3 +545,45 @@ textarea.form-control {
   color: var(--text-secondary);
   margin-bottom: 20px;
 }
+
+/* Responsive login page with custom background image */
+.login-container {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  min-height: 100vh;
+  width: 100vw;
+  background-image: url('/sfondo_login.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #f8fafc;
+  padding: 80px;
+  box-sizing: border-box;
+}
+
+.login-card {
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 40px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  text-align: center;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .login-container {
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .login-card {
+    padding: 30px 24px;
+  }
+}

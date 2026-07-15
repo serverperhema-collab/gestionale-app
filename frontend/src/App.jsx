@@ -120,29 +120,8 @@ export default function App() {
 
   if (!isAuthenticated) {
     return (
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        background: 'radial-gradient(circle at center, #1e1b4b 0%, #0f172a 100%)',
-        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        color: '#f8fafc',
-        padding: '20px',
-        boxSizing: 'border-box'
-      }}>
-        <div style={{
-          background: 'rgba(30, 41, 59, 0.7)',
-          backdropFilter: 'blur(16px)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          borderRadius: '16px',
-          padding: '40px',
-          width: '100%',
-          maxWidth: '400px',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.5)',
-          textAlign: 'center',
-          boxSizing: 'border-box'
-        }}>
+      <div className="login-container">
+        <div className="login-card">
           <div style={{
             fontSize: '48px',
             marginBottom: '16px',
@@ -156,7 +135,7 @@ export default function App() {
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             letterSpacing: '-0.5px'
-          }}>HEMA WORK / MDI</h2>
+          }}>GRUPPO HEMA</h2>
           <p style={{
             fontSize: '13px',
             color: '#94a3b8',

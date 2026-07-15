@@ -1,5 +1,5 @@
 @echo off
-title HEMA WORK & MDI - Avvio Gestionale
+title GRUPPO HEMA - Avvio Gestionale
 echo ========================================================
 echo   AVVIO GESTIONALE IN CORSO - NON CHIUDERE QUESTA FINESTRA
 echo ========================================================

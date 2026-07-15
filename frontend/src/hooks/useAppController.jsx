@@ -964,7 +964,7 @@ export function useAppController() {
       </head>
       <body>
         <div class="header">
-          <h1>💼 HEMA WORK / MDI</h1>
+          <h1>💼 GRUPPO HEMA</h1>
           <p>REPORT OPERAZIONI COMPILATE - EXPORT UFFICIALE</p>
         </div>
         

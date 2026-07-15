@@ -105,7 +105,7 @@ async function inviaEmailHelper(dest, subject, body, attachments = []) {
     });
     
     await transporter.sendMail({
-      from: `"HEMA WORK / MDI" <${config.user}>`,
+      from: `"GRUPPO HEMA" <${config.user}>`,
       to: dest,
       subject: subject,
       text: body ? body.replace(/<[^>]*>/g, '') : '',
@@ -2127,7 +2127,7 @@ app.put('/api/commerciali/:id/stato', async (req, res) => {
     // If approved, send confirmation email!
     if (stato_approvazione === 'Approvato') {
       try {
-        const mailSubject = 'HEMA WORK - Account Approvato!';
+        const mailSubject = 'GRUPPO HEMA - Account Approvato!';
         const mailBody = `Gentile ${user.nome} ${user.cognome},\n\nil tuo account commerciale sul nostro portale è stato approvato dal Team Leader!\n\nDa questo momento puoi effettuare l'accesso e inserire i tuoi mandati di ricerca.\n\nCordiali saluti,\nTeam Selezione`;
         await inviaEmailHelper(user.email, mailSubject, mailBody);
       } catch (mailErr) {
@@ -2324,7 +2324,7 @@ app.put('/api/clienti/portale/:id/stato', async (req, res) => {
 
     if (stato_approvazione === 'Approvato') {
       try {
-        const mailSubject = 'HEMA WORK - Portale Clienti Attivo!';
+        const mailSubject = 'GRUPPO HEMA - Portale Clienti Attivo!';
         const mailBody = `Gentile ${user.referente || user.nome_locale},\n\nil tuo account aziendale per il nostro portale clienti è stato approvato!\n\nDa questo momento puoi effettuare l'accesso per monitorare le tue ricerche ed inserire nuove richieste di mandato.\n\nCordiali saluti,\nTeam Selezione`;
         await inviaEmailHelper(user.email, mailSubject, mailBody);
       } catch (mailErr) {
