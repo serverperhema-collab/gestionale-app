@@ -470,6 +470,9 @@ async function initDatabase() {
     try {
       await db.exec("ALTER TABLE emails ADD COLUMN data_posticipato TEXT DEFAULT NULL");
     } catch(e) {}
+    try {
+      await db.exec("ALTER TABLE emails ADD COLUMN allegati TEXT DEFAULT NULL");
+    } catch(e) {}
 
     // Seeding mock emails
     try {

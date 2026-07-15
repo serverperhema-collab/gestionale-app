@@ -2186,11 +2186,29 @@ async function syncImapEmails(config, limit = 50, offset = 0) {
               const letto = message.flags.has('\\Seen') ? 1 : 0;
               const preferito = message.flags.has('\\Flagged') ? 1 : 0;
 
+              // Parse attachments
+              const attachmentsList = [];
+              if (parsed.attachments && parsed.attachments.length > 0) {
+                for (const att of parsed.attachments) {
+                  const safeFilename = att.filename ? att.filename.replace(/[^a-zA-Z0-9.\-_]/g, '_') : 'allegato';
+                  const localName = `${id}_${Date.now()}_${safeFilename}`;
+                  const localPath = path.join(uploadsDir, 'doc', localName);
+                  fs.writeFileSync(localPath, att.content);
+                  attachmentsList.push({
+                    filename: att.filename || 'allegato',
+                    localName: localName,
+                    contentType: att.contentType,
+                    size: att.size
+                  });
+                }
+              }
+              const allegatiJson = attachmentsList.length > 0 ? JSON.stringify(attachmentsList) : null;
+
               // Insert into SQLite
               await db.run(`
-                INSERT INTO emails (id, data_invio, mittente, destinatario, oggetto, corpo, tipo, stato, cartella, letto, preferito)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-              `, [id, dataInvio, mittente, destinatario, oggetto, corpo, tipo, stato, cartella, letto, preferito]);
+                INSERT INTO emails (id, data_invio, mittente, destinatario, oggetto, corpo, tipo, stato, cartella, letto, preferito, allegati)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `, [id, dataInvio, mittente, destinatario, oggetto, corpo, tipo, stato, cartella, letto, preferito, allegatiJson]);
               
               newCount++;
             }

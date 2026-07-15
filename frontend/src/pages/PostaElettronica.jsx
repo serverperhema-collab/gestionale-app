@@ -962,6 +962,110 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
                 {selectedEmail.corpo}
               </div>
 
+              {/* Email Attachments Render */}
+              {(() => {
+                let parsedAllegati = [];
+                if (selectedEmail.allegati) {
+                  try {
+                    parsedAllegati = typeof selectedEmail.allegati === 'string'
+                      ? JSON.parse(selectedEmail.allegati)
+                      : selectedEmail.allegati;
+                  } catch (e) {
+                    console.error("Errore parsing allegati:", e);
+                  }
+                }
+                
+                if (!parsedAllegati || parsedAllegati.length === 0) return null;
+                
+                const formatSize = (bytes) => {
+                  if (!bytes) return '';
+                  if (bytes < 1024) return `${bytes} B`;
+                  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+                  return `${(bytes / 1048576).toFixed(1)} MB`;
+                };
+
+                return (
+                  <div style={{ 
+                    marginTop: '30px', 
+                    padding: '16px', 
+                    background: 'var(--bg-secondary)', 
+                    border: '1px solid var(--border)', 
+                    borderRadius: '10px' 
+                  }}>
+                    <div style={{ 
+                      fontSize: '13px', 
+                      fontWeight: 600, 
+                      color: 'var(--text-primary)', 
+                      marginBottom: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      📎 Allegati ({parsedAllegati.length})
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {parsedAllegati.map((att, i) => {
+                        const fileUrl = `${API_BASE.replace('/api', '')}/uploads/doc/${att.localName}`;
+                        return (
+                          <div key={i} style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'space-between',
+                            padding: '10px 14px', 
+                            background: 'var(--bg-primary)', 
+                            border: '1px solid var(--border)', 
+                            borderRadius: '8px',
+                            fontSize: '13px'
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+                              <span style={{ fontSize: '18px' }}>📄</span>
+                              <span style={{ 
+                                fontWeight: 500, 
+                                color: 'var(--text-primary)', 
+                                textOverflow: 'ellipsis', 
+                                overflow: 'hidden', 
+                                whiteSpace: 'nowrap' 
+                              }}>
+                                {att.filename}
+                              </span>
+                              <span style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>
+                                ({formatSize(att.size)})
+                              </span>
+                            </div>
+                            <a 
+                              href={fileUrl} 
+                              download={att.filename}
+                              target="_blank" 
+                              rel="noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              style={{ 
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                background: 'var(--primary)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '6px 12px',
+                                textDecoration: 'none',
+                                fontWeight: 600,
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                transition: 'opacity 0.2s'
+                              }}
+                              onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
+                              onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
+                            >
+                              ⬇️ Scarica
+                            </a>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Action reply at bottom */}
               <div style={{ marginTop: '40px', borderTop: '1px solid var(--border)', paddingTop: '20px', display: 'flex', gap: '12px' }}>
                 <button className="btn btn-secondary btn-sm" onClick={() => handleReply(selectedEmail)}>

@@ -6,6 +6,10 @@
       "destination": "/commerciale.html"
     },
     {
+      "source": "/uploads/:path*",
+      "destination": "https://gestionale-backend-mfph.onrender.com/uploads/:path*"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://gestionale-backend-mfph.onrender.com/api/:path*"
     },
