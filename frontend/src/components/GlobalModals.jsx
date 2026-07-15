@@ -65,6 +65,42 @@ export default function GlobalModals(props) {
     }
   }, [showNewRicercaModal]);
 
+  const handleDeleteFile = async (candidateId, tipo) => {
+    const confirmDelete = window.confirm(`Sei sicuro di voler rimuovere questo ${tipo === 'cv' ? 'Curriculum Vitae' : "Documento d'identità"}? L'operazione eliminerà il file fisicamente dal server.`);
+    if (!confirmDelete) return;
+
+    try {
+      props.showStatus('loading', 'Rimozione file...', 'Rimozione del documento dal server in corso...');
+      const res = await fetch(`${API_BASE}/candidati/${candidateId}/files/${tipo}`, {
+        method: 'DELETE'
+      });
+      const json = await res.json();
+      if (json.success) {
+        props.showStatus('success', 'Rimosso!', json.message);
+        
+        // Update local currentCandidato so UI updates immediately
+        if (currentCandidato) {
+          const updated = { ...currentCandidato };
+          if (tipo === 'cv') {
+            updated.link_cv = null;
+          } else {
+            updated.link_documenti = null;
+          }
+          setCurrentCandidato(updated);
+        }
+
+        // Refresh global candidates list
+        if (typeof props.fetchCandidati === 'function') {
+          await props.fetchCandidati();
+        }
+      } else {
+        props.showStatus('error', 'Errore', json.error || 'Impossibile rimuovere il file.');
+      }
+    } catch (err) {
+      props.showStatus('error', 'Errore di rete', err.message);
+    }
+  };
+
   return (
     <>
       {/* ----------------- MODALS ----------------- */}
@@ -170,9 +206,22 @@ export default function GlobalModals(props) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <input type="file" name="docIdFile" style={{ outline: 'none' }} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
                       {currentCandidato.link_documenti && (
-                        <a href={`${API_BASE.replace('/api', '')}${currentCandidato.link_documenti}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600, fontSize: '13px' }}>
-                          📄 Apri Documento Corrente
-                        </a>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <a href={`${API_BASE.replace('/api', '')}${currentCandidato.link_documenti}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600, fontSize: '13px' }}>
+                            📄 Apri Documento Corrente
+                          </a>
+                          <button 
+                            type="button" 
+                            className="btn" 
+                            style={{ backgroundColor: 'var(--danger)', color: 'white', padding: '4px 8px', fontSize: '11px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteFile(currentCandidato.id, 'doc');
+                            }}
+                          >
+                            🗑️ Rimuovi
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -182,9 +231,22 @@ export default function GlobalModals(props) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <input type="file" name="cvFile" style={{ outline: 'none' }} />
                       {currentCandidato.link_cv && (
-                        <a href={currentCandidato.link_cv} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600, fontSize: '13px' }}>
-                          📄 Apri CV Corrente
-                        </a>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <a href={currentCandidato.link_cv.startsWith('http') ? currentCandidato.link_cv : `${API_BASE.replace('/api', '')}${currentCandidato.link_cv}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600, fontSize: '13px' }}>
+                            📄 Apri CV Corrente
+                          </a>
+                          <button 
+                            type="button" 
+                            className="btn" 
+                            style={{ backgroundColor: 'var(--danger)', color: 'white', padding: '4px 8px', fontSize: '11px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteFile(currentCandidato.id, 'cv');
+                            }}
+                          >
+                            🗑️ Rimuovi
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>

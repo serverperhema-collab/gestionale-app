@@ -909,6 +909,45 @@ app.post('/api/candidati/:id/collega-allegato', async (req, res) => {
   }
 });
 
+// Delete candidate file (CV or identity document)
+app.delete('/api/candidati/:id/files/:tipo', async (req, res) => {
+  try {
+    const { id, tipo } = req.params;
+    if (tipo !== 'cv' && tipo !== 'doc') {
+      return res.status(400).json({ success: false, error: 'Tipo file non valido' });
+    }
+
+    const cand = await db.get('SELECT * FROM candidati WHERE id = ?', [id]);
+    if (!cand) {
+      return res.status(404).json({ success: false, error: 'Candidato non trovato' });
+    }
+
+    if (tipo === 'cv') {
+      if (cand.link_cv && cand.link_cv.startsWith('/uploads')) {
+        const filePath = path.join(dataDir, cand.link_cv);
+        if (fs.existsSync(filePath)) {
+          try { fs.unlinkSync(filePath); } catch (err) {}
+        }
+      }
+      await db.run('UPDATE candidati SET link_cv = NULL WHERE id = ?', [id]);
+      await logActivity('CANDIDATO', id, `${cand.cognome} ${cand.nome}`, 'Rimozione CV', 'Eliminato Curriculum Vitae');
+      res.json({ success: true, message: 'Curriculum Vitae eliminato con successo.' });
+    } else {
+      if (cand.link_documenti && cand.link_documenti.startsWith('/uploads')) {
+        const filePath = path.join(dataDir, cand.link_documenti);
+        if (fs.existsSync(filePath)) {
+          try { fs.unlinkSync(filePath); } catch (err) {}
+        }
+      }
+      await db.run('UPDATE candidati SET link_documenti = NULL WHERE id = ?', [id]);
+      await logActivity('CANDIDATO', id, `${cand.cognome} ${cand.nome}`, 'Rimozione Doc', 'Eliminato Documento d\'identità');
+      res.json({ success: true, message: 'Documento d\'identità eliminato con successo.' });
+    }
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // Create candidate with CV and doc upload
 app.post('/api/candidati', upload.fields([{ name: 'cvFile', maxCount: 1 }, { name: 'docIdFile', maxCount: 1 }]), async (req, res) => {
   try {
