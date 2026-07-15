@@ -47,6 +47,25 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
   const [linkingDocType, setLinkingDocType] = useState('cv');
   const [submittingLink, setSubmittingLink] = useState(false);
 
+  // Custom confirmation modal state
+  const [confirmModalData, setConfirmModalData] = useState(null);
+
+  const showConfirm = (message) => {
+    return new Promise((resolve) => {
+      setConfirmModalData({
+        message,
+        onConfirm: () => {
+          setConfirmModalData(null);
+          resolve(true);
+        },
+        onCancel: () => {
+          setConfirmModalData(null);
+          resolve(false);
+        }
+      });
+    });
+  };
+
   const handleConfirmLink = async (att, forceOverwrite = false) => {
     if (!linkingCandidateId) return;
 
@@ -54,10 +73,10 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
     const cand = candidati.find(c => String(c.id) === String(linkingCandidateId));
     if (cand && !forceOverwrite) {
       if (linkingDocType === 'cv' && cand.link_cv && cand.link_cv.trim() !== '') {
-        const confirmOverwrite = window.confirm(`Il candidato ${cand.nome} ${cand.cognome} ha già un Curriculum Vitae collegato. Vuoi sostituirlo con questo allegato?`);
+        const confirmOverwrite = await showConfirm(`Il candidato ${cand.nome} ${cand.cognome} ha già un Curriculum Vitae collegato. Vuoi sostituirlo con questo allegato?`);
         if (!confirmOverwrite) return;
       } else if (linkingDocType === 'doc' && cand.link_documenti && cand.link_documenti.trim() !== '') {
-        const confirmOverwrite = window.confirm(`Il candidato ${cand.nome} ${cand.cognome} ha già un Documento d'identità collegato. Vuoi sostituirlo con questo allegato?`);
+        const confirmOverwrite = await showConfirm(`Il candidato ${cand.nome} ${cand.cognome} ha già un Documento d'identità collegato. Vuoi sostituirlo con questo allegato?`);
         if (!confirmOverwrite) return;
       }
     }
@@ -84,8 +103,7 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
           await fetchCandidati();
         }
       } else if (json.error === 'already_exists') {
-        showStatus('warning', 'Richiesta conferma', 'Rilevato file già esistente.');
-        const confirmOverwrite = window.confirm(json.message);
+        const confirmOverwrite = await showConfirm(json.message);
         if (confirmOverwrite) {
           await handleConfirmLink(att, true);
         }
@@ -1421,6 +1439,84 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
             </form>
           )}
 
+        </div>
+      )}
+
+      {/* CUSTOM CONFIRMATION MODAL */}
+      {confirmModalData && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.4)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2000
+        }}>
+          <div style={{
+            background: 'var(--bg-primary)',
+            border: '1px solid var(--border)',
+            borderRadius: '16px',
+            width: '420px',
+            padding: '24px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px'
+            }}>
+              <span style={{ fontSize: '24px' }}>⚠️</span>
+              <h4 style={{ margin: 0, fontWeight: 600, color: 'var(--text-primary)' }}>Conferma Operazione</h4>
+            </div>
+            <div style={{ 
+              fontSize: '14px', 
+              color: 'var(--text-secondary)', 
+              lineHeight: 1.5 
+            }}>
+              {confirmModalData.message}
+            </div>
+            <div style={{ 
+              display: 'flex', 
+              gap: '12px', 
+              justifyContent: 'flex-end', 
+              marginTop: '8px' 
+            }}>
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                style={{ 
+                  borderRadius: '8px', 
+                  padding: '8px 16px',
+                  fontSize: '13px',
+                  fontWeight: 600
+                }}
+                onClick={confirmModalData.onCancel}
+              >
+                Annulla
+              </button>
+              <button 
+                type="button" 
+                className="btn btn-primary" 
+                style={{ 
+                  borderRadius: '8px', 
+                  padding: '8px 16px',
+                  fontSize: '13px',
+                  fontWeight: 600
+                }}
+                onClick={confirmModalData.onConfirm}
+              >
+                Conferma
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
