@@ -830,7 +830,7 @@ app.post('/api/candidati/:id/cv', upload.single('cvFile'), async (req, res) => {
 app.post('/api/candidati/:id/collega-allegato', async (req, res) => {
   try {
     const { id } = req.params;
-    const { localName, filename, tipo_documento } = req.body;
+    const { localName, filename, tipo_documento, overwrite } = req.body;
     
     if (!localName || !tipo_documento) {
       return res.status(400).json({ success: false, error: 'Dati incompleti per collegare l\'allegato.' });
@@ -839,6 +839,24 @@ app.post('/api/candidati/:id/collega-allegato', async (req, res) => {
     const cand = await db.get('SELECT * FROM candidati WHERE id = ?', [id]);
     if (!cand) {
       return res.status(404).json({ success: false, error: 'Candidato non trovato' });
+    }
+
+    // Pre-flight check for existing files
+    if (!overwrite) {
+      if (tipo_documento === 'cv' && cand.link_cv && cand.link_cv.trim() !== '') {
+        return res.json({ 
+          success: false, 
+          error: 'already_exists', 
+          message: `Il candidato ${cand.nome} ${cand.cognome} ha già un Curriculum Vitae collegato. Vuoi sostituirlo con questo allegato?` 
+        });
+      }
+      if (tipo_documento === 'doc' && cand.link_documenti && cand.link_documenti.trim() !== '') {
+        return res.json({ 
+          success: false, 
+          error: 'already_exists', 
+          message: `Il candidato ${cand.nome} ${cand.cognome} ha già un Documento d'identità collegato. Vuoi sostituirlo con questo allegato?` 
+        });
+      }
     }
 
     // Source path of the attachment

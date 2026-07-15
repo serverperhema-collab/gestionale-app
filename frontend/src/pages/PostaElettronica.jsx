@@ -47,16 +47,16 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
   const [linkingDocType, setLinkingDocType] = useState('cv');
   const [submittingLink, setSubmittingLink] = useState(false);
 
-  const handleConfirmLink = async (att) => {
+  const handleConfirmLink = async (att, forceOverwrite = false) => {
     if (!linkingCandidateId) return;
 
-    // Check if candidate already has a linked file of this type
+    // Optional frontend client-side warning check (safety measure)
     const cand = candidati.find(c => String(c.id) === String(linkingCandidateId));
-    if (cand) {
-      if (linkingDocType === 'cv' && cand.link_cv) {
+    if (cand && !forceOverwrite) {
+      if (linkingDocType === 'cv' && cand.link_cv && cand.link_cv.trim() !== '') {
         const confirmOverwrite = window.confirm(`Il candidato ${cand.nome} ${cand.cognome} ha già un Curriculum Vitae collegato. Vuoi sostituirlo con questo allegato?`);
         if (!confirmOverwrite) return;
-      } else if (linkingDocType === 'doc' && cand.link_documenti) {
+      } else if (linkingDocType === 'doc' && cand.link_documenti && cand.link_documenti.trim() !== '') {
         const confirmOverwrite = window.confirm(`Il candidato ${cand.nome} ${cand.cognome} ha già un Documento d'identità collegato. Vuoi sostituirlo con questo allegato?`);
         if (!confirmOverwrite) return;
       }
@@ -71,7 +71,8 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
         body: JSON.stringify({
           localName: att.localName,
           filename: att.filename,
-          tipo_documento: linkingDocType
+          tipo_documento: linkingDocType,
+          overwrite: forceOverwrite
         })
       });
       const json = await res.json();
@@ -81,6 +82,12 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
         setLinkingCandidateId('');
         if (typeof fetchCandidati === 'function') {
           await fetchCandidati();
+        }
+      } else if (json.error === 'already_exists') {
+        showStatus('warning', 'Richiesta conferma', 'Rilevato file già esistente.');
+        const confirmOverwrite = window.confirm(json.message);
+        if (confirmOverwrite) {
+          await handleConfirmLink(att, true);
         }
       } else {
         showStatus('error', 'Errore di collegamento', json.error || 'Impossibile collegare l\'allegato.');
