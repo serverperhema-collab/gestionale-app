@@ -2227,6 +2227,58 @@ app.post('/api/clienti/login', async (req, res) => {
   }
 });
 
+app.post('/api/clienti/portale', async (req, res) => {
+  try {
+    const { 
+      nome_locale, piva, sede_legale, sede_lavoro, referente, 
+      email, telefono_mobile, telefono_fisso, password 
+    } = req.body;
+
+    if (!nome_locale || !email || !password) {
+      return res.status(400).json({ success: false, error: 'I campi Nome Azienda, Email e Password sono obbligatori' });
+    }
+
+    const existing = await db.get('SELECT id FROM clienti_portale WHERE LOWER(email) = ?', [email.toLowerCase()]);
+    if (existing) {
+      return res.status(400).json({ success: false, error: 'Esiste già un account registrato con questa e-mail.' });
+    }
+
+    const id = generateID('CP');
+    const idClienteInserito = generateID('CL');
+    const dataReg = new Date().toISOString().substring(0, 10);
+
+    // Insert into clienti_portale (approved status)
+    await db.run(`
+      INSERT INTO clienti_portale (
+        id, nome_locale, piva, sede_legale, sede_lavoro, referente,
+        email, telefono_mobile, telefono_fisso, password, stato_approvazione,
+        data_registrazione, id_cliente_inserito
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Approvato', ?, ?)
+    `, [
+      id, nome_locale, piva || '', sede_legale || '', sede_lavoro || '', referente || '',
+      email.toLowerCase(), telefono_mobile || '', telefono_fisso || '', password, dataReg, idClienteInserito
+    ]);
+
+    // Insert into clienti
+    await db.run(`
+      INSERT INTO clienti (
+        id, nome_locale, piva, sede_legale, sede_lavoro, referente,
+        email, telefono_mobile, telefono_fisso, data_inserimento,
+        valutazione_serieta, valutazione_disponibilita, valutazione_interesse, valutazione_selettivita
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 3, 3, 3, 3)
+    `, [
+      idClienteInserito, nome_locale, piva || '', sede_legale || '', sede_lavoro || '', referente || '',
+      email.toLowerCase(), telefono_mobile || '', telefono_fisso || '', dataReg
+    ]);
+
+    await logActivity('CLIENTE', idClienteInserito, nome_locale, 'Nuovo Cliente', 'Account cliente creato direttamente dal gestionale');
+
+    res.json({ success: true, message: 'Account cliente creato con successo' });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 app.get('/api/clienti/portale', async (req, res) => {
   try {
     const list = await db.all('SELECT * FROM clienti_portale ORDER BY data_registrazione DESC');

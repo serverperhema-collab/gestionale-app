@@ -325,6 +325,83 @@ export default function GestioneCommerciali() {
           </button>
         </div>
 
+        {/* Form per aggiungere un account cliente */}
+        <div style={{ marginBottom: '30px' }}>
+          <h3 style={{ fontSize: '14px', marginBottom: '12px', fontWeight: 700 }}>➕ Crea Nuovo Account Cliente</h3>
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            try {
+              const res = await fetch(`${API_BASE}/clienti/portale`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+              });
+              const json = await res.json();
+              if (json.success) {
+                showStatus('success', 'Cliente Creato!', 'L\'account del cliente è stato creato e approvato con successo.');
+                fetchClientAccounts();
+                e.target.reset();
+              } else {
+                showStatus('error', 'Errore', json.error);
+              }
+            } catch (err) {
+              showStatus('error', 'Errore di connessione', err.message);
+            }
+          }} style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr 1fr',
+            gap: '12px',
+            backgroundColor: 'var(--bg-secondary)',
+            padding: '16px 20px',
+            border: '1px solid var(--border)',
+            borderRadius: '10px'
+          }}>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label>Ragione Sociale / Nome Azienda *</label>
+              <input type="text" name="nome_locale" className="form-control" required placeholder="Es: Rossi Srl" />
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label>Partita IVA</label>
+              <input type="text" name="piva" className="form-control" placeholder="Es: 01234567890" />
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label>Referente</label>
+              <input type="text" name="referente" className="form-control" placeholder="Es: Mario Rossi" />
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label>Sede Legale</label>
+              <input type="text" name="sede_legale" className="form-control" placeholder="Es: Via Roma 1, Milano" />
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label>Sede Lavoro</label>
+              <input type="text" name="sede_lavoro" className="form-control" placeholder="Es: Via Milano 10, Torino" />
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label>Email *</label>
+              <input type="email" name="email" className="form-control" required placeholder="Es: info@rossisrl.it" />
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label>Telefono Mobile</label>
+              <input type="text" name="telefono_mobile" className="form-control" placeholder="Es: 3331234567" />
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label>Telefono Fisso</label>
+              <input type="text" name="telefono_fisso" className="form-control" placeholder="Es: 02123456" />
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label>Password di Accesso *</label>
+              <input type="text" name="password" className="form-control" required placeholder="Scegli password" />
+            </div>
+            <div style={{ gridColumn: 'span 3', display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+              <button type="submit" className="btn btn-primary" style={{ padding: '8px 24px' }}>
+                Salva e Attiva Account Cliente
+              </button>
+            </div>
+          </form>
+        </div>
+
         <div className="table-container">
           <table className="data-table">
             <thead>
