@@ -118,7 +118,9 @@ export default function RicercaDetail({
   showLinkAnnuncioModal,
   setShowLinkAnnuncioModal,
   handleLinkAnnuncio,
-  handleUnlinkAnnuncio
+  handleUnlinkAnnuncio,
+  handleSaveResearchPreventivo,
+  handleDeleteResearchPreventivo
 }) {
   const { annunci: annunciGlobali } = useGlobalState();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -444,7 +446,7 @@ export default function RicercaDetail({
                 <button className={`tab-nav-btn ${activeTab === 'prova' ? 'active' : ''}`} onClick={() => setActiveTab('prova')}>🧪 Prove</button>
                 <button className={`tab-nav-btn ${activeTab === 'assunzione' ? 'active' : ''}`} onClick={() => setActiveTab('assunzione')}>📄 Genera Assunzione</button>
                 <button className={`tab-nav-btn ${activeTab === 'storico' ? 'active' : ''}`} onClick={() => setActiveTab('storico')}>📜 Storico Mandato</button>
-                <button className={`tab-nav-btn ${activeTab === 'note_ricerca' ? 'active' : ''}`} onClick={() => setActiveTab('note_ricerca')}>📝 Note Ricerca</button>
+                <button className={`tab-nav-btn ${activeTab === 'note_ricerca' ? 'active' : ''}`} onClick={() => setActiveTab('note_ricerca')}>📝 Note & Preventivi</button>
               </div>
 
               {/* Tab Panels */}
@@ -488,7 +490,7 @@ export default function RicercaDetail({
                      activeTab === 'prova' ? '🧪 Prove Pratiche' :
                      activeTab === 'assunzione' ? '📄 Genera Assunzione' :
                      activeTab === 'storico' ? '📜 Storico Mandato' :
-                     activeTab === 'note_ricerca' ? '📝 Note & Commenti' : ''}
+                     activeTab === 'note_ricerca' ? '📝 Note & Preventivi' : ''}
                   </h3>
                   <button 
                     type="button"
@@ -1916,56 +1918,110 @@ export default function RicercaDetail({
                   return (
                     <div>
                       <h3 className="section-title">
-                        📝 Note Ricerca / Mandato
+                        📝 Note & Preventivi Ricerca / Mandato
                       </h3>
                       
-                      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.8fr', gap: '28px' }}>
-                        {/* Aggiungi Nota */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                        {/* Preventivo Card */}
                         <div style={{ background: 'var(--bg-primary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                          <h4 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '16px' }}>➕ Aggiungi Nuova Nota</h4>
-                          <form onSubmit={handleSaveResearchNote} className="flex-col-gap-16">
-                            <div className="form-group">
-                              <label>Testo della Nota *</label>
-                              <textarea 
-                                name="nota" 
-                                className="form-control" 
-                                required 
-                                rows="6" 
-                                placeholder="Scrivi una nota di aggiornamento, dettagli emersi dal cliente o avanzamenti della ricerca..."
-                              />
+                          <h4 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            📁 Preventivo / Accordo Economico Cliente
+                          </h4>
+                          {ricercaDetail.ricerca.preventivo ? (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(var(--primary-rgb), 0.05)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <span style={{ fontSize: '24px' }}>📄</span>
+                                <div>
+                                  <div style={{ fontWeight: 600, fontSize: '14px' }}>Preventivo Caricato</div>
+                                  <a 
+                                    href={`${API_BASE}${ricercaDetail.ricerca.preventivo}`} 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    style={{ fontSize: '13px', color: 'var(--primary)', textDecoration: 'underline', fontWeight: 500 }}
+                                  >
+                                    Visualizza / Scarica il Preventivo
+                                  </a>
+                                </div>
+                              </div>
+                              <button 
+                                type="button" 
+                                className="btn btn-secondary btn-sm"
+                                onClick={handleDeleteResearchPreventivo}
+                                style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ff4d4f', borderColor: '#ff4d4f' }}
+                              >
+                                🗑️ Rimuovi
+                              </button>
                             </div>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                              <button type="submit" className="btn btn-primary" style={{ padding: '8px 24px' }}>💾 Salva Nota</button>
+                          ) : (
+                            <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-secondary)', background: 'var(--bg-primary)', borderRadius: '8px', border: '2px dashed var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                              <span style={{ fontSize: '32px' }}>📂</span>
+                              <div style={{ fontSize: '14px', fontWeight: 500 }}>Nessun preventivo / accordo economico caricato per questo cliente.</div>
+                              <label className="btn btn-primary btn-sm" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                                📤 Carica Preventivo (PDF/Foto)
+                                <input 
+                                  type="file" 
+                                  accept=".pdf,.png,.jpg,.jpeg" 
+                                  style={{ display: 'none' }} 
+                                  onChange={(e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                      handleSaveResearchPreventivo(e.target.files[0]);
+                                    }
+                                  }} 
+                                />
+                              </label>
                             </div>
-                          </form>
+                          )}
                         </div>
 
-                        {/* Registro Note Inserite */}
-                        <div className="flex-col-gap-16">
-                          <h4 style={{ fontSize: '14px', fontWeight: 700 }}>📋 Registro Note Ricerca</h4>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '450px', overflowY: 'auto', paddingRight: '6px' }}>
-                            {parsedNotes.map(note => (
-                              <div key={note.id} style={{
-                                background: 'var(--bg-primary)',
-                                padding: '16px',
-                                borderRadius: '10px',
-                                border: '1px solid var(--border)',
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
-                              }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px dashed var(--border)', paddingBottom: '6px' }}>
-                                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)' }}>Aggiornamento</span>
-                                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{note.date}</span>
+                        {/* Note & Comments Grid */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.8fr', gap: '28px' }}>
+                          {/* Aggiungi Nota */}
+                          <div style={{ background: 'var(--bg-primary)', padding: '24px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                            <h4 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '16px' }}>➕ Aggiungi Nuova Nota</h4>
+                            <form onSubmit={handleSaveResearchNote} className="flex-col-gap-16">
+                              <div className="form-group">
+                                <label>Testo della Nota *</label>
+                                <textarea 
+                                  name="nota" 
+                                  className="form-control" 
+                                  required 
+                                  rows="6" 
+                                  placeholder="Scrivi una nota di aggiornamento, dettagli emersi dal cliente o avanzamenti della ricerca..."
+                                />
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                <button type="submit" className="btn btn-primary" style={{ padding: '8px 24px' }}>💾 Salva Nota</button>
+                              </div>
+                            </form>
+                          </div>
+
+                          {/* Registro Note Inserite */}
+                          <div className="flex-col-gap-16">
+                            <h4 style={{ fontSize: '14px', fontWeight: 700 }}>📋 Registro Note Ricerca</h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '450px', overflowY: 'auto', paddingRight: '6px' }}>
+                              {parsedNotes.map(note => (
+                                <div key={note.id} style={{
+                                  background: 'var(--bg-primary)',
+                                  padding: '16px',
+                                  borderRadius: '10px',
+                                  border: '1px solid var(--border)',
+                                  boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                                }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px dashed var(--border)', paddingBottom: '6px' }}>
+                                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary)' }}>Aggiornamento</span>
+                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{note.date}</span>
+                                  </div>
+                                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', margin: 0 }}>
+                                    {note.content}
+                                  </p>
                                 </div>
-                                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap', margin: 0 }}>
-                                  {note.content}
-                                </p>
-                              </div>
-                            ))}
-                            {parsedNotes.length === 0 && (
-                              <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-secondary)', background: 'var(--bg-primary)', borderRadius: '12px', border: '1px dashed var(--border)' }}>
-                                Nessuna nota di ricerca inserita finora.
-                              </div>
-                            )}
+                              ))}
+                              {parsedNotes.length === 0 && (
+                                <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-secondary)', background: 'var(--bg-primary)', borderRadius: '12px', border: '1px dashed var(--border)' }}>
+                                  Nessuna nota di ricerca inserita finora.
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>

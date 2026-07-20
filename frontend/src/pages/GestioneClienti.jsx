@@ -17,6 +17,31 @@ export default function Clienti({ setSelectedSubjectLog }) {
     setShowEditModal(true);
   };
 
+  const handleUploadPreventivo = async (file) => {
+    try {
+      showStatus('loading', 'Caricamento preventivo...');
+      const fd = new FormData();
+      fd.append('preventivoFile', file);
+      const res = await fetch(`${API_BASE}/uploads/preventivo`, {
+        method: 'POST',
+        body: fd
+      });
+      const json = await res.json();
+      if (json.success) {
+        setCurrentClient(prev => ({ ...prev, preventivo: json.filePath }));
+        showStatus('success', 'Preventivo caricato', 'Il preventivo è stato caricato con successo.');
+      } else {
+        showStatus('error', 'Errore', json.error);
+      }
+    } catch (err) {
+      showStatus('error', 'Errore di caricamento', err.message);
+    }
+  };
+
+  const handleDeletePreventivo = () => {
+    setCurrentClient(prev => ({ ...prev, preventivo: null }));
+  };
+
   const handleSaveEdit = async (e) => {
     e.preventDefault();
     const filteredSedi = editWorkplaces.filter(w => w.trim() !== '');
@@ -240,6 +265,46 @@ export default function Clienti({ setSelectedSubjectLog }) {
                       onChange={e => setCurrentClient({...currentClient, telefono_fisso: e.target.value})} 
                     />
                   </div>
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+                  <label style={{ fontWeight: 600, fontSize: '13px', display: 'block', marginBottom: '8px' }}>
+                    📁 Preventivo / Accordo Economico
+                  </label>
+                  {currentClient.preventivo ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(var(--primary-rgb), 0.05)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                      <a 
+                        href={`${API_BASE}${currentClient.preventivo}`} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        style={{ fontSize: '13px', color: 'var(--primary)', textDecoration: 'underline', fontWeight: 500 }}
+                      >
+                        Visualizza Preventivo Attuale
+                      </a>
+                      <button 
+                        type="button" 
+                        className="btn btn-secondary btn-sm"
+                        onClick={handleDeletePreventivo}
+                        style={{ color: '#ff4d4f', borderColor: '#ff4d4f' }}
+                      >
+                        🗑️ Rimuovi
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                      📤 Carica Preventivo (PDF/Foto)
+                      <input 
+                        type="file" 
+                        accept=".pdf,.png,.jpg,.jpeg" 
+                        style={{ display: 'none' }} 
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            handleUploadPreventivo(e.target.files[0]);
+                          }
+                        }} 
+                      />
+                    </label>
+                  )}
                 </div>
 
               </div>

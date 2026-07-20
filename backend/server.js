@@ -45,6 +45,9 @@ if (!fs.existsSync(path.join(uploadsDir, 'doc'))) {
 if (!fs.existsSync(path.join(uploadsDir, 'hiring_docs'))) {
   fs.mkdirSync(path.join(uploadsDir, 'hiring_docs'), { recursive: true });
 }
+if (!fs.existsSync(path.join(uploadsDir, 'preventivi'))) {
+  fs.mkdirSync(path.join(uploadsDir, 'preventivi'), { recursive: true });
+}
 
 // Serve uploads folder statically
 app.use('/uploads', express.static(uploadsDir));
@@ -58,12 +61,14 @@ app.get('/cliente', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'cliente.html'));
 });
 
-// Configure Multer for CV & Identity Documents uploads
+// Configure Multer for CV, Identity Documents & Preventivo uploads
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     let folder = path.join(uploadsDir, 'cv');
     if (file.fieldname === 'docIdFile') {
       folder = path.join(uploadsDir, 'doc');
+    } else if (file.fieldname === 'preventivoFile') {
+      folder = path.join(uploadsDir, 'preventivi');
     }
     if (!fs.existsSync(folder)) {
       fs.mkdirSync(folder, { recursive: true });
@@ -73,7 +78,7 @@ const storage = multer.diskStorage({
   filename: function (req, file, cb) {
     const ext = path.extname(file.originalname);
     const originalNameClean = path.basename(file.originalname, ext).trim().replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
-    const prefix = file.fieldname === 'docIdFile' ? 'DOC' : 'CV';
+    const prefix = file.fieldname === 'docIdFile' ? 'DOC' : (file.fieldname === 'preventivoFile' ? 'PREV' : 'CV');
     cb(null, `${prefix}_${originalNameClean}_${Date.now()}${ext}`);
   }
 });
@@ -540,7 +545,7 @@ app.post('/api/ricerche', async (req, res) => {
       azienda, ruolo, referente, telefono_mobile, telefono_fisso, email, sede_lavoro, 
       nr_risorse, ccnl_livello, retribuzione, competenze_tecniche, note, 
       consulente_commerciale, outbound, piva, sede_legale, settore,
-      ore_lavoro, orario_lavoro, ore_lavoro_tipo
+      ore_lavoro, orario_lavoro, ore_lavoro_tipo, preventivo
     } = req.body;
     if (!azienda || !ruolo) {
       return res.status(400).json({ success: false, error: 'Azienda e Ruolo sono obbligatori' });
@@ -556,8 +561,8 @@ app.post('/api/ricerche', async (req, res) => {
         id, data_inserimento, azienda, ruolo, referente, telefono_mobile, telefono_fisso, email, 
         sede_lavoro, nr_risorse, ccnl_livello, retribuzione, competenze_tecniche, 
         note, stato_ricerca, stato_approvazione_tl, consulente_commerciale, outbound, piva, 
-        sede_legale, settore, ore_lavoro, orario_lavoro, ore_lavoro_tipo
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        sede_legale, settore, ore_lavoro, orario_lavoro, ore_lavoro_tipo, preventivo
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       id, 
       new Date().toISOString().substring(0, 10), 
@@ -582,7 +587,8 @@ app.post('/api/ricerche', async (req, res) => {
       settore || '',
       ore_lavoro ? parseInt(ore_lavoro) : null,
       orario_lavoro || '',
-      ore_lavoro_tipo || 'Settimanali'
+      ore_lavoro_tipo || 'Settimanali',
+      preventivo || null
     ]);
     
     // Auto-create client entry if approved immediately
@@ -597,8 +603,8 @@ app.post('/api/ricerche', async (req, res) => {
       if (!clientExists) {
         const clId = generateID('PC');
         await db.run(`
-          INSERT INTO clienti (id, data_inserimento, nome_locale, piva, sede_legale, sede_lavoro, referente, email, telefono_mobile)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO clienti (id, data_inserimento, nome_locale, piva, sede_legale, sede_lavoro, referente, email, telefono_mobile, preventivo)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
           clId,
           new Date().toISOString().substring(0, 10),
@@ -608,8 +614,13 @@ app.post('/api/ricerche', async (req, res) => {
           sede_lavoro || '',
           referente || '',
           email || '',
-          telefono_mobile || ''
+          telefono_mobile || '',
+          preventivo || null
         ]);
+      } else {
+        if (preventivo) {
+          await db.run('UPDATE clienti SET preventivo = ? WHERE id = ?', [preventivo, clientExists.id]);
+        }
       }
     }
     
@@ -627,7 +638,7 @@ app.put('/api/ricerche/:id', async (req, res) => {
       testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, 
       facilita, stato_ricerca, stato_approvazione_tl, motivazione,
       data_scadenza_annuncio, stato_annuncio, motivazione_stato, settore,
-      ore_lavoro, orario_lavoro, ore_lavoro_tipo
+      ore_lavoro, orario_lavoro, ore_lavoro_tipo, preventivo
     } = req.body;
     
     const ricerca = await db.get('SELECT * FROM ricerche WHERE id = ?', [req.params.id]);
@@ -689,7 +700,7 @@ app.put('/api/ricerche/:id', async (req, res) => {
       'ccnl_livello', 'retribuzione', 'competenze_tecniche', 'note_team_leader', 'data_ultimo_resoconto',
       'testo_annuncio', 'portali_annuncio', 'link_annuncio', 'data_inserimento_annuncio', 'valutazione_facilita',
       'stato_ricerca', 'stato_approvazione_tl', 'data_scadenza_annuncio', 'stato_annuncio', 'note', 'settore',
-      'ore_lavoro', 'orario_lavoro', 'ore_lavoro_tipo'
+      'ore_lavoro', 'orario_lavoro', 'ore_lavoro_tipo', 'preventivo'
     ]);
     
     if (updateQuery) {
@@ -712,8 +723,8 @@ app.put('/api/ricerche/:id', async (req, res) => {
       if (!clientExists) {
         const clId = generateID('PC');
         await db.run(`
-          INSERT INTO clienti (id, data_inserimento, nome_locale, piva, sede_legale, sede_lavoro, referente, email, telefono_mobile)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO clienti (id, data_inserimento, nome_locale, piva, sede_legale, sede_lavoro, referente, email, telefono_mobile, preventivo)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
           clId,
           new Date().toISOString().substring(0, 10),
@@ -723,8 +734,13 @@ app.put('/api/ricerche/:id', async (req, res) => {
           refRicerca.sede_lavoro || '',
           refRicerca.referente || '',
           refRicerca.email || '',
-          refRicerca.telefono_mobile || ''
+          refRicerca.telefono_mobile || '',
+          refRicerca.preventivo || null
         ]);
+      } else {
+        if (refRicerca.preventivo) {
+          await db.run('UPDATE clienti SET preventivo = ? WHERE id = ?', [refRicerca.preventivo, clientExists.id]);
+        }
       }
     }
     
@@ -798,6 +814,72 @@ app.get('/api/candidati', async (req, res) => {
     
     const list = await db.all(query, params);
     res.json({ success: true, data: list });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Generic upload endpoint for preventivo file
+app.post('/api/uploads/preventivo', upload.single('preventivoFile'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'Nessun file inviato' });
+    }
+    const filePath = `/uploads/preventivi/${req.file.filename}`;
+    res.json({ success: true, filePath });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Update preventivo for a client
+app.put('/api/clienti/:id/preventivo', async (req, res) => {
+  try {
+    const { preventivo } = req.body;
+    const client = await db.get('SELECT * FROM clienti WHERE id = ?', [req.params.id]);
+    if (!client) return res.status(404).json({ success: false, error: 'Cliente non trovato' });
+
+    // Delete old file if present and different
+    if (client.preventivo && client.preventivo !== preventivo && client.preventivo.startsWith('/uploads')) {
+      const oldPath = path.join(dataDir, client.preventivo);
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    }
+
+    await db.run('UPDATE clienti SET preventivo = ? WHERE id = ?', [preventivo || null, req.params.id]);
+    res.json({ success: true, message: 'Preventivo aggiornato con successo' });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// Update preventivo for a research (and sync to client)
+app.put('/api/ricerche/:id/preventivo', async (req, res) => {
+  try {
+    const { preventivo } = req.body;
+    const research = await db.get('SELECT * FROM ricerche WHERE id = ?', [req.params.id]);
+    if (!research) return res.status(404).json({ success: false, error: 'Ricerca non trovata' });
+
+    // Update in research
+    await db.run('UPDATE ricerche SET preventivo = ? WHERE id = ?', [preventivo || null, req.params.id]);
+
+    // Find and update associated client
+    let client = null;
+    if (research.piva) {
+      client = await db.get('SELECT * FROM clienti WHERE piva = ?', [research.piva]);
+    } else {
+      client = await db.get('SELECT * FROM clienti WHERE nome_locale = ?', [research.azienda]);
+    }
+
+    if (client) {
+      // Delete old file of client if different
+      if (client.preventivo && client.preventivo !== preventivo && client.preventivo.startsWith('/uploads')) {
+        const oldPath = path.join(dataDir, client.preventivo);
+        if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+      }
+      await db.run('UPDATE clienti SET preventivo = ? WHERE id = ?', [preventivo || null, client.id]);
+    }
+
+    res.json({ success: true, message: 'Preventivo aggiornato con successo' });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
@@ -1829,7 +1911,7 @@ app.put('/api/clienti/:id', async (req, res) => {
 
     const updateQuery = buildUpdateQuery('clienti', req.params.id, req.body, [
       'nome_locale', 'piva', 'sede_legale', 'sede_lavoro', 'referente', 'email', 'telefono_mobile', 'telefono_fisso',
-      'valutazione_serieta', 'valutazione_disponibilita', 'valutazione_interesse', 'valutazione_selettivita'
+      'valutazione_serieta', 'valutazione_disponibilita', 'valutazione_interesse', 'valutazione_selettivita', 'preventivo'
     ]);
 
     if (updateQuery) {
@@ -1910,7 +1992,38 @@ app.post('/api/email/assunzione', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Dati incompleti per invio scheda assunzione' });
     }
     
-    const emailResult = await inviaEmailHelper(dest_email, subject || 'Nuova Scheda Assunzione - HEMA FOOD', htmlBody);
+    // Look up preventivo file path to attach
+    const attachments = [];
+    let preventivoPath = null;
+    if (id_ricerca) {
+      const research = await db.get('SELECT preventivo, azienda, piva FROM ricerche WHERE id = ?', [id_ricerca]);
+      if (research) {
+        preventivoPath = research.preventivo;
+        if (!preventivoPath) {
+          let client = null;
+          if (research.piva) {
+            client = await db.get('SELECT preventivo FROM clienti WHERE piva = ?', [research.piva]);
+          } else {
+            client = await db.get('SELECT preventivo FROM clienti WHERE nome_locale = ?', [research.azienda]);
+          }
+          if (client) {
+            preventivoPath = client.preventivo;
+          }
+        }
+      }
+    }
+    
+    if (preventivoPath && preventivoPath.startsWith('/uploads')) {
+      const physicalPath = path.join(dataDir, preventivoPath);
+      if (fs.existsSync(physicalPath)) {
+        attachments.push({
+          filename: path.basename(physicalPath),
+          path: physicalPath
+        });
+      }
+    }
+    
+    const emailResult = await inviaEmailHelper(dest_email, subject || 'Nuova Scheda Assunzione - HEMA FOOD', htmlBody, attachments);
     const stato = emailResult.success ? 'Inviata' : (emailResult.simulated ? 'Simulata' : 'Fallita');
     const id = generateID('EM');
     const dataInvio = new Date().toISOString();

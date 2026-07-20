@@ -171,6 +171,7 @@ export function useAppController() {
     orario_lavoro: '',
     ore_lavoro_tipo: 'Settimanali'
   }]);
+  const [newSearchPreventivoFile, setNewSearchPreventivoFile] = useState(null);
 
   // Notifications and approvals states moved to GlobalStateContext
 
@@ -555,6 +556,23 @@ export function useAppController() {
     try {
       showStatus('loading', 'Salvataggio...', 'Salvataggio delle ricerche in corso...');
 
+      let preventivoPath = null;
+      if (newSearchPreventivoFile) {
+        showStatus('loading', 'Caricamento preventivo...', 'Caricamento del preventivo sul server...');
+        const fd = new FormData();
+        fd.append('preventivoFile', newSearchPreventivoFile);
+        const uploadRes = await fetch(`${API_BASE}/uploads/preventivo`, {
+          method: 'POST',
+          body: fd
+        });
+        const uploadJson = await uploadRes.json();
+        if (!uploadJson.success) {
+          throw new Error(uploadJson.error || 'Impossibile caricare il preventivo.');
+        }
+        preventivoPath = uploadJson.filePath;
+      }
+
+      showStatus('loading', 'Salvataggio...', 'Inserimento dei mandati di ricerca in corso...');
       // Submit each role as a separate research record
       for (const role of newSearchRoles) {
         if (!role.ruolo.trim()) continue;
@@ -578,7 +596,8 @@ export function useAppController() {
           ore_lavoro_tipo: role.ore_lavoro_tipo || 'Settimanali',
           orario_lavoro: role.orario_lavoro,
           note: newSearchForm.note || '',
-          settore: newSearchForm.settore || ''
+          settore: newSearchForm.settore || '',
+          preventivo: preventivoPath
         };
         const res = await fetch(`${API_BASE}/ricerche`, {
           method: 'POST',
@@ -594,6 +613,7 @@ export function useAppController() {
       }
       showStatus('success', 'Ricerche inserite!', 'I mandati di selezione sono stati creati con successo.');
       setShowNewRicercaModal(false);
+      setNewSearchPreventivoFile(null);
       fetchRicerche();
     } catch (err) {
       showStatus('error', 'Connessione fallita', err.message);
@@ -620,6 +640,7 @@ export function useAppController() {
       retribuzione: '',
       competenze_tecniche: ''
     }]);
+    setNewSearchPreventivoFile(null);
     setShowNewRicercaModal(true);
   };
   const handleSelectClientForNewSearch = clientId => {
@@ -1803,6 +1824,65 @@ export function useAppController() {
       showStatus('error', 'Errore connessione', err.message);
     }
   };
+  const handleSaveResearchPreventivo = async (file) => {
+    if (!file) return;
+    try {
+      showStatus('loading', 'Caricamento preventivo...', 'Salvataggio del file preventivo sul server...');
+      const fd = new FormData();
+      fd.append('preventivoFile', file);
+      const uploadRes = await fetch(`${API_BASE}/uploads/preventivo`, {
+        method: 'POST',
+        body: fd
+      });
+      const uploadJson = await uploadRes.json();
+      if (!uploadJson.success) {
+        showStatus('error', 'Errore caricamento', uploadJson.error || 'Impossibile caricare il preventivo.');
+        return;
+      }
+      
+      const preventivoPath = uploadJson.filePath;
+      showStatus('loading', 'Salvataggio preventivo...', 'Associazione del preventivo alla ricerca...');
+      const res = await fetch(`${API_BASE}/ricerche/${selectedRicercaId}/preventivo`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ preventivo: preventivoPath })
+      });
+      const json = await res.json();
+      if (json.success) {
+        showStatus('success', 'Preventivo salvato!', 'Il preventivo è stato associato al cliente e a questo mandato.');
+        fetchRicercaDetail(selectedRicercaId);
+      } else {
+        showStatus('error', 'Errore', json.error);
+      }
+    } catch (err) {
+      showStatus('error', 'Connessione fallita', err.message);
+    }
+  };
+
+  const handleDeleteResearchPreventivo = async () => {
+    try {
+      showStatus('loading', 'Rimozione preventivo...', 'Scollegamento del preventivo in corso...');
+      const res = await fetch(`${API_BASE}/ricerche/${selectedRicercaId}/preventivo`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ preventivo: null })
+      });
+      const json = await res.json();
+      if (json.success) {
+        showStatus('success', 'Preventivo rimosso!', 'Il preventivo è stato rimosso.');
+        fetchRicercaDetail(selectedRicercaId);
+      } else {
+        showStatus('error', 'Errore', json.error);
+      }
+    } catch (err) {
+      showStatus('error', 'Connessione fallita', err.message);
+    }
+  };
+
   const handleSaveResearchNote = async e => {
     e.preventDefault();
     const formData = new FormData(e.target);
@@ -3786,6 +3866,8 @@ export function useAppController() {
     setNewSearchForm,
     newSearchRoles,
     setNewSearchRoles,
+    newSearchPreventivoFile,
+    setNewSearchPreventivoFile,
     selectedSubjectLog,
     setSelectedSubjectLog,
     subjectTimeline,
@@ -3845,6 +3927,8 @@ export function useAppController() {
     handleDeleteInterview,
     handleEditInterviewDetails,
     handleSaveResearchNote,
+    handleSaveResearchPreventivo,
+    handleDeleteResearchPreventivo,
     handleStartTrial,
     handleEndTrial,
     handleEditTrialDetails,

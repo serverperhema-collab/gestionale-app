@@ -492,6 +492,12 @@ async function initDatabase() {
     try {
       await db.exec("ALTER TABLE emails ADD COLUMN allegati TEXT DEFAULT NULL");
     } catch(e) {}
+    try {
+      await db.exec("ALTER TABLE clienti ADD COLUMN preventivo TEXT DEFAULT NULL");
+    } catch(e) {}
+    try {
+      await db.exec("ALTER TABLE ricerche ADD COLUMN preventivo TEXT DEFAULT NULL");
+    } catch(e) {}
 
     // Seeding mock emails
     try {

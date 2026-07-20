@@ -26,6 +26,7 @@ export default function GlobalModals(props) {
     showTrialStatusModal, setShowTrialStatusModal, showReportModal, setShowReportModal, reportData, reportRange, setReportRange,
     reportStartDate, setReportStartDate, reportEndDate, setReportEndDate, loadingReport, handleGenerateReport, handlePrintReport, handlePrintTimelineReport,
     showNewRicercaModal, setShowNewRicercaModal, newSearchForm, setNewSearchForm, newSearchRoles, handleCreateRicerca, handleRoleChange,
+    newSearchPreventivoFile, setNewSearchPreventivoFile,
     addRoleField, removeRoleField, handleSelectClientForNewSearch, clienti, commerciali, operatori, showNewClienteModal, setShowNewClienteModal,
     handleCreateCliente, showNewCVCandidatoModal, setShowNewCVCandidatoModal, handleCreateCVCandidato, showEditCandidatoModal,
     setShowEditCandidatoModal, showEmailPreviewModal, setShowEmailPreviewModal, emailData, setEmailData, handleSendCVEmail, showDocUploadModal,
@@ -1572,6 +1573,41 @@ export default function GlobalModals(props) {
                       value={newSearchForm.note}
                       onChange={(e) => setNewSearchForm({ ...newSearchForm, note: e.target.value })}
                     />
+                  </div>
+                </div>
+
+                {/* 4. Preventivo (File Upload) */}
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+                  <div className="form-group">
+                    <label>Preventivo / Accordo Economico (Opzionale)</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px' }}>
+                      <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', margin: 0 }}>
+                        {newSearchPreventivoFile ? '🔄 Cambia File' : '📤 Carica File (PDF/Immagine)'}
+                        <input 
+                          type="file" 
+                          accept=".pdf,.png,.jpg,.jpeg" 
+                          style={{ display: 'none' }} 
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              setNewSearchPreventivoFile(e.target.files[0]);
+                            }
+                          }} 
+                        />
+                      </label>
+                      {newSearchPreventivoFile && (
+                        <span style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          📄 {newSearchPreventivoFile.name} 
+                          <button 
+                            type="button" 
+                            style={{ background: 'none', border: 'none', color: '#ff4d4f', cursor: 'pointer', fontSize: '14px', padding: 0 }}
+                            onClick={() => setNewSearchPreventivoFile(null)}
+                            title="Rimuovi file"
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
