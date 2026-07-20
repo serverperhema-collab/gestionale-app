@@ -274,7 +274,7 @@ export default function Clienti({ setSelectedSubjectLog }) {
                   {currentClient.preventivo ? (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(var(--primary-rgb), 0.05)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
                       <a 
-                        href={`${API_BASE}${currentClient.preventivo}`} 
+                        href={`${API_BASE.replace('/api', '')}${currentClient.preventivo}`} 
                         target="_blank" 
                         rel="noreferrer"
                         style={{ fontSize: '13px', color: 'var(--primary)', textDecoration: 'underline', fontWeight: 500 }}

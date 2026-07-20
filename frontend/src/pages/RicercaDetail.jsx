@@ -1934,7 +1934,7 @@ export default function RicercaDetail({
                                 <div>
                                   <div style={{ fontWeight: 600, fontSize: '14px' }}>Preventivo Caricato</div>
                                   <a 
-                                    href={`${API_BASE}${ricercaDetail.ricerca.preventivo}`} 
+                                    href={`${API_BASE.replace('/api', '')}${ricercaDetail.ricerca.preventivo}`} 
                                     target="_blank" 
                                     rel="noreferrer"
                                     style={{ fontSize: '13px', color: 'var(--primary)', textDecoration: 'underline', fontWeight: 500 }}
