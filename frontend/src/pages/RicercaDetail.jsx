@@ -121,7 +121,6 @@ export default function RicercaDetail({
   handleUnlinkAnnuncio,
   handleSaveResearchPreventivo,
   handleDeleteResearchPreventivo,
-  handleUploadHiringDoc,
   handleDeleteSpecificDoc
 }) {
   const { annunci: annunciGlobali } = useGlobalState();
