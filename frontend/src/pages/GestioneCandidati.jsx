@@ -246,10 +246,12 @@ export default function Candidati({
                     <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Nessun CV</span>
                   )}
                   {c.link_documenti && (
-                    <div style={{ marginTop: '4px' }}>
-                      <a href={`${API_BASE.replace('/api', '')}${c.link_documenti}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: 'var(--success)', textDecoration: 'none', fontWeight: 700, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        🪪 Apri Doc Identità
-                      </a>
+                    <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {c.link_documenti.split(',').map((docPath, idx) => (
+                        <a key={idx} href={`${API_BASE.replace('/api', '')}${docPath}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: 'var(--success)', textDecoration: 'none', fontWeight: 700, fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          🪪 Doc #{idx + 1}
+                        </a>
+                      ))}
                     </div>
                   )}
                 </td>

@@ -120,7 +120,9 @@ export default function RicercaDetail({
   handleLinkAnnuncio,
   handleUnlinkAnnuncio,
   handleSaveResearchPreventivo,
-  handleDeleteResearchPreventivo
+  handleDeleteResearchPreventivo,
+  handleUploadHiringDoc,
+  handleDeleteSpecificDoc
 }) {
   const { annunci: annunciGlobali } = useGlobalState();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -1858,23 +1860,51 @@ export default function RicercaDetail({
                             </div>
                           </div>
 
+                          <div className="form-group" style={{ padding: '16px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', borderRadius: '10px' }}>
+                             <label style={{ fontWeight: 600, fontSize: '13px', display: 'block', marginBottom: '8px' }}>Documenti d'Identità (Fisici)</label>
+                             
+                             {hiringFormData.linkDocumenti ? (
+                               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                                 {hiringFormData.linkDocumenti.split(',').map((docPath, idx) => {
+                                   const fileName = docPath.split('/').pop();
+                                   const displayFileName = fileName.replace(/^C\d+_\d+_/, '');
+                                   return (
+                                     <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                                       <a href={`${API_BASE.replace('/api', '')}${docPath}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--success)', textDecoration: 'underline', fontWeight: 600, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                         📄 {displayFileName}
+                                       </a>
+                                       <button
+                                         type="button"
+                                         onClick={() => handleDeleteSpecificDoc(docPath)}
+                                         style={{ background: 'none', border: 'none', color: '#ff4d4f', cursor: 'pointer', fontSize: '14px', padding: 0 }}
+                                         title="Elimina questo documento"
+                                       >
+                                         ✕
+                                       </button>
+                                     </div>
+                                   );
+                                 })}
+                               </div>
+                             ) : (
+                               <div style={{ color: 'var(--text-muted)', fontSize: '12px', fontStyle: 'italic', marginBottom: '12px' }}>Nessun documento caricato</div>
+                             )}
+
+                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                               <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer', margin: 0, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                                 ➕ Aggiungi / Carica Documento
+                                 <input 
+                                   type="file" 
+                                   onChange={handleUploadHiringDoc} 
+                                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" 
+                                   style={{ display: 'none' }} 
+                                 />
+                               </label>
+                             </div>
+                           </div>
+
                           <div className="form-group">
                             <label>IBAN Dipendente</label>
                             <input type="text" className="form-control" value={hiringFormData.iban || ''} onChange={(e) => setHiringFormData({ ...hiringFormData, iban: e.target.value })} />
-                          </div>
-
-                          <div className="form-group" style={{ padding: '16px', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', borderRadius: '10px' }}>
-                            <label style={{ fontWeight: 600, fontSize: '13px' }}>Documento d'Identità (Fisico)</label>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '8px' }}>
-                              <input type="file" onChange={handleUploadHiringDoc} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" style={{ outline: 'none' }} />
-                              {hiringFormData.linkDocumenti ? (
-                                <a href={`${API_BASE.replace('/api', '')}${hiringFormData.linkDocumenti}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--success)', textDecoration: 'underline', fontWeight: 600, fontSize: '13px' }}>
-                                  📄 Apri Documento Caricato
-                                </a>
-                              ) : (
-                                <span style={{ color: 'var(--text-muted)', fontSize: '12px', fontStyle: 'italic' }}>Nessun documento caricato</span>
-                              )}
-                            </div>
                           </div>
 
                           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>

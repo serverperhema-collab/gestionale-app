@@ -935,13 +935,6 @@ app.post('/api/candidati/:id/collega-allegato', async (req, res) => {
           message: `Il candidato ${cand.nome} ${cand.cognome} ha già un Curriculum Vitae collegato. Vuoi sostituirlo con questo allegato?` 
         });
       }
-      if (tipo_documento === 'doc' && cand.link_documenti && cand.link_documenti.trim() !== '') {
-        return res.json({ 
-          success: false, 
-          error: 'already_exists', 
-          message: `Il candidato ${cand.nome} ${cand.cognome} ha già un Documento d'identità collegato. Vuoi sostituirlo con questo allegato?` 
-        });
-      }
     }
 
     // Source path of the attachment
@@ -975,19 +968,40 @@ app.post('/api/candidati/:id/collega-allegato', async (req, res) => {
       const destPath = path.join(uploadsDir, 'doc', destName);
       fs.copyFileSync(srcPath, destPath);
 
-      // Delete old identity document file if existed
-      if (cand.link_documenti && cand.link_documenti.startsWith('/uploads')) {
-        const oldPath = path.join(dataDir, cand.link_documenti);
-        if (fs.existsSync(oldPath)) {
-          try { fs.unlinkSync(oldPath); } catch(err) {}
+      let newLinkDocs = '';
+      if (overwrite) {
+        // Delete all old files
+        if (cand.link_documenti) {
+          const docsArray = cand.link_documenti.split(',');
+          for (const docPath of docsArray) {
+            if (docPath.startsWith('/uploads')) {
+              const oldPath = path.join(dataDir, docPath);
+              if (fs.existsSync(oldPath)) {
+                try { fs.unlinkSync(oldPath); } catch(err) {}
+              }
+            }
+          }
+        }
+        newLinkDocs = `/uploads/doc/${destName}`;
+      } else {
+        // Append to existing
+        const newDoc = `/uploads/doc/${destName}`;
+        if (cand.link_documenti && cand.link_documenti.trim() !== '') {
+          const docsArray = cand.link_documenti.split(',');
+          if (!docsArray.includes(newDoc)) {
+            newLinkDocs = [...docsArray, newDoc].join(',');
+          } else {
+            newLinkDocs = cand.link_documenti;
+          }
+        } else {
+          newLinkDocs = newDoc;
         }
       }
 
-      const linkDoc = `/uploads/doc/${destName}`;
-      await db.run('UPDATE candidati SET link_documenti = ? WHERE id = ?', [linkDoc, id]);
+      await db.run('UPDATE candidati SET link_documenti = ? WHERE id = ?', [newLinkDocs, id]);
       await logActivity('CANDIDATO', id, `${cand.cognome} ${cand.nome}`, 'Collegamento Doc', `Collegato Documento d'identità da allegato email: ${filename}`);
 
-      res.json({ success: true, link: linkDoc });
+      res.json({ success: true, link: newLinkDocs });
     }
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
@@ -1018,15 +1032,41 @@ app.delete('/api/candidati/:id/files/:tipo', async (req, res) => {
       await logActivity('CANDIDATO', id, `${cand.cognome} ${cand.nome}`, 'Rimozione CV', 'Eliminato Curriculum Vitae');
       res.json({ success: true, message: 'Curriculum Vitae eliminato con successo.' });
     } else {
-      if (cand.link_documenti && cand.link_documenti.startsWith('/uploads')) {
-        const filePath = path.join(dataDir, cand.link_documenti);
-        if (fs.existsSync(filePath)) {
-          try { fs.unlinkSync(filePath); } catch (err) {}
+      const specificFile = req.query.file;
+      if (specificFile) {
+        if (cand.link_documenti) {
+          let docsArray = cand.link_documenti.split(',');
+          if (docsArray.includes(specificFile)) {
+            if (specificFile.startsWith('/uploads')) {
+              const filePath = path.join(dataDir, specificFile);
+              if (fs.existsSync(filePath)) {
+                try { fs.unlinkSync(filePath); } catch (err) {}
+              }
+            }
+            docsArray = docsArray.filter(d => d !== specificFile);
+            const remainingDocs = docsArray.length > 0 ? docsArray.join(',') : null;
+            await db.run('UPDATE candidati SET link_documenti = ? WHERE id = ?', [remainingDocs, id]);
+            await logActivity('CANDIDATO', id, `${cand.cognome} ${cand.nome}`, 'Rimozione Doc', `Eliminato documento d'identità: ${path.basename(specificFile)}`);
+            return res.json({ success: true, message: 'Documento eliminato con successo.', remainingDocs });
+          }
         }
+        return res.status(404).json({ success: false, error: 'Documento specifico non trovato per questo candidato.' });
+      } else {
+        if (cand.link_documenti) {
+          const docsArray = cand.link_documenti.split(',');
+          for (const docPath of docsArray) {
+            if (docPath.startsWith('/uploads')) {
+              const filePath = path.join(dataDir, docPath);
+              if (fs.existsSync(filePath)) {
+                try { fs.unlinkSync(filePath); } catch (err) {}
+              }
+            }
+          }
+        }
+        await db.run('UPDATE candidati SET link_documenti = NULL WHERE id = ?', [id]);
+        await logActivity('CANDIDATO', id, `${cand.cognome} ${cand.nome}`, 'Rimozione Doc', 'Eliminati tutti i documenti d\'identità');
+        res.json({ success: true, message: 'Tutti i documenti d\'identità sono stati eliminati.' });
       }
-      await db.run('UPDATE candidati SET link_documenti = NULL WHERE id = ?', [id]);
-      await logActivity('CANDIDATO', id, `${cand.cognome} ${cand.nome}`, 'Rimozione Doc', 'Eliminato Documento d\'identità');
-      res.json({ success: true, message: 'Documento d\'identità eliminato con successo.' });
     }
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
@@ -1126,10 +1166,16 @@ app.put('/api/candidati/:id', upload.fields([{ name: 'cvFile', maxCount: 1 }, { 
         }
       }
       if (req.files.docIdFile && req.files.docIdFile[0]) {
-        linkDocumenti = `/uploads/doc/${req.files.docIdFile[0].filename}`;
-        if (cand.link_documenti && cand.link_documenti.startsWith('/uploads')) {
-          const oldPath = path.join(dataDir, cand.link_documenti);
-          if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+        const newDoc = `/uploads/doc/${req.files.docIdFile[0].filename}`;
+        if (cand.link_documenti && cand.link_documenti.trim() !== '') {
+          const docsArray = cand.link_documenti.split(',');
+          if (!docsArray.includes(newDoc)) {
+            linkDocumenti = [...docsArray, newDoc].join(',');
+          } else {
+            linkDocumenti = cand.link_documenti;
+          }
+        } else {
+          linkDocumenti = newDoc;
         }
       }
     }
@@ -1152,12 +1198,17 @@ app.put('/api/candidati/:id', upload.fields([{ name: 'cvFile', maxCount: 1 }, { 
       }
     }
     if (updateData.hasOwnProperty('link_documenti') && !updateData.link_documenti) {
-      if (cand.link_documenti && cand.link_documenti.startsWith('/uploads')) {
-        const oldPath = path.join(dataDir, cand.link_documenti);
-        try {
-          if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-        } catch (err) {
-          console.error("Errore eliminazione documento rimosso:", err);
+      if (cand.link_documenti) {
+        const docsArray = cand.link_documenti.split(',');
+        for (const docPath of docsArray) {
+          if (docPath.startsWith('/uploads')) {
+            const oldPath = path.join(dataDir, docPath);
+            try {
+              if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+            } catch (err) {
+              console.error("Errore eliminazione documento rimosso:", err);
+            }
+          }
         }
       }
     }

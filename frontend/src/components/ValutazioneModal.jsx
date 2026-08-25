@@ -116,9 +116,17 @@ const ValutazioneModal = ({
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <input type="file" name="docIdFile" style={{ outline: 'none' }} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
                       {currentCandidato.link_documenti && (
-                        <a href={`${API_BASE.replace('/api', '')}${currentCandidato.link_documenti}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600, fontSize: '13px' }}>
-                          📄 Apri Documento Corrente
-                        </a>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px' }}>
+                          {currentCandidato.link_documenti.split(',').map((docPath, idx) => {
+                            const fileName = docPath.split('/').pop();
+                            const displayFileName = fileName.replace(/^C\d+_\d+_/, '');
+                            return (
+                              <a key={idx} href={`${API_BASE.replace('/api', '')}${docPath}`} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: 'var(--primary)', textDecoration: 'underline', fontWeight: 600, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                📄 {displayFileName}
+                              </a>
+                            );
+                          })}
+                        </div>
                       )}
                     </div>
                   </div>

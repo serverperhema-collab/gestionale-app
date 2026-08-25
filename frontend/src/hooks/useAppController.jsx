@@ -2452,6 +2452,31 @@ export function useAppController() {
       showStatus('error', 'Connessione fallita', err.message);
     }
   };
+  const handleDeleteSpecificDoc = async docPath => {
+    if (!selectedHiringCandidate) return;
+    if (!window.confirm("Sei sicuro di voler eliminare questo documento d'identità?")) return;
+    const candId = selectedHiringCandidate.idCandidato;
+    try {
+      showStatus('loading', 'Rimozione documento...', 'Rimozione in corso...');
+      const res = await fetch(`${API_BASE}/candidati/${candId}/files/doc?file=${encodeURIComponent(docPath)}`, {
+        method: 'DELETE'
+      });
+      const json = await res.json();
+      if (json.success) {
+        showStatus('success', 'Documento Rimosso!', 'Il documento d\'identità è stato rimosso.');
+        setHiringFormData(prev => ({
+          ...prev,
+          linkDocumenti: json.remainingDocs || ''
+        }));
+        fetchCandidati();
+        if (selectedRicercaId) fetchRicercaDetail(selectedRicercaId);
+      } else {
+        showStatus('error', 'Errore rimozione', json.error);
+      }
+    } catch (err) {
+      showStatus('error', 'Connessione fallita', err.message);
+    }
+  };
   const handlePrintHiringSheet = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -2531,7 +2556,9 @@ export function useAppController() {
         <div class="row"><div class="col"><span class="label">TELEFONO:</span><span class="value">${hiringFormData.telefono}</span></div></div>
         <div class="row"><div class="col"><span class="label">MAIL:</span><span class="value">${hiringFormData.mail}</span></div></div>
         <div class="row"><div class="col"><span class="label">IBAN:</span><span class="value">${hiringFormData.iban}</span></div></div>
-        <div class="row"><div class="col"><span class="label">DOCUMENTO IDENTITÀ URL:</span><span class="value">${hiringFormData.linkDocumenti ? mappedOrigin + hiringFormData.linkDocumenti : 'Nessuno'}</span></div></div>
+        <div class="row"><div class="col"><span class="label">DOCUMENTO IDENTITÀ URL:</span><span class="value">
+          ${hiringFormData.linkDocumenti ? hiringFormData.linkDocumenti.split(',').map((docPath, idx) => `<a href="${mappedOrigin + docPath}" target="_blank">Apri Doc #${idx + 1}</a>`).join(' | ') : 'Nessuno'}
+        </span></div></div>
         
         <div class="no-print" style="margin-top: 50px; text-align: center;">
           <button onclick="window.print()" style="padding: 12px 24px; font-weight: bold; background: #3182ce; color: #fff; border: none; border-radius: 5px; cursor: pointer;">🖨️ Avvia Stampa Scheda</button>
@@ -2581,7 +2608,9 @@ export function useAppController() {
         <p><strong>TELEFONO:</strong> ${hiringFormData.telefono}</p>
         <p><strong>MAIL:</strong> ${hiringFormData.mail}</p>
         <p><strong>IBAN:</strong> ${hiringFormData.iban}</p>
-        <p><strong>DOCUMENTO IDENTITÀ:</strong> ${hiringFormData.linkDocumenti ? `<a href="${mappedOrigin + hiringFormData.linkDocumenti}">Apri Documento d'Identità</a>` : 'Nessuno'}</p>
+        <p><strong>DOCUMENTO IDENTITÀ:</strong> 
+          ${hiringFormData.linkDocumenti ? hiringFormData.linkDocumenti.split(',').map((docPath, idx) => `<a href="${mappedOrigin + docPath}">Apri Documento #${idx + 1}</a>`).join(' &nbsp;|&nbsp; ') : 'Nessuno'}
+        </p>
       </div>
     `;
     try {
@@ -3938,6 +3967,7 @@ export function useAppController() {
     handleOpenHiringForm,
     handleUploadDocAndProceed,
     handleUploadHiringDoc,
+    handleDeleteSpecificDoc,
     handlePrintHiringSheet,
     handleEmailHiringSheet,
     handlePrintExecutiveReport,

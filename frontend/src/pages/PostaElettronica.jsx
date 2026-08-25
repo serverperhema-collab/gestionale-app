@@ -76,8 +76,8 @@ export default function PostaElettronica({ candidati = [], clienti = [], ricerch
         const confirmOverwrite = await showConfirm(`Il candidato ${cand.nome} ${cand.cognome} ha già un Curriculum Vitae collegato. Vuoi sostituirlo con questo allegato?`);
         if (!confirmOverwrite) return;
       } else if (linkingDocType === 'doc' && cand.link_documenti && cand.link_documenti.trim() !== '') {
-        const confirmOverwrite = await showConfirm(`Il candidato ${cand.nome} ${cand.cognome} ha già un Documento d'identità collegato. Vuoi sostituirlo con questo allegato?`);
-        if (!confirmOverwrite) return;
+        const confirmAppend = await showConfirm(`Il candidato ${cand.nome} ${cand.cognome} ha già dei documenti d'identità collegati. Vuoi aggiungere questo file ai documenti esistenti?`);
+        if (!confirmAppend) return;
       }
     }
 
