@@ -1709,7 +1709,7 @@ export default function RicercaDetail({
                           <div className="modal-container" style={{ width: '1000px', maxWidth: '95vw', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
                             <div className="modal-header flex-between-center">
                               <h2 style={{ fontSize: '16px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--primary)', margin: 0 }}>
-                                Scheda Assunzione HEMA FOOD: {selectedHiringCandidate.nomeCompleto}
+                                Scheda Assunzione {hiringFormData.socName || 'HEMA FOOD'}: {selectedHiringCandidate.nomeCompleto}
                               </h2>
                               <button type="button" className="btn btn-secondary btn-sm" onClick={() => setSelectedHiringCandidate(null)}>✕ Chiudi</button>
                             </div>
@@ -1717,7 +1717,7 @@ export default function RicercaDetail({
 
                         <form className="card-container">
                           <div style={{ textTransform: 'uppercase', fontWeight: 800, textAlign: 'center', fontSize: '18px', marginBottom: '16px', letterSpacing: '1px', color: 'var(--text-primary)' }}>
-                            HEMA FOOD
+                            {hiringFormData.socName || 'HEMA FOOD'}
                           </div>
 
                           <div className="grid-2-cols">

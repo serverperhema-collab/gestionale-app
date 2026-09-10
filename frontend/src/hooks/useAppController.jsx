@@ -2338,6 +2338,10 @@ export function useAppController() {
     }
   };
   const handleOpenHiringForm = async c => {
+    const soc = window.prompt("Con quale soc intendi procedere all'assunzione?", "HEMA FOOD");
+    if (soc === null) return;
+    const socName = soc.trim() || "HEMA FOOD";
+
     try {
       showStatus('loading', 'Caricamento dati candidato...', 'Recupero delle informazioni in corso...');
       const res = await fetch(`${API_BASE}/candidati/${c.idCandidato}`);
@@ -2348,6 +2352,7 @@ export function useAppController() {
       }
       const candObj = json.data || {};
       const newHiringData = {
+        socName: socName,
         commerciale: ricercaDetail?.ricerca?.consulente_commerciale || '',
         outbound: ricercaDetail?.ricerca?.outbound || '',
         committente: ricercaDetail?.ricerca?.azienda || '',
@@ -2478,6 +2483,8 @@ export function useAppController() {
     }
   };
   const handlePrintHiringSheet = () => {
+    const socName = hiringFormData.socName || "HEMA FOOD";
+
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       showStatus("warning", "Attenzione", "Blocco popup rilevato! Consenti i popup per stampare.");
@@ -2489,17 +2496,9 @@ export function useAppController() {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Scheda Assunzione - HEMA FOOD</title>
+        <title>Scheda Assunzione - ${socName}</title>
         <meta charset="utf-8">
         <style>
-          body { font-family: Arial, sans-serif; color: #000; margin: 40px; line-height: 1.8; font-size: 14px; }
-          .header { text-align: center; font-size: 22px; font-weight: bold; text-transform: uppercase; margin-bottom: 40px; letter-spacing: 1px; }
-          .row { display: flex; justify-content: space-between; margin-bottom: 12px; }
-          .col { flex: 1; display: flex; }
-          .col-half { flex: 0 0 48%; display: flex; }
-          .label { font-weight: bold; text-transform: uppercase; white-space: nowrap; margin-right: 8px; }
-          .value { border-bottom: 1px solid #000; flex: 1; padding-left: 5px; min-height: 20px; }
-          .divider { border-top: 1px solid #000; margin: 30px 0 20px 0; }
           .section-title { font-weight: bold; margin-bottom: 15px; text-decoration: underline; font-size: 15px; }
           @media print {
             body { margin: 20px; }
@@ -2508,7 +2507,7 @@ export function useAppController() {
         </style>
       </head>
       <body>
-        <div class="header">HEMA FOOD</div>
+        <div class="header">${socName}</div>
         
         <div class="row">
           <div class="col-half"><span class="label">Commerciale:</span><span class="value">${hiringFormData.commerciale}</span></div>
@@ -2580,9 +2579,10 @@ export function useAppController() {
     if (!destEmail) return;
     const baseOrigin = API_BASE.startsWith('http') ? API_BASE.replace('/api', '') : window.location.origin;
     const mappedOrigin = baseOrigin.includes('localhost:5173') ? 'http://localhost:3002' : baseOrigin;
+    const socName = hiringFormData.socName || "HEMA FOOD";
     const htmlBody = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; line-height: 1.6;">
-        <h2 style="text-align: center; text-transform: uppercase;">HEMA FOOD</h2>
+        <h2 style="text-align: center; text-transform: uppercase;">${socName}</h2>
         <p><strong>Commerciale:</strong> ${hiringFormData.commerciale} &nbsp;&nbsp;&nbsp;&nbsp; <strong>Outbound:</strong> ${hiringFormData.outbound}</p>
         <p><strong>Committente:</strong> ${hiringFormData.committente}</p>
         <p><strong>P.IVA Cliente:</strong> ${hiringFormData.clientePiva} &nbsp;&nbsp;&nbsp;&nbsp; <strong>Sede Legale Cliente:</strong> ${hiringFormData.clienteSedeLegale}</p>
