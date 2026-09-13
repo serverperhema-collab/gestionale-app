@@ -49,6 +49,12 @@ export default function App() {
   });
   const [passwordInput, setPasswordInput] = React.useState('');
   const [authError, setAuthError] = React.useState('');
+  const [currentTime, setCurrentTime] = React.useState(new Date());
+
+  React.useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleAuthSubmit = (e) => {
     e.preventDefault();
@@ -139,9 +145,19 @@ export default function App() {
           <p style={{
             fontSize: '13px',
             color: '#94a3b8',
-            margin: '0 0 32px 0',
+            margin: '0 0 8px 0',
             fontWeight: '500'
           }}>HR Management Portal</p>
+
+          <p style={{
+            fontSize: '12px',
+            color: '#cbd5e1',
+            margin: '0 0 32px 0',
+            fontWeight: '400',
+            textTransform: 'capitalize'
+          }}>
+            {currentTime.toLocaleDateString('it-IT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} - {currentTime.toLocaleTimeString('it-IT')}
+          </p>
           
           <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div style={{ textAlign: 'left' }}>
