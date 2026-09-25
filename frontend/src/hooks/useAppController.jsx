@@ -465,6 +465,7 @@ export function useAppController() {
 
   const handleApprovalAction = async (id, action) => {
     let payload = {};
+    const importedMandate = ricerche?.find?.(item => item.id === id)?.crm_precontract_id;
     let motivazione = '';
     if (action === 'Approvata') {
       payload = {
@@ -511,6 +512,12 @@ export function useAppController() {
         stato_approvazione_tl: 'In attesa di approvazione',
         stato_ricerca: ''
       };
+    }
+    if (importedMandate) {
+      const adminPassword = window.prompt('Password autorizzativa per il mandato proveniente dal gestionale chiamate:');
+      if (adminPassword === null) return;
+      if (!adminPassword) { showStatus('error', 'Errore', 'Password obbligatoria'); return; }
+      payload.adminPassword = adminPassword;
     }
     try {
       const res = await fetch(`${API_BASE}/ricerche/${id}`, {

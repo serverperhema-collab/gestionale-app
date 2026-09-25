@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { API_BASE, renderCandidateStars, getCapFromAddress, estimateDistanceByCap, getAdActiveDaysInfo } from '../utils';
 import { useToast } from '../contexts/ToastContext';
 import { useGlobalState } from '../contexts/GlobalStateContext';
+import PrecontractDocument from '../components/PrecontractDocument';
+import WeeklyCrmReport from '../components/WeeklyCrmReport';
 
 const formatTitleCase = (str) => {
   if (!str) return '';
@@ -438,6 +440,11 @@ export default function RicercaDetail({
                   </div>
                 </div>
               </div>
+
+              {ricercaDetail.ricerca.precontract_document_name && (
+                <PrecontractDocument ricercaId={ricercaDetail.ricerca.id} filename={ricercaDetail.ricerca.precontract_document_name} />
+              )}
+              <WeeklyCrmReport ricerca={ricercaDetail.ricerca} onSaved={fetchRicercaDetail} />
 
               {/* Tabs Navigation */}
               <div className="tab-nav">

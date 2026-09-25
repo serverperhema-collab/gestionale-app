@@ -1,5 +1,6 @@
 import React from 'react';
 import { useGlobalState } from '../contexts/GlobalStateContext';
+import PrecontractDocument from '../components/PrecontractDocument';
 
 export default function Approvazioni({ handleApprovalAction }) {
   const { ricerche = [] } = useGlobalState() || {};
@@ -37,6 +38,7 @@ export default function Approvazioni({ handleApprovalAction }) {
                 <td style={{ fontSize: '12px', maxWidth: '200px', whiteSpace: 'normal', wordBreak: 'break-word' }}>
                   <strong>Comp:</strong> {r.competenze_tecniche || 'N/D'} <br/>
                   <strong>Note:</strong> {r.note || 'Nessuna nota'}
+                  <PrecontractDocument ricercaId={r.id} filename={r.precontract_document_name} />
                 </td>
                 <td>
                   <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>

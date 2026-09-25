@@ -134,6 +134,51 @@ async function initDatabase() {
       )
     `);
 
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS precontract_documents (
+        ricerca_id TEXT PRIMARY KEY,
+        precontract_id TEXT NOT NULL UNIQUE,
+        stored_name TEXT NOT NULL,
+        original_name TEXT NOT NULL,
+        sha256 TEXT NOT NULL,
+        uploaded_at TEXT NOT NULL,
+        FOREIGN KEY (ricerca_id) REFERENCES ricerche(id) ON DELETE CASCADE
+      )
+    `);
+
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS crm_precontracts (
+        precontract_id TEXT PRIMARY KEY,
+        ricerca_id TEXT NOT NULL UNIQUE,
+        viewer_token TEXT NOT NULL UNIQUE,
+        viewer_salt TEXT,
+        viewer_hash TEXT,
+        accepted_at TEXT,
+        FOREIGN KEY (ricerca_id) REFERENCES ricerche(id) ON DELETE CASCADE
+      );
+      CREATE TABLE IF NOT EXISTS crm_outbox (
+        id TEXT PRIMARY KEY,
+        precontract_id TEXT NOT NULL,
+        ricerca_id TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        delivered_at TEXT,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        last_error TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (precontract_id) REFERENCES crm_precontracts(precontract_id) ON DELETE CASCADE
+      );
+      CREATE TABLE IF NOT EXISTS crm_weekly_reports (
+        id TEXT PRIMARY KEY,
+        ricerca_id TEXT NOT NULL,
+        week_start TEXT NOT NULL,
+        report_text TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE (ricerca_id, week_start),
+        FOREIGN KEY (ricerca_id) REFERENCES ricerche(id) ON DELETE CASCADE
+      );
+    `);
+
     // 3b. Table Annunci
     await db.exec(`
       CREATE TABLE IF NOT EXISTS annunci (
