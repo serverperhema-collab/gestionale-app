@@ -8,6 +8,7 @@ const nodemailer = require('nodemailer');
 const { ImapFlow } = require('imapflow');
 const { simpleParser } = require('mailparser');
 const { db, initDatabase } = require('./database');
+const { renderMandateViewer } = require('./mandate-viewer');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -178,20 +179,55 @@ app.post('/api/ricerche/:id/reserve-updates/:updateId/file/open', async (req, re
   res.type(file.mime_type).sendFile(path.join(privatePrecontractDir, file.stored_name));
 });
 
-app.get('/mandato/:token', (req, res) => {
+const mandateSessionName = 'hema_mandate_session';
+const mandateSessionSeconds = 12 * 60 * 60;
+
+function mandateSessionSignature(link, expires) {
+  return crypto.createHmac('sha256', Buffer.from(link.viewer_hash, 'hex')).update(`${link.viewer_token}:${expires}`).digest('hex');
+}
+
+function hasMandateSession(req, link) {
+  const encoded = req.headers.cookie?.match(new RegExp(`(?:^|;\\s*)${mandateSessionName}=([^;]+)`))?.[1];
+  const match = encoded?.match(/^(\d+)\.([a-f0-9]{64})$/);
+  if (!match) return false;
+  const expires = Number(match[1]);
+  if (!Number.isSafeInteger(expires) || expires <= Math.floor(Date.now() / 1000) || expires > Math.floor(Date.now() / 1000) + mandateSessionSeconds) return false;
+  return crypto.timingSafeEqual(Buffer.from(match[2], 'hex'), Buffer.from(mandateSessionSignature(link, expires), 'hex'));
+}
+
+function mandateLoginHtml() {
+  return `<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Accesso al mandato · HEMA WORK</title><style>*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#e8edf3;color:#2d3748;font:14px/1.5 'Helvetica Neue',Helvetica,Arial,sans-serif;padding:16px}.card{width:min(100%,430px);background:#fff;padding:34px;box-shadow:0 12px 35px #1e293b20;border-top:3px solid #4a5568}h1{font-size:20px;text-transform:uppercase;margin:0 0 6px}p{color:#718096;margin:0 0 24px}label{display:block;font-weight:700}input{display:block;width:100%;padding:12px;margin:7px 0 17px;border:1px solid #cbd5e0;border-radius:4px;font:inherit}button{width:100%;border:0;background:#2d3748;color:white;padding:12px;font-weight:700;border-radius:4px;cursor:pointer}</style></head><body><main class="card"><h1>HEMA WORK · Mandato di ricerca</h1><p>Inserisci la password per vedere i dati aggiornati della ricerca.</p><form method="post"><label>Password<input type="password" name="password" required autocomplete="current-password"></label><button type="submit">Apri report in tempo reale</button></form></main></body></html>`;
+}
+
+async function sendLiveMandate(req, res, link) {
+  const [ricerca, pipeline, appointments, reports] = await Promise.all([
+    db.get('SELECT id, azienda, ruolo, settore, sede_lavoro, data_inserimento, referente, email, telefono_mobile, ore_lavoro, ore_lavoro_tipo, orario_lavoro, stato_ricerca, stato_approvazione_tl, stato_annuncio FROM ricerche WHERE id = ?', [link.ricerca_id]),
+    db.all(`SELECT p.stato_avanzamento, p.feedback_stato, p.feedback_note, p.stato_prova, p.data_scadenza_prova, c.nome, c.cognome, c.telefono, c.email FROM pipeline_assunzioni p LEFT JOIN candidati c ON c.id = p.id_candidato WHERE p.id_ricerca = ? ORDER BY p.rowid`, [link.ricerca_id]),
+    db.all('SELECT candidato_nome, data_colloquio, ora_colloquio, tipo_colloquio, luogo, stato_appuntamento FROM appuntamenti WHERE id_ricerca = ? ORDER BY data_colloquio DESC, ora_colloquio DESC', [link.ricerca_id]),
+    db.all('SELECT week_start, report_text, created_at FROM crm_weekly_reports WHERE ricerca_id = ? ORDER BY week_start DESC', [link.ricerca_id]),
+  ]);
+  if (!ricerca) return res.status(404).send('Mandato non disponibile');
+  res.setHeader('Refresh', `30; url=/mandato/${link.viewer_token}`);
+  return res.type('html').send(renderMandateViewer({ ricerca, pipeline, appointments, reports, token: link.viewer_token }));
+}
+
+app.get('/mandato/:token', async (req, res) => {
   viewerHeaders(res);
-  res.type('html').send(`<!doctype html><html lang="it"><meta charset="utf-8"><title>Mandato di ricerca</title><body style="font:16px system-ui;max-width:680px;margin:10vh auto;padding:20px;background:#101827;color:white"><h1>Mandato di ricerca</h1><form method="post"><label>Password <input type="password" name="password" required autocomplete="current-password"></label><button>Apri mandato</button></form></body></html>`);
+  const link = await db.get('SELECT * FROM crm_precontracts WHERE viewer_token = ? AND accepted_at IS NOT NULL', [req.params.token]);
+  if (!link?.viewer_hash) return res.status(404).send('Mandato non disponibile');
+  if (!hasMandateSession(req, link)) return res.type('html').send(mandateLoginHtml());
+  return sendLiveMandate(req, res, link);
 });
 app.post('/mandato/:token', express.urlencoded({ extended: false, limit: '2kb' }), async (req, res) => {
   viewerHeaders(res);
   const link = await db.get('SELECT * FROM crm_precontracts WHERE viewer_token = ? AND accepted_at IS NOT NULL', [req.params.token]);
-  if (!link || !link.viewer_salt || !link.viewer_hash) return res.status(404).send('Mandato non disponibile');
+  if (!link?.viewer_salt || !link.viewer_hash) return res.status(404).send('Mandato non disponibile');
   const candidate = crypto.scryptSync(String(req.body.password || ''), link.viewer_salt, 64);
   if (!crypto.timingSafeEqual(candidate, Buffer.from(link.viewer_hash, 'hex'))) return res.status(401).send('Password errata. Torna indietro e riprova.');
-  const ricerca = await db.get('SELECT azienda, ruolo, nr_risorse, sede_lavoro, stato_ricerca, consulente_commerciale, data_ultimo_resoconto FROM ricerche WHERE id = ?', [link.ricerca_id]);
-  const reports = await db.all('SELECT week_start, report_text, created_at FROM crm_weekly_reports WHERE ricerca_id = ? ORDER BY week_start DESC', [link.ricerca_id]);
-  const rows = [['Azienda', ricerca.azienda], ['Ruolo', ricerca.ruolo], ['Risorse', ricerca.nr_risorse], ['Sede', ricerca.sede_lavoro], ['Stato ricerca', ricerca.stato_ricerca], ['Consulente', ricerca.consulente_commerciale]];
-  res.type('html').send(`<!doctype html><html lang="it"><meta charset="utf-8"><title>Mandato ${safeHtml(ricerca.azienda)}</title><body style="font:16px system-ui;max-width:800px;margin:4vh auto;padding:20px;background:#101827;color:white"><h1>Ricerca: ${safeHtml(ricerca.azienda)}</h1><p>Vista di sola lettura</p>${rows.map(([label, value]) => `<p><strong>${label}:</strong> ${safeHtml(value)}</p>`).join('')}<h2>Report settimanali</h2>${reports.map(report => `<article style="padding:12px;border:1px solid #64748b;margin:12px 0"><strong>Settimana del ${safeHtml(report.week_start)}</strong><p style="white-space:pre-wrap">${safeHtml(report.report_text)}</p></article>`).join('') || '<p>Nessun report disponibile.</p>'}</body></html>`);
+  const expires = Math.floor(Date.now() / 1000) + mandateSessionSeconds;
+  const secure = (process.env.RESEARCH_PUBLIC_URL || '').startsWith('https://') ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `${mandateSessionName}=${expires}.${mandateSessionSignature(link, expires)}; Max-Age=${mandateSessionSeconds}; Path=/mandato/${link.viewer_token}; HttpOnly; SameSite=Lax${secure}`);
+  return sendLiveMandate(req, res, link);
 });
 
 app.post('/api/ricerche/:id/weekly-report', async (req, res) => {

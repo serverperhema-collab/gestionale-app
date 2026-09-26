@@ -69,13 +69,29 @@ async function freePort() {
     assert.equal((await fetch(accepted.viewerUrl)).status, 200);
     const viewer = password => fetch(accepted.viewerUrl, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ password }) });
     assert.equal((await viewer('wrong')).status, 401);
-    assert.match(await (await viewer(accepted.viewerPassword)).text(), /Azienda Test/);
+    const openedViewer = await viewer(accepted.viewerPassword);
+    assert.equal(openedViewer.status, 200);
+    assert.match(openedViewer.headers.get('refresh') || '', /30/);
+    const viewerCookie = openedViewer.headers.get('set-cookie')?.split(';')[0];
+    assert.ok(viewerCookie);
+    const initialViewerHtml = await openedViewer.text();
+    assert.match(initialViewerHtml, /HEMA WORK - REPORT TECNICO RICERCA/);
+    assert.match(initialViewerHtml, /Nessun report settimanale ancora inserito/);
+    assert.match(initialViewerHtml, /Azienda Test/);
+    const openAuthenticatedViewer = () => fetch(accepted.viewerUrl, { headers: { Cookie: viewerCookie } });
+    assert.match(await (await fetch(accepted.viewerUrl)).text(), /Inserisci la password/);
+    const liveUpdate = await fetch(`${base}/api/ricerche/${ricercaId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ settore: 'Logistica', stato_ricerca: 'Avviata' }) });
+    assert.equal(liveUpdate.status, 200);
+    const liveViewerHtml = await (await openAuthenticatedViewer()).text();
+    assert.match(liveViewerHtml, /Logistica/);
+    assert.match(liveViewerHtml, /Avviata/);
+    assert.match(liveViewerHtml, /Nessun report settimanale ancora inserito/);
     const report = password => fetch(`${base}/api/ricerche/${ricercaId}/weekly-report`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: 'Due colloqui effettuati', adminPassword: password }) });
     assert.equal((await report('wrong')).status, 401);
     assert.equal((await report('test-admin')).status, 201);
     await waitFor(() => calls.some(item => item.type === 'report'));
     assert.equal((await report('test-admin')).status, 409);
-    assert.match(await (await viewer(accepted.viewerPassword)).text(), /Due colloqui effettuati/);
+    assert.match(await (await openAuthenticatedViewer()).text(), /Due colloqui effettuati/);
     form.set('precontractId', 'precontract-reserve-123');
     form.delete('signedFile');
     const reservedMandate = await (await ingest('test-ingest')).json();
@@ -118,7 +134,7 @@ async function freePort() {
     assert.equal(rejectResponse.status, 200);
     await waitFor(() => calls.some(item => item.type === 'rejected'));
     assert.equal(calls.find(item => item.type === 'rejected').reason, 'Mandato incompleto');
-    console.log('PASS importazione, approvazione/riserva/rifiuto, aggiornamenti con allegato, callback, viewer protetto e report settimanale');
+    console.log('PASS importazione, approvazione/riserva/rifiuto, aggiornamenti con allegato, callback, viewer live protetto e report settimanale');
   } finally {
     if (child.exitCode === null && child.signalCode === null) { child.kill(); await new Promise(resolve => child.once('exit', resolve)); }
     await new Promise(resolve => callback.close(resolve));
