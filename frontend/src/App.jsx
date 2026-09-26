@@ -379,7 +379,7 @@ export default function App() {
               <Route path="/dashboard" element={<Dashboard setShowReportModal={ctrl.setShowReportModal} setSelectedRicercaId={ctrl.setSelectedRicercaId} setActiveTab={ctrl.setActiveTab} />} />
               <Route path="/ricerche" element={<GestioneRicerche setSelectedRicercaId={ctrl.setSelectedRicercaId} />} />
               <Route path="/approvazioni" element={<Approvazioni handleApprovalAction={ctrl.handleApprovalAction} />} />
-              <Route path="/riserva" element={<Riserva handleApprovalAction={ctrl.handleApprovalAction} setSelectedRicercaId={ctrl.setSelectedRicercaId} />} />
+              <Route path="/riserva" element={<Riserva handleApprovalAction={ctrl.handleApprovalAction} />} />
               <Route path="/cestinati" element={<Cestinati handleApprovalAction={ctrl.handleApprovalAction} />} />
               <Route path="/pausa" element={<Pausa handleApprovalAction={ctrl.handleApprovalAction} setSelectedRicercaId={ctrl.setSelectedRicercaId} />} />
               <Route path="/commerciali_gestione" element={<GestioneCommerciali />} />

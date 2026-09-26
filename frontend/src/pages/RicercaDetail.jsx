@@ -444,6 +444,9 @@ export default function RicercaDetail({
               {ricercaDetail.ricerca.precontract_document_name && (
                 <PrecontractDocument ricercaId={ricercaDetail.ricerca.id} filename={ricercaDetail.ricerca.precontract_document_name} />
               )}
+              {ricercaDetail.ricerca.signed_precontract_document_name && (
+                <PrecontractDocument ricercaId={ricercaDetail.ricerca.id} filename={ricercaDetail.ricerca.signed_precontract_document_name} kind="signed" />
+              )}
               <WeeklyCrmReport ricerca={ricercaDetail.ricerca} onSaved={fetchRicercaDetail} />
 
               {/* Tabs Navigation */}

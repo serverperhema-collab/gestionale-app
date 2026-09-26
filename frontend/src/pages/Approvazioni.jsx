@@ -19,6 +19,9 @@ export default function Approvazioni({ handleApprovalAction }) {
   const [editingPassword, setEditingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [reserveMandateId, setReserveMandateId] = useState(null);
+  const [reserveNote, setReserveNote] = useState('');
+  const [reserveBusy, setReserveBusy] = useState(false);
 
   const savePassword = event => {
     event.preventDefault();
@@ -93,6 +96,7 @@ export default function Approvazioni({ handleApprovalAction }) {
                   <strong>Comp:</strong> {r.competenze_tecniche || 'N/D'} <br/>
                   <strong>Note:</strong> {r.note || 'Nessuna nota'}
                   <PrecontractDocument ricercaId={r.id} filename={r.precontract_document_name} />
+                  <PrecontractDocument ricercaId={r.id} filename={r.signed_precontract_document_name} kind="signed" />
                 </td>
                 <td>
                   <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
@@ -104,7 +108,7 @@ export default function Approvazioni({ handleApprovalAction }) {
                     </button>
                     <button 
                       className="btn btn-warning btn-sm"
-                      onClick={() => handleApprovalAction(r.id, 'Approvata con Riserva')}
+                      onClick={() => { setReserveMandateId(r.id); setReserveNote(''); }}
                       style={{ backgroundColor: 'var(--warning)', color: '#000' }}
                     >
                       Approva con Riserva
@@ -127,6 +131,13 @@ export default function Approvazioni({ handleApprovalAction }) {
           </tbody>
         </table>
       </div>
+      {reserveMandateId && <div role="presentation" style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.75)', display: 'grid', placeItems: 'center', padding: 16 }} onClick={() => setReserveMandateId(null)}>
+        <form role="dialog" aria-modal="true" aria-label="Approvazione con riserva" onClick={event => event.stopPropagation()} onSubmit={async event => { event.preventDefault(); if (!reserveNote.trim() || reserveBusy) return; setReserveBusy(true); try { if (await handleApprovalAction(reserveMandateId, 'Approvata con Riserva', reserveNote.trim())) setReserveMandateId(null); } finally { setReserveBusy(false); } }} style={{ width: 'min(100%, 560px)', background: 'var(--card-bg, #1f2937)', padding: 24, borderRadius: 12, border: '1px solid var(--border)' }}>
+          <h3>Approva con riserva</h3><p>Scrivi la nota che sarà inviata al gestionale chiamate.</p>
+          <textarea autoFocus required maxLength={10000} rows={6} value={reserveNote} onChange={event => setReserveNote(event.target.value)} style={{ width: '100%', padding: 12, marginBottom: 12 }} />
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}><button type="button" className="btn btn-secondary" onClick={() => setReserveMandateId(null)} disabled={reserveBusy}>Annulla</button><button type="submit" className="btn btn-warning" disabled={!reserveNote.trim() || reserveBusy}>{reserveBusy ? 'Salvataggio…' : 'Conferma riserva'}</button></div>
+        </form>
+      </div>}
     </div>
   );
 }

@@ -463,7 +463,7 @@ export function useAppController() {
 
   // ----------------- CRUD HANDLERS -----------------
 
-  const handleApprovalAction = async (id, action) => {
+  const handleApprovalAction = async (id, action, reserveNote) => {
     let payload = {};
     const importedMandate = ricerche?.find?.(item => item.id === id)?.crm_precontract_id;
     let motivazione = '';
@@ -485,8 +485,7 @@ export function useAppController() {
         motivazione
       };
     } else if (action === 'Approvata con Riserva') {
-      motivazione = window.prompt("Inserisci la motivazione della riserva (obbligatoria):");
-      if (motivazione === null) return; // User cancelled
+      motivazione = reserveNote;
       if (!motivazione.trim()) {
         showStatus("error", "Errore", "La motivazione è obbligatoria per approvare con riserva!");
         return;
@@ -515,8 +514,8 @@ export function useAppController() {
     }
     if (importedMandate) {
       const adminPassword = window.prompt('Password autorizzativa per il mandato proveniente dal gestionale chiamate:');
-      if (adminPassword === null) return;
-      if (!adminPassword) { showStatus('error', 'Errore', 'Password obbligatoria'); return; }
+      if (adminPassword === null) return false;
+      if (!adminPassword) { showStatus('error', 'Errore', 'Password obbligatoria'); return false; }
       payload.adminPassword = adminPassword;
     }
     try {
@@ -531,11 +530,14 @@ export function useAppController() {
       if (json.success) {
         showStatus('success', 'Stato Aggiornato!', `Il mandato è stato impostato come ${action}.`);
         fetchRicerche();
+        return true;
       } else {
         showStatus('error', 'Errore', json.error);
+        return false;
       }
     } catch (err) {
       showStatus('error', 'Connessione fallita', err.message);
+      return false;
     }
   };
   const ensureResearchStarted = async () => {

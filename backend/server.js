@@ -46,6 +46,17 @@ function matchesSecret(provided, expected) {
 }
 
 const precontractPdfUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
+const precontractImportUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 2 } });
+
+function signedPrecontractType(file) {
+  if (!file) return null;
+  const ext = path.extname(file.originalname || '').toLowerCase();
+  const bytes = file.buffer;
+  if (ext === '.pdf' && file.mimetype === 'application/pdf' && bytes.subarray(0, 5).equals(Buffer.from('%PDF-'))) return { ext, mimeType: 'application/pdf' };
+  if (ext === '.png' && file.mimetype === 'image/png' && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return { ext, mimeType: 'image/png' };
+  if (['.jpg', '.jpeg'].includes(ext) && file.mimetype === 'image/jpeg' && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255) return { ext, mimeType: 'image/jpeg' };
+  return null;
+}
 
 const safeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 const viewerHeaders = res => {
@@ -80,19 +91,25 @@ async function enqueueCrmMessage(precontractId, ricercaId, kind, payload, id = c
 
 app.post('/api/integrations/precontracts', (req, res, next) => {
   if (!matchesSecret(req.headers.authorization?.replace(/^Bearer\s+/i, ''), process.env.PRECONTRACT_INGEST_TOKEN)) return res.status(401).json({ success: false, error: 'Non autorizzato' });
-  precontractPdfUpload.single('file')(req, res, error => error ? res.status(400).json({ success: false, error: 'PDF non valido o troppo grande' }) : next());
+  precontractImportUpload.fields([{ name: 'file', maxCount: 1 }, { name: 'signedFile', maxCount: 1 }])(req, res, error => error ? res.status(400).json({ success: false, error: 'Documento non valido o troppo grande' }) : next());
 }, async (req, res) => {
   const field = key => typeof req.body[key] === 'string' ? req.body[key].trim().slice(0, 2000) : '';
   const precontractId = field('precontractId');
-  if (!/^[a-zA-Z0-9_-]{8,128}$/.test(precontractId) || !field('localName') || !field('role') || !req.file?.buffer?.subarray(0, 5).equals(Buffer.from('%PDF-'))) return res.status(400).json({ success: false, error: 'Scheda o PDF non validi' });
+  const sheetFile = req.files?.file?.[0];
+  const signedFile = req.files?.signedFile?.[0];
+  const signedType = signedPrecontractType(signedFile);
+  if (!/^[a-zA-Z0-9_-]{8,128}$/.test(precontractId) || !field('localName') || !field('role') || !sheetFile?.buffer?.subarray(0, 5).equals(Buffer.from('%PDF-')) || (signedFile && !signedType)) return res.status(400).json({ success: false, error: 'Scheda o documento firmato non validi' });
   const existing = await db.get('SELECT ricerca_id FROM crm_precontracts WHERE precontract_id = ?', [precontractId]);
   if (existing) return res.json({ success: true, idempotent: true, ricercaId: existing.ricerca_id });
   const ricercaId = generateID('R');
   const storedName = `${crypto.randomUUID()}.pdf`;
   const filePath = path.join(privatePrecontractDir, storedName);
-  const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
+  const signedStoredName = signedType ? `${crypto.randomUUID()}${signedType.ext}` : null;
+  const signedFilePath = signedStoredName ? path.join(privatePrecontractDir, signedStoredName) : null;
+  const hash = crypto.createHash('sha256').update(sheetFile.buffer).digest('hex');
   try {
-    await fs.promises.writeFile(filePath, req.file.buffer, { flag: 'wx', mode: 0o600 });
+    await fs.promises.writeFile(filePath, sheetFile.buffer, { flag: 'wx', mode: 0o600 });
+    if (signedFilePath) await fs.promises.writeFile(signedFilePath, signedFile.buffer, { flag: 'wx', mode: 0o600 });
     await db.exec('BEGIN IMMEDIATE');
     await db.run(`INSERT INTO ricerche (id, data_inserimento, azienda, ruolo, referente, telefono_mobile, telefono_fisso, email, sede_lavoro, nr_risorse, ccnl_livello, retribuzione, note, stato_ricerca, stato_approvazione_tl, consulente_commerciale, outbound, sede_legale, preventivo)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
@@ -100,17 +117,65 @@ app.post('/api/integrations/precontracts', (req, res, next) => {
       Math.max(1, parseInt(field('resourceCount'), 10) || 1), field('ccnlLevel'), field('monthlySalary'), `Ricerca per conto di: ${field('recruitmentFor')}. Costo servizio: ${field('serviceCost')}.`, '', 'In attesa di approvazione', field('commercialConsultant'), field('outbound'), field('registeredOffice'), field('serviceCost'),
     ]);
     await db.run('INSERT INTO precontract_documents (ricerca_id, precontract_id, stored_name, original_name, sha256, uploaded_at) VALUES (?, ?, ?, ?, ?, ?)', [ricercaId, precontractId, storedName, `precontratto-${precontractId}.pdf`, hash, new Date().toISOString()]);
+    if (signedFilePath) await db.run('INSERT INTO signed_precontract_documents (ricerca_id, precontract_id, stored_name, original_name, mime_type, sha256, uploaded_at) VALUES (?, ?, ?, ?, ?, ?, ?)', [ricercaId, precontractId, signedStoredName, path.basename(signedFile.originalname || 'Precontratto firmato').slice(0, 180), signedType.mimeType, crypto.createHash('sha256').update(signedFile.buffer).digest('hex'), new Date().toISOString()]);
     await db.run('INSERT INTO crm_precontracts (precontract_id, ricerca_id, viewer_token) VALUES (?, ?, ?)', [precontractId, ricercaId, crypto.randomBytes(24).toString('base64url')]);
     await db.exec('COMMIT');
     res.status(201).json({ success: true, ricercaId });
   } catch (error) {
     await db.exec('ROLLBACK').catch(() => {});
     await fs.promises.unlink(filePath).catch(() => {});
+    if (signedFilePath) await fs.promises.unlink(signedFilePath).catch(() => {});
     const concurrent = await db.get('SELECT ricerca_id FROM crm_precontracts WHERE precontract_id = ?', [precontractId]);
     if (concurrent) return res.json({ success: true, idempotent: true, ricercaId: concurrent.ricerca_id });
     console.error('Importazione precontratto:', error);
     res.status(500).json({ success: false, error: 'Importazione non riuscita' });
   }
+});
+
+app.post('/api/integrations/ricerche/:id/reserve-updates', (req, res, next) => {
+  if (!matchesSecret(req.headers.authorization?.replace(/^Bearer\s+/i, ''), process.env.PRECONTRACT_INGEST_TOKEN)) return res.status(401).json({ success: false, error: 'Integrazione non autorizzata' });
+  precontractPdfUpload.single('file')(req, res, error => error ? res.status(400).json({ success: false, error: 'Allegato non valido o troppo grande' }) : next());
+}, async (req, res) => {
+  const { precontractId, messageId } = req.body;
+  const note = typeof req.body.note === 'string' ? req.body.note.trim() : '';
+  if (!/^[a-zA-Z0-9_-]{8,128}$/.test(precontractId || '') || !/^[a-zA-Z0-9_-]{8,128}$/.test(messageId || '') || !note || note.length > 10000) return res.status(400).json({ success: false, error: 'Aggiornamento non valido' });
+  const type = signedPrecontractType(req.file);
+  if (req.file && !type) return res.status(400).json({ success: false, error: 'Allegato PDF/JPG/PNG non valido' });
+  const fileHash = req.file ? crypto.createHash('sha256').update(req.file.buffer).digest('hex') : null;
+  const link = await db.get('SELECT c.precontract_id, r.stato_approvazione_tl FROM crm_precontracts c JOIN ricerche r ON r.id = c.ricerca_id WHERE c.ricerca_id = ? AND c.precontract_id = ?', [req.params.id, precontractId]);
+  if (!link) return res.status(404).json({ success: false, error: 'Mandato CRM non trovato' });
+  const existingUpdate = await db.get('SELECT note, sha256 FROM crm_reserve_updates WHERE id = ? AND ricerca_id = ?', [messageId, req.params.id]);
+  if (existingUpdate) return existingUpdate.note === note && existingUpdate.sha256 === fileHash ? res.json({ success: true, idempotent: true }) : res.status(409).json({ success: false, error: 'ID aggiornamento già usato per dati differenti' });
+  if (link.stato_approvazione_tl !== 'Approvata con Riserva') return res.status(409).json({ success: false, error: 'Mandato non in riserva' });
+  const storedName = type ? `${crypto.randomUUID()}${type.ext}` : null;
+  const filePath = storedName ? path.join(privatePrecontractDir, storedName) : null;
+  try {
+    if (filePath) await fs.promises.writeFile(filePath, req.file.buffer, { flag: 'wx', mode: 0o600 });
+    await db.run('INSERT INTO crm_reserve_updates (id, precontract_id, ricerca_id, note, original_name, stored_name, mime_type, sha256, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [messageId, precontractId, req.params.id, note, req.file ? path.basename(req.file.originalname).slice(0, 180) : null, storedName, type?.mimeType || null, fileHash, new Date().toISOString()]);
+    res.status(201).json({ success: true });
+  } catch (error) {
+    if (filePath) await fs.promises.unlink(filePath).catch(() => {});
+    if (error.code === 'SQLITE_CONSTRAINT') {
+      const duplicate = await db.get('SELECT note, sha256 FROM crm_reserve_updates WHERE id = ? AND ricerca_id = ?', [messageId, req.params.id]);
+      if (duplicate) return duplicate.note === note && duplicate.sha256 === fileHash ? res.json({ success: true, idempotent: true }) : res.status(409).json({ success: false, error: 'ID aggiornamento già usato per dati differenti' });
+    }
+    res.status(500).json({ success: false, error: 'Salvataggio aggiornamento non riuscito' });
+  }
+});
+
+app.get('/api/ricerche/:id/reserve-updates', async (req, res) => {
+  const updates = await db.all('SELECT id, note, original_name, created_at FROM crm_reserve_updates WHERE ricerca_id = ? ORDER BY created_at DESC', [req.params.id]);
+  res.json({ success: true, data: updates });
+});
+
+app.post('/api/ricerche/:id/reserve-updates/:updateId/file/open', async (req, res) => {
+  if (!matchesSecret(req.body?.password, process.env.HR_DOCUMENT_PASSWORD)) return res.status(401).json({ success: false, error: 'Password non valida' });
+  const file = await db.get('SELECT stored_name, original_name, mime_type FROM crm_reserve_updates WHERE ricerca_id = ? AND id = ?', [req.params.id, req.params.updateId]);
+  if (!file?.stored_name) return res.status(404).json({ success: false, error: 'Allegato non trovato' });
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Disposition', `attachment; filename="${file.original_name.replace(/["\r\n]/g, '_')}"`);
+  res.type(file.mime_type).sendFile(path.join(privatePrecontractDir, file.stored_name));
 });
 
 app.get('/mandato/:token', (req, res) => {
@@ -210,6 +275,23 @@ app.post('/api/ricerche/:id/precontract-document/open', async (req, res) => {
   } catch (error) {
     console.error('Precontract document download error:', error);
     res.status(500).json({ success: false, error: 'PDF non disponibile' });
+  }
+});
+
+app.post('/api/ricerche/:id/signed-precontract-document/open', async (req, res) => {
+  if (!matchesSecret(req.body?.password, process.env.HR_DOCUMENT_PASSWORD)) return res.status(401).json({ success: false, error: 'Password non valida' });
+  try {
+    const document = await db.get('SELECT stored_name, mime_type FROM signed_precontract_documents WHERE ricerca_id = ?', [req.params.id]);
+    if (!document) return res.status(404).json({ success: false, error: 'Precontratto firmato non presente' });
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Content-Type', document.mime_type);
+    res.setHeader('Content-Disposition', `attachment; filename="${document.stored_name}"`);
+    res.sendFile(path.join(privatePrecontractDir, document.stored_name), error => {
+      if (error && !res.headersSent) res.status(500).json({ success: false, error: 'Documento non disponibile' });
+    });
+  } catch (error) {
+    console.error('Signed precontract download error:', error);
+    res.status(500).json({ success: false, error: 'Documento non disponibile' });
   }
 });
 
@@ -325,9 +407,10 @@ function generateID(prefix) {
 // 1. RICERCHE (MANDATI)
 app.get('/api/ricerche', async (req, res) => {
   try {
-    const list = await db.all(`SELECT r.*, d.original_name AS precontract_document_name, d.uploaded_at AS precontract_document_uploaded_at, c.precontract_id AS crm_precontract_id, c.accepted_at AS crm_accepted_at,
-      (SELECT MAX(week_start) FROM crm_weekly_reports WHERE ricerca_id = r.id) AS crm_last_report_week
-      FROM ricerche r LEFT JOIN precontract_documents d ON d.ricerca_id = r.id LEFT JOIN crm_precontracts c ON c.ricerca_id = r.id ORDER BY r.data_inserimento DESC`);
+    const list = await db.all(`SELECT r.*, d.original_name AS precontract_document_name, d.uploaded_at AS precontract_document_uploaded_at, s.original_name AS signed_precontract_document_name, s.uploaded_at AS signed_precontract_document_uploaded_at, c.precontract_id AS crm_precontract_id, c.accepted_at AS crm_accepted_at,
+      (SELECT MAX(week_start) FROM crm_weekly_reports WHERE ricerca_id = r.id) AS crm_last_report_week,
+      (SELECT COUNT(*) FROM crm_reserve_updates WHERE ricerca_id = r.id) AS crm_reserve_update_count
+      FROM ricerche r LEFT JOIN precontract_documents d ON d.ricerca_id = r.id LEFT JOIN signed_precontract_documents s ON s.ricerca_id = r.id LEFT JOIN crm_precontracts c ON c.ricerca_id = r.id ORDER BY r.data_inserimento DESC`);
     
     // For each search, count candidates in pipeline
     const result = await Promise.all(list.map(async (r) => {
@@ -355,9 +438,9 @@ app.get('/api/ricerche', async (req, res) => {
 // Single Research detail (with pipeline and interviews)
 app.get('/api/ricerche/:id', async (req, res) => {
   try {
-    const ricerca = await db.get(`SELECT r.*, d.original_name AS precontract_document_name, d.uploaded_at AS precontract_document_uploaded_at, c.precontract_id AS crm_precontract_id, c.accepted_at AS crm_accepted_at,
+    const ricerca = await db.get(`SELECT r.*, d.original_name AS precontract_document_name, d.uploaded_at AS precontract_document_uploaded_at, s.original_name AS signed_precontract_document_name, s.uploaded_at AS signed_precontract_document_uploaded_at, c.precontract_id AS crm_precontract_id, c.accepted_at AS crm_accepted_at,
       (SELECT MAX(week_start) FROM crm_weekly_reports WHERE ricerca_id = r.id) AS crm_last_report_week
-      FROM ricerche r LEFT JOIN precontract_documents d ON d.ricerca_id = r.id LEFT JOIN crm_precontracts c ON c.ricerca_id = r.id WHERE r.id = ?`, [req.params.id]);
+      FROM ricerche r LEFT JOIN precontract_documents d ON d.ricerca_id = r.id LEFT JOIN signed_precontract_documents s ON s.ricerca_id = r.id LEFT JOIN crm_precontracts c ON c.ricerca_id = r.id WHERE r.id = ?`, [req.params.id]);
     if (!ricerca) {
       return res.status(404).json({ success: false, error: 'Ricerca non trovata' });
     }
@@ -826,6 +909,7 @@ app.put('/api/ricerche/:id', async (req, res) => {
     const ricerca = await db.get('SELECT * FROM ricerche WHERE id = ?', [req.params.id]);
     if (!ricerca) return res.status(404).json({ success: false, error: 'Ricerca non trovata' });
     const crmLink = await db.get('SELECT * FROM crm_precontracts WHERE ricerca_id = ?', [req.params.id]);
+    if (stato_approvazione_tl === 'Approvata con Riserva' && ricerca.stato_approvazione_tl !== 'Approvata con Riserva' && (typeof motivazione !== 'string' || !motivazione.trim() || motivazione.length > 10000)) return res.status(400).json({ success: false, error: 'Nota della riserva obbligatoria (massimo 10000 caratteri)' });
     if (crmLink && stato_approvazione_tl && stato_approvazione_tl !== ricerca.stato_approvazione_tl && !matchesSecret(req.body.adminPassword, process.env.HR_DOCUMENT_PASSWORD)) {
       return res.status(401).json({ success: false, error: 'Password richiesta per approvare un mandato CRM' });
     }
@@ -939,7 +1023,21 @@ app.put('/api/ricerche/:id', async (req, res) => {
       await logActivity('CLIENTE', req.params.id, ricerca.azienda, 'Cambio Approvazione', dettagliLog, req.params.id, ricerca.referente);
     }
     
-    if (crmLink && (stato_approvazione_tl === 'Approvata' || stato_approvazione_tl === 'Approvata con Riserva') && !crmLink.accepted_at) {
+    if (crmLink && stato_approvazione_tl === 'Approvata con Riserva' && ricerca.stato_approvazione_tl !== 'Approvata con Riserva' && !crmLink.accepted_at) {
+      const viewerPassword = crypto.randomBytes(18).toString('base64url');
+      const salt = crypto.randomBytes(16).toString('hex');
+      const hash = crypto.scryptSync(viewerPassword, salt, 64).toString('hex');
+      const publicUrl = process.env.RESEARCH_PUBLIC_URL || 'https://gestionale-backend-mfph.onrender.com';
+      const viewerUrl = `${publicUrl.replace(/\/$/, '')}/mandato/${crmLink.viewer_token}`;
+      await db.exec('BEGIN IMMEDIATE');
+      try {
+        await db.run('UPDATE crm_precontracts SET viewer_salt = ?, viewer_hash = ?, accepted_at = ? WHERE precontract_id = ? AND accepted_at IS NULL', [salt, hash, new Date().toISOString(), crmLink.precontract_id]);
+        await enqueueCrmMessage(crmLink.precontract_id, req.params.id, 'reserved', { type: 'reserved', note: motivazione.trim(), viewerUrl, viewerPassword }, `reserved-${crmLink.precontract_id}`, false);
+        await db.exec('COMMIT');
+      } catch (error) { await db.exec('ROLLBACK'); throw error; }
+      void deliverCrmOutbox().catch(error => console.error('Invio riserva CRM:', error));
+    }
+    if (crmLink && stato_approvazione_tl === 'Approvata' && ricerca.stato_approvazione_tl !== 'Approvata' && !crmLink.accepted_at) {
       const viewerPassword = crypto.randomBytes(18).toString('base64url');
       const salt = crypto.randomBytes(16).toString('hex');
       const hash = crypto.scryptSync(viewerPassword, salt, 64).toString('hex');
@@ -952,6 +1050,9 @@ app.put('/api/ricerche/:id', async (req, res) => {
         await db.exec('COMMIT');
       } catch (error) { await db.exec('ROLLBACK'); throw error; }
       void deliverCrmOutbox().catch(error => console.error('Invio accettazione CRM:', error));
+    }
+    if (crmLink && stato_approvazione_tl === 'Approvata' && ricerca.stato_approvazione_tl === 'Approvata con Riserva' && crmLink.accepted_at) {
+      await enqueueCrmMessage(crmLink.precontract_id, req.params.id, 'accepted', { type: 'accepted' }, `accepted-${crmLink.precontract_id}`);
     }
     if (crmLink && stato_approvazione_tl === 'Cestinato' && ricerca.stato_approvazione_tl !== 'Cestinato') {
       await enqueueCrmMessage(crmLink.precontract_id, req.params.id, 'rejected', { type: 'rejected', reason: String(motivazione || 'Mandato non approvato') }, `rejected-${crmLink.precontract_id}`);

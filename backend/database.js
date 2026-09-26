@@ -147,6 +147,19 @@ async function initDatabase() {
     `);
 
     await db.exec(`
+      CREATE TABLE IF NOT EXISTS signed_precontract_documents (
+        ricerca_id TEXT PRIMARY KEY,
+        precontract_id TEXT NOT NULL UNIQUE,
+        stored_name TEXT NOT NULL,
+        original_name TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        sha256 TEXT NOT NULL,
+        uploaded_at TEXT NOT NULL,
+        FOREIGN KEY (ricerca_id) REFERENCES ricerche(id) ON DELETE CASCADE
+      )
+    `);
+
+    await db.exec(`
       CREATE TABLE IF NOT EXISTS crm_precontracts (
         precontract_id TEXT PRIMARY KEY,
         ricerca_id TEXT NOT NULL UNIQUE,
@@ -177,6 +190,20 @@ async function initDatabase() {
         UNIQUE (ricerca_id, week_start),
         FOREIGN KEY (ricerca_id) REFERENCES ricerche(id) ON DELETE CASCADE
       );
+      CREATE TABLE IF NOT EXISTS crm_reserve_updates (
+        id TEXT PRIMARY KEY,
+        precontract_id TEXT NOT NULL,
+        ricerca_id TEXT NOT NULL,
+        note TEXT NOT NULL,
+        original_name TEXT,
+        stored_name TEXT,
+        mime_type TEXT,
+        sha256 TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (precontract_id) REFERENCES crm_precontracts(precontract_id) ON DELETE CASCADE,
+        FOREIGN KEY (ricerca_id) REFERENCES ricerche(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_crm_reserve_updates_ricerca ON crm_reserve_updates (ricerca_id, created_at);
     `);
 
     // 3b. Table Annunci
