@@ -1,13 +1,67 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useGlobalState } from '../contexts/GlobalStateContext';
 import PrecontractDocument from '../components/PrecontractDocument';
 
+const PASSWORD_STORAGE_KEY = 'ricerca_document_password';
+
+function readSavedPassword() {
+  try {
+    return window.localStorage.getItem(PASSWORD_STORAGE_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
 export default function Approvazioni({ handleApprovalAction }) {
   const { ricerche = [] } = useGlobalState() || {};
+  const [savedPassword, setSavedPassword] = useState(readSavedPassword);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [editingPassword, setEditingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  const savePassword = event => {
+    event.preventDefault();
+    const value = passwordInput.trim();
+    if (!value) return;
+    try {
+      window.localStorage.setItem(PASSWORD_STORAGE_KEY, value);
+      setSavedPassword(value);
+      setPasswordInput('');
+      setEditingPassword(false);
+      setPasswordError('');
+    } catch {
+      setPasswordError('Il browser non permette di salvare la password.');
+    }
+  };
+
+  const copyPassword = async () => {
+    try {
+      await navigator.clipboard.writeText(savedPassword);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setPasswordError('Impossibile copiare la password.');
+    }
+  };
 
   return (
     <div>
-      <h2 style={{ fontSize: '16px', marginBottom: '16px', fontWeight: 700 }}>Mandati in attesa di Approvazione</h2>
+      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 20, marginBottom: 16 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Mandati in attesa di Approvazione</h2>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 8 }}>
+          {savedPassword && !editingPassword ? <>
+            <code style={{ overflowWrap: 'anywhere' }}>{savedPassword}</code>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={copyPassword} aria-label="Copia password" title="Copia password">{copied ? '✓' : '⧉'}</button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setPasswordInput(savedPassword); setEditingPassword(true); setPasswordError(''); }}>Modifica</button>
+          </> : <form onSubmit={savePassword} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+            <input type="password" value={passwordInput} onChange={event => setPasswordInput(event.target.value)} placeholder="Password PDF" aria-label="Password da ricordare in questo browser" autoComplete="off" required />
+            <button type="submit" className="btn btn-secondary btn-sm">Salva</button>
+            {editingPassword && <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setEditingPassword(false); setPasswordInput(''); setPasswordError(''); }}>Annulla</button>}
+          </form>}
+          {passwordError && <span role="alert" style={{ color: 'var(--danger)', fontSize: 12 }}>{passwordError}</span>}
+        </div>
+      </div>
       <div className="table-container">
         <table className="data-table">
           <thead>
