@@ -3,9 +3,10 @@ services:
     name: gestionale-backend
     env: node
     plan: starter
-    rootDir: backend
-    buildCommand: npm install
-    startCommand: npm start
+    rootDir: .
+    buildCommand: node scripts/build-render.cjs
+    startCommand: node backend/server.js
+    healthCheckPath: /healthz
     disk:
       name: gestionale-data
       mountPath: /data
@@ -15,3 +16,13 @@ services:
         value: /data
       - key: PORT
         value: 3002
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 22
+      - key: HR_LOGIN_PASSWORD
+        sync: false
+      - key: FRONTEND_ORIGINS
+        value: https://gestionale-backend-mfph.onrender.com
+      - key: REQUIRE_FRONTEND_BUILD
+        value: "true"

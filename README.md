@@ -1,50 +1,53 @@
-# Gestionale Ricerca Personale - Locale
+# Gestionale Ricerca Personale
 
-Questo è il gestionale per la ricerca e selezione di personale migrato da Google Sheets a un'applicazione locale Node.js (Express) + React (Vite) + SQLite.
+Applicazione React + Express + SQLite. La configurazione corrente prepara frontend e API sullo stesso servizio Render, mantenendo database e allegati sul disco persistente esistente.
 
-## 🚀 Requisiti
-- **Node.js** installato (consigliato v20+).
+## Requisiti
 
----
+Node.js 22 o successivo. Installazione riproducibile tramite i lockfile npm.
 
-## 📥 Importare i tuoi dati attuali dal Foglio Google
-Prima di avviare il gestionale, puoi importare tutti i candidati e i clienti correnti:
-1. Apri la tua Web App di Google nel browser.
-2. Aggiungi alla fine dell'URL il parametro **`?page=export`** (o sostituisci `?page=commerciale` con `?page=export`).
-   * *Esempio:* `https://script.google.com/macros/s/AKfy.../exec?page=export`
-3. Il browser scaricherà un file JSON.
-4. Salva questo file con il nome **`export.json`** nella cartella principale di questo progetto (`gestionale_ricerca_locale/`).
-5. Apri un terminale nella cartella principale ed esegui il comando:
-   ```bash
-   node migrate.js
-   ```
-6. Il database SQLite locale (`backend/database.db`) verrà popolato istantaneamente con tutti i tuoi candidati, clienti, ricerche e storici!
+## Build e avvio su Render
 
----
+Dalla radice del repository:
 
-## 💻 Come avviare il gestionale in locale
-Per avviare il gestionale sul tuo computer senza usare il terminale:
-1. Fai doppio clic sul file **`avvia_gestionale.bat`**.
-2. Il browser si aprirà automaticamente su **`http://localhost:5173`** mostrando il cruscotto.
-3. Tieni aperta la finestra nera del terminale per tutto il tempo in cui usi il programma.
+```sh
+node scripts/build-render.cjs
+node backend/server.js
+```
 
----
+Root Directory deve essere la radice del repository, non `backend`. `render.yaml` definisce servizio, build, avvio, disco e controllo `/healthz`.
 
-## 📱 Come condividere il Form Commerciale con i cellulari
-Se il commerciale è fuori ufficio ed ha bisogno di inserire nuove ricerche dal cellulare:
-1. Assicurati che **`avvia_gestionale.bat`** sia regolarmente in esecuzione.
-2. Fai doppio clic sul file **`avvia_condivisione_cellulare.bat`**.
-3. Verrà generato un indirizzo internet pubblico (es: `https://xxxx.localtunnel.me`).
-4. Invia al commerciale questo indirizzo aggiungendo alla fine **`/commerciale`** (es: `https://xxxx.localtunnel.me/commerciale`).
-5. Il commerciale potrà inserire nuove ricerche dal suo cellulare in tempo reale, che compariranno istantaneamente sulla tua dashboard come **"Da Approvare"**!
+Conservare `DATA_DIR=/data` e il disco esistente. Configurare `HR_LOGIN_PASSWORD` e le altre credenziali nelle impostazioni del servizio, non nel codice. La build usa `/api` sullo stesso indirizzo. `REQUIRE_FRONTEND_BUILD=true` impedisce l'avvio senza interfaccia compilata.
 
----
+Un push o un sync può avviare un deploy reale: prima collaudare e concordare la pubblicazione.
 
-## 📁 Struttura del Progetto
-* `backend/`: Server Express, logiche API e database SQLite.
-  * `database.db`: File del database locale (creato all'avvio).
-  * `uploads/cv/`: Cartella in cui verranno salvati fisicamente i file dei CV caricati.
-  * `public/commerciale.html`: Pagina web per i dispositivi mobili del commerciale.
-* `frontend/`: Applicazione a pagina singola React con design HSL premium e dark mode.
-* `avvia_gestionale.bat`: Script di avvio automatico locale.
-* `avvia_condivisione_cellulare.bat`: Script per rendere il form accessibile ai cellulari da remoto.
+## Struttura utile
+
+- `backend/`: API, autenticazione, database, documenti privati, portali e test.
+- `frontend/src/`: interfaccia e logica React.
+- `frontend/public/`: immagini, icone e risorse pubbliche.
+- `scripts/build-render.cjs`: installazione e build coordinata.
+- `docs/`: documentazione dell'integrazione precontratti.
+
+## Avvio locale della copia di lavoro
+
+Nella copia Windows preparata per il proprietario fare doppio clic su `GESTIONALE RICERCA DEFINITVO.bat`. Questo file e `scripts/avvia-locale.cjs` sono strumenti locali esclusi da Git, non componenti del deploy. Leggere `AVVIO LOCALE.md` nella stessa copia.
+
+Il database locale stabile e la credenziale sono in `.locale/`; i collaudi usano `.checkup/`. Queste cartelle e il backup sono esclusi da Git e non devono essere caricati su Render.
+
+Gli script `dev:backend` e `dev:frontend` restano disponibili per lo sviluppo. Impostare un `DATA_DIR` di prova e una password locale: non usare API o credenziali online nei test automatici.
+
+## Registro delle novità
+
+La voce **Aggiornamenti** del menu apre `/aggiornamenti`. Il contenuto si trova in `frontend/src/data/aggiornamenti.js`: aggiungere lì le nuove modifiche, con data e spiegazioni semplici, mantenendo lo storico. La pagina si aggiorna insieme alla nuova build del gestionale; non inventa automaticamente descrizioni dalle modifiche al codice. Le regole per i prossimi interventi sono in `AGENTS.md`.
+
+## Verifiche automatiche
+
+```sh
+node backend/test-regression.cjs
+node backend/test-unified-hosting.cjs
+```
+
+Il test di hosting richiede una build del frontend. Sono conservati anche `backend/test-crm-integration.cjs` e `backend/test-precontract-document.cjs`. Per mantenere le fixture in questa copia impostare `TEMP` e `TMP` a `.checkup/tmp`.
+
+I test sono strumenti di sviluppo: non vengono eseguiti dal server di produzione né serviti ai visitatori. Il server pubblica soltanto l'interfaccia compilata, i portali e gli endpoint previsti, non il repository, il database o le credenziali.

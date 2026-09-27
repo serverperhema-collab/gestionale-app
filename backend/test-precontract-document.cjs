@@ -4,6 +4,12 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const net = require('node:net');
+let sessionToken;
+const fetch = (url, options = {}) => {
+  const headers = new Headers(options.headers);
+  if (sessionToken && String(url).includes('/api/') && !headers.has('Authorization')) headers.set('Authorization', 'Bearer ' + sessionToken);
+  return global.fetch(url, { ...options, headers });
+};
 
 async function freePort() {
   const server = net.createServer();
@@ -19,7 +25,7 @@ async function freePort() {
   const base = `http://127.0.0.1:${port}`;
   const child = spawn(process.execPath, ['server.js'], {
     cwd: __dirname,
-    env: { ...process.env, PORT: String(port), DATA_DIR: dataDir, PRECONTRACT_INGEST_TOKEN: 'test-integration-token', HR_DOCUMENT_PASSWORD: 'test-document-password' },
+    env: { ...process.env, PORT: String(port), DATA_DIR: dataDir, PRECONTRACT_INGEST_TOKEN: 'test-integration-token', HR_DOCUMENT_PASSWORD: 'test-document-password', HR_LOGIN_PASSWORD: 'test-login', CALLS_CRM_CALLBACK_URL: '', CALLS_CRM_CALLBACK_TOKEN: '' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let output = '';
@@ -32,6 +38,7 @@ async function freePort() {
       await new Promise(resolve => setTimeout(resolve, 50));
     }
     assert.match(output, /Server Express attivo/, output);
+    sessionToken = (await (await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: 'test-login' }) })).json()).token;
     const mandateResponse = await fetch(`${base}/api/ricerche`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ azienda: 'Test PDF', ruolo: 'Ricercatore', da_approvare: true }),

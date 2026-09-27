@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route, Link } from 'react-router-dom';
 import { useAppController } from './hooks/useAppController';
 import GlobalModals from './components/GlobalModals';
+import { useAuth } from './contexts/AuthContext';
 
 import Dashboard from './pages/Dashboard';
 import GestioneRicerche from './pages/GestioneRicerche';
@@ -16,6 +17,7 @@ import Clienti from './pages/GestioneClienti';
 import RicercaDetail from './pages/RicercaDetail';
 import PostaElettronica from './pages/PostaElettronica';
 import GestioneAnnunci from './pages/GestioneAnnunci';
+import Aggiornamenti from './pages/Aggiornamenti';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -44,9 +46,7 @@ class ErrorBoundary extends React.Component {
 
 export default function App() {
   const ctrl = useAppController();
-  const [isAuthenticated, setIsAuthenticated] = React.useState(() => {
-    return sessionStorage.getItem('hr_authenticated') === 'true';
-  });
+  const { authenticated: isAuthenticated, checking, login, logout } = useAuth();
   const [passwordInput, setPasswordInput] = React.useState('');
   const [authError, setAuthError] = React.useState('');
   const [currentTime, setCurrentTime] = React.useState(new Date());
@@ -56,14 +56,14 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  const handleAuthSubmit = (e) => {
+  const handleAuthSubmit = async (e) => {
     e.preventDefault();
-    if (passwordInput === 'HemaWork2026!') {
-      setIsAuthenticated(true);
-      sessionStorage.setItem('hr_authenticated', 'true');
+    try {
+      await login(passwordInput);
+      setPasswordInput('');
       setAuthError('');
-    } else {
-      setAuthError('Password errata!');
+    } catch (error) {
+      setAuthError(error.message);
     }
   };
 
@@ -86,6 +86,7 @@ export default function App() {
         case 'commerciali_gestione': title = "Gestione Commerciali - HR Management"; break;
         case 'posta': title = "Posta Elettronica - HR Management"; break;
         case 'email_config': title = "Configurazione SMTP - HR Management"; break;
+        case 'aggiornamenti': title = "Aggiornamenti - HR Management"; break;
       }
     }
     document.title = title;
@@ -125,6 +126,7 @@ export default function App() {
   };
 
   if (!isAuthenticated) {
+    if (checking) return <div className="login-container">Verifica accesso…</div>;
     return (
       <div className="login-container">
         <div className="login-card">
@@ -299,9 +301,11 @@ export default function App() {
             <button className={`menu-item ${ctrl.currentPage === 'email_config' ? 'active' : ''}`} onClick={() => { ctrl.setCurrentPage('email_config'); ctrl.setSelectedRicercaId(null); }}>⚙️ Configurazione E-mail</button>
           </li>
           <li>
+            <button className={`menu-item ${ctrl.currentPage === 'aggiornamenti' ? 'active' : ''}`} onClick={() => { ctrl.setCurrentPage('aggiornamenti'); ctrl.setSelectedRicercaId(null); }}>🆕 Aggiornamenti</button>
+          </li>
+          <li>
             <button className="menu-item" onClick={() => {
-              sessionStorage.removeItem('hr_authenticated');
-              setIsAuthenticated(false);
+              logout().catch(error => setAuthError(error.message));
             }} style={{ color: '#ef4444' }}>🚪 Esci</button>
           </li>
         </ul>
@@ -326,6 +330,7 @@ export default function App() {
               : ctrl.currentPage === 'email_config' ? 'Configurazione Server E-mail'
               : ctrl.currentPage === 'posta' ? 'Client Posta Elettronica'
               : ctrl.currentPage === 'whatsapp' ? 'Integrazione WhatsApp Web'
+              : ctrl.currentPage === 'aggiornamenti' ? 'Aggiornamenti del gestionale'
               : 'Anagrafica Potenziali Clienti'
             }
           </h1>
@@ -388,6 +393,7 @@ export default function App() {
               <Route path="/candidati" element={<Candidati handleOpenValutazione={ctrl.handleOpenValutazione} setSelectedSubjectLog={ctrl.setSelectedSubjectLog} handleLinkCandidatoToRicerca={ctrl.handleLinkCandidatoToRicerca} setCurrentCandidato={ctrl.setCurrentCandidato} setShowNewCVCandidatoModal={ctrl.setShowNewCVCandidatoModal} />} />
               <Route path="/annunci" element={<GestioneAnnunci ctrl={ctrl} />} />
               <Route path="/clienti" element={<Clienti setSelectedSubjectLog={ctrl.setSelectedSubjectLog} />} />
+              <Route path="/aggiornamenti" element={<Aggiornamenti />} />
             </Routes>
           )}
 

@@ -619,6 +619,7 @@
 </div>
 
 <!-- CLIENTE SCRIPTS -->
+<script src="/portal-auth.js" data-role="cliente"></script>
 <script>
   let loggedUser = null;
   const API_BASE = '/api';
@@ -626,7 +627,7 @@
   // Check login session on load
   window.addEventListener('DOMContentLoaded', () => {
     const saved = localStorage.getItem('hema_client_session');
-    if (saved) {
+    if (saved && localStorage.getItem('hema_token_cliente')) {
       try {
         loggedUser = JSON.parse(saved);
         showDashboard();
@@ -680,6 +681,7 @@
       const json = await res.json();
       if (json.success) {
         loggedUser = json.user;
+        localStorage.setItem('hema_token_cliente', json.token);
         localStorage.setItem('hema_client_session', JSON.stringify(loggedUser));
         showToast('success', 'Accesso Effettuato!', 'Benvenuto nell\'area riservata clienti.');
         showDashboard();
@@ -730,6 +732,8 @@
   function handleLogout() {
     loggedUser = null;
     localStorage.removeItem('hema_client_session');
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    localStorage.removeItem('hema_token_cliente');
     document.getElementById('dashboardArea').style.display = 'none';
     document.getElementById('newMandateArea').style.display = 'none';
     document.getElementById('authCard').style.display = 'block';

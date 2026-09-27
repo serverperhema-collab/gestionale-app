@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useGlobalState } from '../contexts/GlobalStateContext';
 import { API_BASE } from '../utils';
+import { useDialogs } from '../contexts/DialogContext';
 
 export default function Riserva({ handleApprovalAction }) {
+  const { askText } = useDialogs();
   const { ricerche = [] } = useGlobalState() || {};
   const [updatesMandate, setUpdatesMandate] = useState(null);
   const [updates, setUpdates] = useState([]);
@@ -17,7 +19,7 @@ export default function Riserva({ handleApprovalAction }) {
     } catch (error) { setUpdatesError(error.message); }
   };
   const download = async update => {
-    const password = window.localStorage.getItem('ricerca_document_password') || window.prompt('Password per aprire l’allegato:');
+    const password = window.localStorage.getItem('ricerca_document_password') || await askText('Password per aprire l’allegato:');
     if (!password) return;
     try {
       const response = await fetch(`${API_BASE}/ricerche/${encodeURIComponent(updatesMandate.id)}/reserve-updates/${encodeURIComponent(update.id)}/file/open`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });

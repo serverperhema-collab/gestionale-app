@@ -1,9 +1,13 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '../contexts/ToastContext';
 import { useGlobalState } from '../contexts/GlobalStateContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useDialogs } from '../contexts/DialogContext';
 import { API_BASE, getProvinceCoords, calculateHaversineDistance, getCapFromAddress, getCoordsFromCap, estimateDistanceByCap, renderCandidateStars, getAdActiveDaysInfo } from '../utils';
 export function useAppController() {
+  const { authenticated } = useAuth();
+  const { askText, askConfirm } = useDialogs();
   const navigate = useNavigate();
   const location = useLocation();
   const currentPage = location.pathname.substring(1) || 'dashboard';
@@ -48,6 +52,9 @@ export function useAppController() {
 
   // Search detail state
   const [selectedRicercaId, setSelectedRicercaId] = useState(null);
+  const currentDetailId = useRef(null);
+  const detailRequest = useRef(0);
+  currentDetailId.current = selectedRicercaId;
   const [ricercaDetail, setRicercaDetail] = useState(null);
   const [timeline, setTimeline] = useState([]);
   const [activeTab, setActiveTab] = useState('dati'); // 'dati', 'colloquio', 'prova', 'assunzione', 'invio', 'storico'
@@ -184,6 +191,14 @@ export function useAppController() {
   // Hiring Sheet states
   const [selectedHiringCandidate, setSelectedHiringCandidate] = useState(null);
   const [hiringFormData, setHiringFormData] = useState({});
+  const hiringSending = useRef(false);
+  const handleSaveHiringDraft = async () => {
+    const pipe = (ricercaDetail?.candidatiCollegati || []).find(item => item.idCandidato === hiringFormData.idCandidato);
+    if (!pipe) throw new Error('Pratica di assunzione non collegata');
+    const response = await fetch(API_BASE + '/pipeline/' + pipe.idAssunzione + '/hiring-sheet', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sheet: hiringFormData }) });
+    const result = await response.json();
+    if (!response.ok || !result.success) throw new Error(result.error || 'Bozza non salvata');
+  };
   // operatori moved to GlobalStateContext
 
   // Interview detailed management states
@@ -209,6 +224,7 @@ export function useAppController() {
 
   // Load baseline data on page change
   useEffect(() => {
+    if (!authenticated) { setSelectedRicercaId(null); setRicercaDetail(null); return; }
     fetchRicerche();
     fetchCandidati();
     fetchClienti();
@@ -218,10 +234,13 @@ export function useAppController() {
     if (currentPage === 'email_config') {
       fetchEmailConfig();
     }
-  }, [currentPage]);
+  }, [currentPage, authenticated]);
 
   // Reload research detail if ID is set
   useEffect(() => {
+    setRicercaDetail(null);
+    setTimeline([]);
+    setAnnunci([]);
     setSelectedAnnuncio(null);
     setSelectedPipeCand(null);
     setIsNewCandidate(false);
@@ -273,7 +292,7 @@ export function useAppController() {
     try {
       const res = await fetch(`${API_BASE}/timeline/${id}`);
       const json = await res.json();
-      if (json.success) {
+      if (json.success && String(currentDetailId.current) === String(id)) {
         setAdTimeline(json.timeline);
         setTimeline(json.timeline);
       }
@@ -305,7 +324,7 @@ export function useAppController() {
     try {
       const res = await fetch(`${API_BASE}/ricerche/${id}/annunci`);
       const json = await res.json();
-      if (json.success) {
+      if (json.success && String(currentDetailId.current) === String(id)) {
         setAnnunci(json.annunci);
       }
     } catch (e) {
@@ -313,9 +332,11 @@ export function useAppController() {
     }
   };
   const fetchRicercaDetail = async id => {
+    const request = ++detailRequest.current;
     try {
       const res = await fetch(`${API_BASE}/ricerche/${id}`);
       const json = await res.json();
+      if (request !== detailRequest.current || String(currentDetailId.current) !== String(id)) return;
       if (json.success) {
         setRicercaDetail(json.data);
         fetchAdTimeline(id);
@@ -339,6 +360,7 @@ export function useAppController() {
         setSelectedRicercaId(null);
       }
     } catch (e) {
+      if (request !== detailRequest.current || String(currentDetailId.current) !== String(id)) return;
       console.error(e);
       showStatus('error', 'Errore di Rete', e.message);
       setSelectedRicercaId(null);
@@ -400,7 +422,7 @@ export function useAppController() {
     }
   };
   const handleDeleteAnnuncio = async id => {
-    if (!window.confirm("Sei sicuro di voler eliminare definitivamente questo annuncio?")) return;
+    if (!await askConfirm('Sei sicuro di voler eliminare definitivamente questo annuncio?')) return;
     try {
       showStatus('loading', 'Eliminazione annuncio...', 'Cancellazione in corso...');
       const res = await fetch(`${API_BASE}/annunci/${id}`, {
@@ -443,7 +465,7 @@ export function useAppController() {
 
   const handleUnlinkAnnuncio = async (id_annuncio) => {
     if (!selectedRicercaId) return;
-    if (!window.confirm("Sei sicuro di voler scollegare questo annuncio dal mandato?")) return;
+    if (!await askConfirm('Sei sicuro di voler scollegare questo annuncio dal mandato?')) return;
     try {
       showStatus('loading', 'Scollegamento...', 'Sto scollegando l\'annuncio...');
       const res = await fetch(`${API_BASE}/ricerche/${selectedRicercaId}/annunci-link/${id_annuncio}`, {
@@ -465,15 +487,16 @@ export function useAppController() {
 
   const handleApprovalAction = async (id, action, reserveNote) => {
     let payload = {};
-    const importedMandate = ricerche?.find?.(item => item.id === id)?.crm_precontract_id;
+    const currentMandate = ricerche?.find?.(item => item.id === id);
+    const importedMandate = currentMandate?.crm_precontract_id;
     let motivazione = '';
     if (action === 'Approvata') {
       payload = {
         stato_approvazione_tl: 'Approvata',
-        stato_ricerca: 'Ricerca Inserita'
+        ...(currentMandate?.stato_approvazione_tl === 'Approvata con Riserva' ? {} : { stato_ricerca: 'Ricerca Inserita' })
       };
     } else if (action === 'Cestinato') {
-      motivazione = window.prompt("Inserisci la motivazione del cestinamento (obbligatoria):");
+      motivazione = reserveNote ?? await askText('Inserisci la motivazione del cestinamento (obbligatoria):');
       if (motivazione === null) return; // User cancelled
       if (!motivazione.trim()) {
         showStatus("error", "Errore", "La motivazione è obbligatoria per cestinare!");
@@ -496,7 +519,7 @@ export function useAppController() {
         motivazione
       };
     } else if (action === 'In Pausa') {
-      motivazione = window.prompt("Inserisci la motivazione per mettere in pausa il mandato (obbligatoria):");
+      motivazione = reserveNote ?? await askText('Inserisci la motivazione per mettere in pausa il mandato (obbligatoria):');
       if (motivazione === null) return;
       if (!motivazione.trim()) {
         showStatus("error", "Errore", "La motivazione è obbligatoria per mettere in pausa!");
@@ -513,7 +536,7 @@ export function useAppController() {
       };
     }
     if (importedMandate) {
-      const adminPassword = window.prompt('Password autorizzativa per il mandato proveniente dal gestionale chiamate:');
+      const adminPassword = await askText('Password autorizzativa per il mandato proveniente dal gestionale chiamate:');
       if (adminPassword === null) return false;
       if (!adminPassword) { showStatus('error', 'Errore', 'Password obbligatoria'); return false; }
       payload.adminPassword = adminPassword;
@@ -543,7 +566,7 @@ export function useAppController() {
   const ensureResearchStarted = async () => {
     if (ricercaDetail && ricercaDetail.ricerca && (ricercaDetail.ricerca.stato_ricerca === '' || ricercaDetail.ricerca.stato_ricerca === 'Ricerca Inserita')) {
       try {
-        await fetch(`${API_BASE}/ricerche/${selectedRicercaId}`, {
+        const response = await fetch(`${API_BASE}/ricerche/${selectedRicercaId}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json'
@@ -552,11 +575,12 @@ export function useAppController() {
             stato_ricerca: 'Avviata'
           })
         });
-        // Silently reload
+        if (!response.ok) throw new Error('Impossibile aggiornare la ricerca come avviata. Riprova dal mandato.');
+        // Reload the confirmed state.
         fetchRicercaDetail(selectedRicercaId);
         fetchRicerche();
       } catch (e) {
-        console.error(e);
+        showStatus('error', 'Avvio ricerca non confermato', e.message);
       }
     }
   };
@@ -1558,11 +1582,13 @@ export function useAppController() {
     }
   };
   const handleUnlinkCandidate = async idAssunzione => {
-    if (!window.confirm("Sei sicuro di voler separare questo candidato da questa ricerca?")) return;
+    if (!await askConfirm('Vuoi scollegare il candidato? Verranno eliminati anche tutti i suoi colloqui in questa ricerca.')) return;
     try {
       showStatus('loading', 'Scollegamento...', 'Rimozione in corso...');
       const res = await fetch(`${API_BASE}/pipeline/${idAssunzione}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ elimina_colloqui: true })
       });
       const json = await res.json();
       if (json.success) {
@@ -1784,13 +1810,19 @@ export function useAppController() {
     }
   };
   const handleDeleteInterview = async id => {
-    if (!window.confirm("Sei sicuro di voler eliminare definitivamente questo colloquio? Questa operazione cancellerà anche lo storico specifico.")) return;
+    if (!await askConfirm('Vuoi eliminare il colloquio? Lo storico delle attività resterà conservato.')) return;
     try {
       showStatus('loading', 'Eliminazione...', 'Cancellazione colloquio in corso...');
-      const res = await fetch(`${API_BASE}/appuntamenti/${id}`, {
+      let res = await fetch(`${API_BASE}/appuntamenti/${id}`, {
         method: 'DELETE'
       });
-      const json = await res.json();
+      let json = await res.json();
+      if (json.code === 'PREVIOUS_STATE_REQUIRED') {
+        const previous = await askText('Questo colloquio è precedente al nuovo salvataggio delle fasi. Quale fase aveva il candidato prima? Inserisci: CV Ricevuto, Presentato, In Prova, Idoneo, CV Scartato oppure Escluso.');
+        if (!previous) { showStatus(null); return; }
+        res = await fetch(API_BASE + '/appuntamenti/' + id, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stato_precedente: previous.trim() }) });
+        json = await res.json();
+      }
       if (json.success) {
         showStatus('success', 'Colloquio Eliminato!', 'L\'appuntamento è stato rimosso con successo.');
         setSelectedInterviewForManagement(null);
@@ -1990,7 +2022,7 @@ export function useAppController() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          stato_avanzamento: provaData.esito === 'Prova Superata' ? 'Approvato/Assunto' : 'CV Scartato',
+          stato_avanzamento: provaData.esito === 'Prova Superata' ? 'Idoneo' : 'CV Scartato',
           stato_prova: provaData.esito,
           note_amministrazione: provaData.note,
           data_scadenza_prova: provaData.dataFine
@@ -2056,7 +2088,7 @@ export function useAppController() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          stato_avanzamento: isApproved ? 'Approvato/Assunto' : 'CV Scartato',
+          stato_avanzamento: isApproved ? 'Idoneo' : 'CV Scartato',
           stato_prova: nextStato,
           note_amministrazione: `Prova conclusa. Esito: ${nextStato}. Note: ${motivazione}`
         })
@@ -2074,7 +2106,7 @@ export function useAppController() {
           handleOpenHiringForm({
             idCandidato: pipe.idCandidato,
             nomeCompleto: pipe.nomeCompleto,
-            statoAvanzamento: 'Approvato/Assunto'
+            statoAvanzamento: 'Idoneo'
           });
           setActiveTab('assunzione');
         }
@@ -2296,26 +2328,8 @@ export function useAppController() {
       showStatus('loading', 'Associazione candidato...', 'Preparazione della scheda di assunzione...');
       // 1. Check if candidate is already associated
       const associated = (ricercaDetail.candidatiCollegati || []).find(cc => cc.idCandidato == idCandidato);
-      if (associated) {
-        if (associated.statoAvanzamento !== 'Approvato/Assunto') {
-          // Update status to Approvato/Assunto
-          const res = await fetch(`${API_BASE}/pipeline/${associated.idAssunzione}`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              stato_avanzamento: 'Approvato/Assunto'
-            })
-          });
-          const json = await res.json();
-          if (!json.success) {
-            showStatus('error', 'Errore aggiornamento', json.error);
-            return;
-          }
-        }
-      } else {
-        // Link to research with stato_avanzamento: Approvato/Assunto
+      if (!associated) {
+        // Link without confirming an assumption before sending its sheet.
         const res = await fetch(`${API_BASE}/pipeline`, {
           method: 'POST',
           headers: {
@@ -2324,7 +2338,7 @@ export function useAppController() {
           body: JSON.stringify({
             id_ricerca: selectedRicercaId,
             id_candidato: idCandidato,
-            stato_avanzamento: 'Approvato/Assunto'
+            stato_avanzamento: 'CV Ricevuto'
           })
         });
         const json = await res.json();
@@ -2347,7 +2361,7 @@ export function useAppController() {
     }
   };
   const handleOpenHiringForm = async c => {
-    const soc = window.prompt("Con quale soc intendi procedere all'assunzione?", "HEMA FOOD");
+    const soc = await askText("Con quale soc intendi procedere all'assunzione?", 'HEMA FOOD');
     if (soc === null) return;
     const socName = soc.trim() || "HEMA FOOD";
 
@@ -2391,7 +2405,8 @@ export function useAppController() {
         linkDocumenti: candObj.link_documenti || '',
         idCandidato: c.idCandidato
       };
-      setHiringFormData(newHiringData);
+      const linked = (ricercaDetail?.candidatiCollegati || []).find(item => item.idCandidato === c.idCandidato);
+      setHiringFormData({ ...newHiringData, ...(linked?.hiringSheet || {}), linkDocumenti: candObj.link_documenti || '', idCandidato: c.idCandidato });
       showStatus(null);
       if (candObj.link_documenti) {
         setSelectedHiringCandidate(c);
@@ -2428,9 +2443,11 @@ export function useAppController() {
           if (selectedRicercaId) fetchRicercaDetail(selectedRicercaId);
         } else {
           showStatus('error', 'Errore caricamento', jsonUpload.error);
+          return;
         }
       } catch (errUpload) {
         showStatus('error', 'Connessione fallita', errUpload.message);
+        return;
       }
     } else {
       setSelectedHiringCandidate(pendingHiringCandidate);
@@ -2468,7 +2485,7 @@ export function useAppController() {
   };
   const handleDeleteSpecificDoc = async docPath => {
     if (!selectedHiringCandidate) return;
-    if (!window.confirm("Sei sicuro di voler eliminare questo documento d'identità?")) return;
+    if (!await askConfirm("Sei sicuro di voler eliminare questo documento d'identità?")) return;
     const candId = selectedHiringCandidate.idCandidato;
     try {
       showStatus('loading', 'Rimozione documento...', 'Rimozione in corso...');
@@ -2584,8 +2601,10 @@ export function useAppController() {
     printWindow.document.close();
   };
   const handleEmailHiringSheet = async () => {
-    const destEmail = window.prompt("Inserisci l'indirizzo email dell'Amministrazione:", "amministrazione@hemafood.it");
+    if (hiringSending.current) return;
+    const destEmail = await askText("Inserisci l'indirizzo email dell'Amministrazione:", 'amministrazione@hemafood.it');
     if (!destEmail) return;
+    hiringSending.current = true;
     const baseOrigin = API_BASE.startsWith('http') ? API_BASE.replace('/api', '') : window.location.origin;
     const mappedOrigin = baseOrigin.includes('localhost:5173') ? 'http://localhost:3002' : baseOrigin;
     const socName = hiringFormData.socName || "HEMA FOOD";
@@ -2633,6 +2652,7 @@ export function useAppController() {
           dest_email: destEmail,
           subject: `Nuova Scheda Assunzione - ${hiringFormData.cognome} ${hiringFormData.nome}`,
           htmlBody,
+          sheet: hiringFormData,
           id_candidato: selectedHiringCandidate?.idCandidato || hiringFormData.idCandidato || '',
           candidato_nome: selectedHiringCandidate?.nomeCompleto || `${hiringFormData.cognome} ${hiringFormData.nome}` || '',
           id_ricerca: selectedRicercaId
@@ -2640,13 +2660,18 @@ export function useAppController() {
       });
       const json = await res.json();
       if (json.success) {
-        showStatus('success', 'Inviata!', json.message);
+        showStatus(json.simulated ? 'warning' : 'success', json.simulated ? 'Non inviata: simulazione' : 'Inviata!', json.message);
+        await fetchRicercaDetail(selectedRicercaId);
       } else {
         showStatus('error', 'Errore', json.error);
       }
     } catch (err) {
       showStatus('error', 'Connessione fallita', err.message);
-    }
+    } finally { hiringSending.current = false; }
+  };
+  const handleSaveHiringDraftWithStatus = async () => {
+    try { await handleSaveHiringDraft(); showStatus('success', 'Bozza salvata', 'La scheda potrà essere riaperta senza perdere i dati.'); await fetchRicercaDetail(selectedRicercaId); }
+    catch (error) { showStatus('error', 'Bozza non salvata', error.message); }
   };
   const handlePrintExecutiveReport = () => {
     if (!ricercaDetail || !ricercaDetail.ricerca) return;
@@ -3616,6 +3641,7 @@ export function useAppController() {
 
   // Trigger WhatsApp logic and write activity log
   const handleSendWA = async c => {
+    c = { ...c, link_cv: c.linkCV || c.link_cv };
     const tel = String(ricercaDetail?.ricerca?.telefono_mobile || '');
     const az = String(ricercaDetail?.ricerca?.azienda || '');
     const ru = String(ricercaDetail?.ricerca?.ruolo || '');
@@ -3633,10 +3659,11 @@ export function useAppController() {
 
     // Open WA in new window natively (no popup block!)
     window.open(waUrl, '_blank');
+    if (!await askConfirm('Hai effettivamente inviato il messaggio WhatsApp? Conferma solo dopo averlo spedito.')) return;
 
     // Log to DB
     try {
-      await fetch(`${API_BASE}/whatsapp`, {
+      const response = await fetch(`${API_BASE}/whatsapp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -3646,10 +3673,13 @@ export function useAppController() {
           id_candidato: c.idCandidato
         })
       });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error || 'Invio non registrato');
       await ensureResearchStarted();
       fetchRicercaDetail(selectedRicercaId);
     } catch (e) {
       console.error(e);
+      showStatus('error', 'Invio non registrato', e.message);
     }
   };
 
@@ -3664,7 +3694,7 @@ export function useAppController() {
       destEmail: ricercaDetail?.ricerca?.email || '',
       subject: `Presentazione Candidato ${c.nomeCompleto} - ${ru}`,
       body: body,
-      hasCV: !!c.link_cv
+      hasCV: !!(c.linkCV || c.link_cv)
     });
     setShowEmailPreviewModal(true);
   };
@@ -3979,6 +4009,7 @@ export function useAppController() {
     handleDeleteSpecificDoc,
     handlePrintHiringSheet,
     handleEmailHiringSheet,
+    handleSaveHiringDraft: handleSaveHiringDraftWithStatus,
     handlePrintExecutiveReport,
     handlePrintTechnicalReport,
     handlePrintSingleInterviewReport,

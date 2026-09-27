@@ -10,11 +10,14 @@ import {
   apiFetchAnnunci
 } from '../api';
 import { API_BASE } from '../utils';
+import { useAuth } from './AuthContext';
 
 const GlobalStateContext = createContext(null);
 
 export const GlobalStateProvider = ({ children }) => {
   const queryClient = useQueryClient();
+  const { authenticated } = useAuth();
+  useEffect(() => { if (!authenticated) queryClient.clear(); }, [authenticated, queryClient]);
 
   const [lastPendingCount, setLastPendingCount] = useState(0);
   const [lastPendingCommercialCount, setLastPendingCommercialCount] = useState(0);
@@ -26,40 +29,46 @@ export const GlobalStateProvider = ({ children }) => {
   // --- React Query Hooks ---
 
   // Ricerche
-  const { data: ricercheData = [], refetch: fetchRicerche } = useQuery({
+  const { data: ricercheData = [], refetch: fetchRicerche, error: ricercheError } = useQuery({
     queryKey: ['ricerche'],
+    enabled: authenticated,
     queryFn: apiFetchRicerche,
     refetchInterval: 5000,
   });
 
   // Candidati
-  const { data: candidatiData = [], refetch: fetchCandidati } = useQuery({
+  const { data: candidatiData = [], refetch: fetchCandidati, error: candidatiError } = useQuery({
     queryKey: ['candidati'],
+    enabled: authenticated,
     queryFn: apiFetchCandidati,
   });
 
   // Clienti
-  const { data: clientiData = [], refetch: fetchClienti } = useQuery({
+  const { data: clientiData = [], refetch: fetchClienti, error: clientiError } = useQuery({
     queryKey: ['clienti'],
+    enabled: authenticated,
     queryFn: apiFetchClienti,
   });
 
   // Commerciali
-  const { data: commercialiData = [], refetch: fetchCommerciali } = useQuery({
+  const { data: commercialiData = [], refetch: fetchCommerciali, error: commercialiError } = useQuery({
     queryKey: ['commerciali'],
+    enabled: authenticated,
     queryFn: apiFetchCommerciali,
     refetchInterval: 5000,
   });
 
   // Operatori
-  const { data: operatoriData = [], refetch: fetchOperatori } = useQuery({
+  const { data: operatoriData = [], refetch: fetchOperatori, error: operatoriError } = useQuery({
     queryKey: ['operatori'],
+    enabled: authenticated,
     queryFn: apiFetchOperatori,
   });
 
   // Pending Checklist
-  const { data: pendingChecklistData = [], refetch: fetchPendingChecklist } = useQuery({
+  const { data: pendingChecklistData = [], refetch: fetchPendingChecklist, error: pendingError } = useQuery({
     queryKey: ['pendingChecklist'],
+    enabled: authenticated,
     queryFn: apiFetchPendingChecklist,
     refetchInterval: 10000,
   });
@@ -68,17 +77,20 @@ export const GlobalStateProvider = ({ children }) => {
   const fetchClientAccountsFn = async () => {
     const res = await fetch(`${API_BASE}/clienti/portale`);
     const json = await res.json();
-    return json.success ? json.data : [];
+    if (!res.ok || !json.success) throw new Error(json.error || 'Impossibile caricare gli account clienti');
+    return json.data;
   };
-  const { data: clientAccountsData = [], refetch: fetchClientAccounts } = useQuery({
+  const { data: clientAccountsData = [], refetch: fetchClientAccounts, error: accountsError } = useQuery({
     queryKey: ['clientAccounts'],
+    enabled: authenticated,
     queryFn: fetchClientAccountsFn,
     refetchInterval: 5000,
   });
 
   // Annunci
-  const { data: annunciData = [], refetch: fetchAnnunci } = useQuery({
+  const { data: annunciData = [], refetch: fetchAnnunci, error: annunciError } = useQuery({
     queryKey: ['annunci'],
+    enabled: authenticated,
     queryFn: apiFetchAnnunci,
   });
 
@@ -86,10 +98,12 @@ export const GlobalStateProvider = ({ children }) => {
   const fetchEmailConfigFn = async () => {
     const res = await fetch(`${API_BASE}/configurazione-email`);
     const json = await res.json();
-    return json.success ? json.data : { host: 'smtp.gmail.com', port: '465', user: '', pass: '', secure: true };
+    if (!res.ok || !json.success) throw new Error(json.error || 'Impossibile caricare la configurazione email');
+    return json.data;
   };
-  const { data: emailConfigData, refetch: fetchEmailConfig } = useQuery({
+  const { data: emailConfigData, refetch: fetchEmailConfig, error: emailConfigError } = useQuery({
     queryKey: ['emailConfig'],
+    enabled: authenticated,
     queryFn: fetchEmailConfigFn,
   });
 
@@ -178,6 +192,12 @@ export const GlobalStateProvider = ({ children }) => {
       lastPendingClientCount, setLastPendingClientCount,
       clientAccounts: clientAccountsData, fetchClientAccounts
     }}>
+      {authenticated && [ricercheError, candidatiError, clientiError, commercialiError, operatoriError, pendingError, accountsError, annunciError, emailConfigError].some(Boolean) && (
+        <div role="alert" style={{ background: '#7f1d1d', color: 'white', padding: 12, position: 'fixed', top: 0, left: 0, right: 0, zIndex: 10000 }}>
+          Alcuni dati non sono stati caricati. Le liste potrebbero essere incomplete.
+          <button type="button" onClick={() => queryClient.invalidateQueries()}>Riprova</button>
+        </div>
+      )}
       {children}
     </GlobalStateContext.Provider>
   );

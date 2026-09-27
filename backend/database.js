@@ -1,6 +1,8 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
+const crypto = require('node:crypto');
+const { AsyncLocalStorage } = require('node:async_hooks');
 
 const dbDir = process.env.DATA_DIR || __dirname;
 if (!fs.existsSync(dbDir)) {
@@ -13,7 +15,7 @@ const dbInstance = new sqlite3.Database(dbPath);
 dbInstance.run('PRAGMA foreign_keys = ON');
 
 // Promisified database helpers
-const db = {
+const rawDb = {
   run: (sql, params = []) => {
     return new Promise((resolve, reject) => {
       dbInstance.run(sql, params, function (err) {
@@ -48,10 +50,52 @@ const db = {
   }
 };
 
+// A transaction owns the shared connection until COMMIT/ROLLBACK. Even reads
+// outside it must wait, otherwise another request can observe uncommitted data.
+const transactionContext = new AsyncLocalStorage();
+let databaseQueue = Promise.resolve();
+function exclusive(operation) {
+  const result = databaseQueue.then(operation);
+  databaseQueue = result.catch(() => {});
+  return result;
+}
+const db = Object.fromEntries(Object.entries(rawDb).map(([name, operation]) => [name, (...args) =>
+  transactionContext.getStore()?.active ? operation(...args) : exclusive(() => operation(...args))
+]));
+db.transaction = operation => {
+  if (transactionContext.getStore()?.active) return operation();
+  return exclusive(() => transactionContext.run({ active: true, afterCommit: [] }, async () => {
+    const context = transactionContext.getStore();
+    let started = false;
+    try {
+      await rawDb.exec('BEGIN IMMEDIATE');
+      started = true;
+      const result = await operation();
+      await rawDb.exec('COMMIT');
+      context.active = false;
+      for (const callback of context.afterCommit) setImmediate(callback);
+      return result;
+    } catch (error) {
+      if (started) await rawDb.exec('ROLLBACK').catch(() => {});
+      throw error;
+    } finally {
+      context.active = false;
+    }
+  }));
+};
+db.afterCommit = callback => {
+  const context = transactionContext.getStore();
+  if (context?.active) context.afterCommit.push(callback);
+  else setImmediate(callback);
+};
+
 // Initialize database schema
 async function initDatabase() {
   try {
     // 1. Table Candidati
+    await db.exec('CREATE TABLE IF NOT EXISTS app_sessions (token_hash TEXT PRIMARY KEY, role TEXT NOT NULL, user_id TEXT NOT NULL, expires_at INTEGER NOT NULL)');
+    await db.exec('CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+    await db.run("INSERT OR IGNORE INTO app_settings (key, value) VALUES ('cv_signing_key', ?)", [crypto.randomBytes(32).toString('hex')]);
     await db.exec(`
       CREATE TABLE IF NOT EXISTS candidati (
         id TEXT PRIMARY KEY,
@@ -266,6 +310,12 @@ async function initDatabase() {
     `);
 
     // 5. Table Appuntamenti
+    const pipelineColumns = await db.all('PRAGMA table_info(pipeline_assunzioni)');
+    if (!pipelineColumns.some(column => column.name === 'stato_pre_colloquio')) {
+      await db.exec('ALTER TABLE pipeline_assunzioni ADD COLUMN stato_pre_colloquio TEXT');
+    }
+    if (!pipelineColumns.some(column => column.name === 'hiring_sheet')) await db.exec('ALTER TABLE pipeline_assunzioni ADD COLUMN hiring_sheet TEXT');
+    if (!pipelineColumns.some(column => column.name === 'hiring_sent_at')) await db.exec('ALTER TABLE pipeline_assunzioni ADD COLUMN hiring_sent_at TEXT');
     await db.exec(`
       CREATE TABLE IF NOT EXISTS appuntamenti (
         id TEXT PRIMARY KEY,
@@ -672,6 +722,7 @@ async function initDatabase() {
     console.log("Database initialized successfully!");
   } catch (err) {
     console.error("Database initialization failed:", err);
+    throw err;
   }
 }
 

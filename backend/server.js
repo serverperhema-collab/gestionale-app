@@ -9,9 +9,46 @@ const { ImapFlow } = require('imapflow');
 const { simpleParser } = require('mailparser');
 const { db, initDatabase } = require('./database');
 const { renderMandateViewer } = require('./mandate-viewer');
+const { validatePipeline, validateResearch, validateAppointment } = require('./validation');
+const { hashPassword, verifyPassword, isHashed } = require('./passwords');
+const { installAuth, createSession, sessionFor } = require('./auth');
+const { installFrontend, verifyFrontendBuild } = require('./frontend-static');
 
 const app = express();
+for (const method of ['get', 'post', 'put', 'delete']) {
+  const register = app[method].bind(app);
+  app[method] = (...args) => register(...args.map(argument => typeof argument === 'function' && argument.length < 4 ? (req, res, next) => Promise.resolve(argument(req, res, next)).catch(next) : argument));
+}
 const PORT = process.env.PORT || 3002;
+app.get('/healthz', async (req, res) => {
+  try {
+    await db.get('SELECT 1');
+    if (process.env.LOCAL_LAUNCH_ID) res.setHeader('X-Gestionale-Local', process.env.LOCAL_LAUNCH_ID);
+    res.json({ success: true });
+  }
+  catch { res.status(503).json({ success: false }); }
+});
+
+function atomicRoute(handler) {
+  return async (req, res) => {
+    let response;
+    const deferred = Object.create(res);
+    deferred.status = code => { deferred.statusCode = code; return deferred; };
+    deferred.json = body => { response = body; return deferred; };
+    try {
+      await db.transaction(async () => {
+        await handler(req, deferred);
+        if (deferred.statusCode >= 400) throw Object.assign(new Error('Operation rejected'), { response });
+      });
+      res.status(deferred.statusCode).json(response);
+    } catch (error) {
+      res.status(error.response ? deferred.statusCode : 500).json(error.response || { success: false, error: 'Salvataggio non riuscito' });
+      if (req.files) for (const file of Object.values(req.files).flat()) {
+        if (file.path && path.resolve(file.path).startsWith(path.resolve(uploadsDir) + path.sep)) await fs.promises.unlink(file.path).catch(() => {});
+      }
+    }
+  };
+}
 
 const bindParams = (arr) => arr.map(v => v === undefined ? null : v);
 
@@ -31,11 +68,32 @@ const buildUpdateQuery = (table, idValue, body, allowedFields, idColumn = 'id') 
 };
 
 // CORS configuration (allow frontend port 5173 or any origin)
-app.use(cors());
+app.set('trust proxy', 1);
+const allowedOrigins = (process.env.FRONTEND_ORIGINS || '').split(',').map(value => value.trim()).filter(Boolean);
+app.use(cors({ credentials: true, origin: (origin, callback) => {
+  const local = process.env.NODE_ENV !== 'production' && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin || '');
+  callback(null, !origin || local || allowedOrigins.includes(origin));
+} }));
 app.use(express.json());
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    const sameOrigin = origin === req.protocol + '://' + req.get('host');
+    const local = process.env.NODE_ENV !== 'production' && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+    if (!sameOrigin && !local && !allowedOrigins.includes(origin)) return res.status(403).json({ success: false, error: 'Origine non autorizzata' });
+  }
+  next();
+});
+installAuth(app);
 
 const dataDir = process.env.DATA_DIR || __dirname;
 const uploadsDir = path.join(dataDir, 'uploads');
+let cvSigningKey;
+function cvSignature(filePath) { return crypto.createHmac('sha256', cvSigningKey).update(filePath).digest('hex'); }
+function sharedCv(filePath) {
+  if (!filePath || !filePath.startsWith('/uploads/cv/')) return filePath;
+  return filePath + '?signature=' + cvSignature(filePath);
+}
 const privatePrecontractDir = path.join(dataDir, 'private', 'precontracts');
 fs.mkdirSync(privatePrecontractDir, { recursive: true });
 
@@ -66,8 +124,12 @@ const viewerHeaders = res => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
 };
 
+let deliveringCrm = false;
 async function deliverCrmOutbox() {
   if (!process.env.CALLS_CRM_CALLBACK_URL || !process.env.CALLS_CRM_CALLBACK_TOKEN) return;
+  if (deliveringCrm) return;
+  deliveringCrm = true;
+  try {
   const messages = await db.all('SELECT * FROM crm_outbox WHERE delivered_at IS NULL ORDER BY created_at LIMIT 20');
   for (const message of messages) {
     try {
@@ -83,11 +145,12 @@ async function deliverCrmOutbox() {
       await db.run('UPDATE crm_outbox SET attempts = attempts + 1, last_error = ? WHERE id = ?', [String(error.message).slice(0, 300), message.id]);
     }
   }
+  } finally { deliveringCrm = false; }
 }
 
 async function enqueueCrmMessage(precontractId, ricercaId, kind, payload, id = crypto.randomUUID(), deliver = true) {
   await db.run('INSERT OR IGNORE INTO crm_outbox (id, precontract_id, ricerca_id, kind, payload, created_at) VALUES (?, ?, ?, ?, ?, ?)', [id, precontractId, ricercaId, kind, JSON.stringify({ precontractId, mandateId: ricercaId, ...payload }), new Date().toISOString()]);
-  if (deliver) void deliverCrmOutbox().catch(error => console.error('Invio CRM:', error));
+  if (deliver) db.afterCommit(() => void deliverCrmOutbox().catch(error => console.error('Invio CRM:', error)));
 }
 
 app.post('/api/integrations/precontracts', (req, res, next) => {
@@ -102,7 +165,7 @@ app.post('/api/integrations/precontracts', (req, res, next) => {
   if (!/^[a-zA-Z0-9_-]{8,128}$/.test(precontractId) || !field('localName') || !field('role') || !sheetFile?.buffer?.subarray(0, 5).equals(Buffer.from('%PDF-')) || (signedFile && !signedType)) return res.status(400).json({ success: false, error: 'Scheda o documento firmato non validi' });
   const existing = await db.get('SELECT ricerca_id FROM crm_precontracts WHERE precontract_id = ?', [precontractId]);
   if (existing) return res.json({ success: true, idempotent: true, ricercaId: existing.ricerca_id });
-  const ricercaId = generateID('R');
+  const ricercaId = await generateID('R');
   const storedName = `${crypto.randomUUID()}.pdf`;
   const filePath = path.join(privatePrecontractDir, storedName);
   const signedStoredName = signedType ? `${crypto.randomUUID()}${signedType.ext}` : null;
@@ -111,7 +174,7 @@ app.post('/api/integrations/precontracts', (req, res, next) => {
   try {
     await fs.promises.writeFile(filePath, sheetFile.buffer, { flag: 'wx', mode: 0o600 });
     if (signedFilePath) await fs.promises.writeFile(signedFilePath, signedFile.buffer, { flag: 'wx', mode: 0o600 });
-    await db.exec('BEGIN IMMEDIATE');
+    await db.transaction(async () => {
     await db.run(`INSERT INTO ricerche (id, data_inserimento, azienda, ruolo, referente, telefono_mobile, telefono_fisso, email, sede_lavoro, nr_risorse, ccnl_livello, retribuzione, note, stato_ricerca, stato_approvazione_tl, consulente_commerciale, outbound, sede_legale, preventivo)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
       ricercaId, new Date().toISOString().slice(0, 10), field('localName'), field('role'), field('referent'), field('mobilePhone'), field('landlinePhone'), field('email'), field('workplaceAddress'),
@@ -120,10 +183,9 @@ app.post('/api/integrations/precontracts', (req, res, next) => {
     await db.run('INSERT INTO precontract_documents (ricerca_id, precontract_id, stored_name, original_name, sha256, uploaded_at) VALUES (?, ?, ?, ?, ?, ?)', [ricercaId, precontractId, storedName, `precontratto-${precontractId}.pdf`, hash, new Date().toISOString()]);
     if (signedFilePath) await db.run('INSERT INTO signed_precontract_documents (ricerca_id, precontract_id, stored_name, original_name, mime_type, sha256, uploaded_at) VALUES (?, ?, ?, ?, ?, ?, ?)', [ricercaId, precontractId, signedStoredName, path.basename(signedFile.originalname || 'Precontratto firmato').slice(0, 180), signedType.mimeType, crypto.createHash('sha256').update(signedFile.buffer).digest('hex'), new Date().toISOString()]);
     await db.run('INSERT INTO crm_precontracts (precontract_id, ricerca_id, viewer_token) VALUES (?, ?, ?)', [precontractId, ricercaId, crypto.randomBytes(24).toString('base64url')]);
-    await db.exec('COMMIT');
+    });
     res.status(201).json({ success: true, ricercaId });
   } catch (error) {
-    await db.exec('ROLLBACK').catch(() => {});
     await fs.promises.unlink(filePath).catch(() => {});
     if (signedFilePath) await fs.promises.unlink(signedFilePath).catch(() => {});
     const concurrent = await db.get('SELECT ricerca_id FROM crm_precontracts WHERE precontract_id = ?', [precontractId]);
@@ -240,12 +302,10 @@ app.post('/api/ricerche/:id/weekly-report', async (req, res) => {
   const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (now.getUTCDay() + 6) % 7)).toISOString().slice(0, 10);
   const reportId = crypto.randomUUID();
   try {
-    await db.exec('BEGIN IMMEDIATE');
-    try {
+    await db.transaction(async () => {
       await db.run('INSERT INTO crm_weekly_reports (id, ricerca_id, week_start, report_text, created_at) VALUES (?, ?, ?, ?, ?)', [reportId, req.params.id, monday, text, now.toISOString()]);
       await enqueueCrmMessage(link.precontract_id, req.params.id, 'report', { type: 'report', reportId, text }, reportId, false);
-      await db.exec('COMMIT');
-    } catch (error) { await db.exec('ROLLBACK'); throw error; }
+    });
     void deliverCrmOutbox().catch(error => console.error('Invio report CRM:', error));
     res.status(201).json({ success: true, reportId });
   } catch (error) {
@@ -346,7 +406,19 @@ if (!fs.existsSync(path.join(uploadsDir, 'preventivi'))) {
 }
 
 // Serve uploads folder statically
-app.use('/uploads', express.static(uploadsDir));
+app.use('/uploads', async (req, res, next) => {
+  try {
+    const filePath = '/uploads' + req.path;
+    const signedCv = /^\/uploads\/cv\/[^/]+$/.test(filePath) && matchesSecret(req.query.signature, cvSignature(filePath)) && await db.get('SELECT id FROM candidati WHERE link_cv = ?', [filePath]);
+    if (signedCv || (await sessionFor(req))?.role === 'admin') {
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Referrer-Policy', 'no-referrer');
+      if (!/\.(pdf|png|jpe?g)$/i.test(req.path)) res.setHeader('Content-Disposition', 'attachment');
+      return next();
+    }
+    res.status(401).send('Accedi per aprire questo documento');
+  } catch (error) { next(error); }
+}, express.static(uploadsDir));
 
 // Serve public folder and serve commercial mobile view
 app.use(express.static(path.join(__dirname, 'public')));
@@ -375,11 +447,15 @@ const storage = multer.diskStorage({
     const ext = path.extname(file.originalname);
     const originalNameClean = path.basename(file.originalname, ext).trim().replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_');
     const prefix = file.fieldname === 'docIdFile' ? 'DOC' : (file.fieldname === 'preventivoFile' ? 'PREV' : 'CV');
-    cb(null, `${prefix}_${originalNameClean}_${Date.now()}${ext}`);
+    cb(null, `${prefix}_${originalNameClean}_${Date.now()}_${crypto.randomBytes(8).toString('hex')}${ext}`);
   }
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({ storage: storage, limits: { fileSize: 20 * 1024 * 1024, files: 2 } });
+function removeUploadAfterCommit(filePath) {
+  if (!path.resolve(filePath).startsWith(path.resolve(uploadsDir) + path.sep)) throw new Error('Percorso allegato non valido');
+  db.afterCommit(() => fs.promises.unlink(filePath).catch(error => { if (error.code !== 'ENOENT') console.error('Rimozione allegato non riuscita:', error.message); }));
+}
 
 // Helper for dynamic email sending using SMTP config database table
 async function inviaEmailHelper(dest, subject, body, attachments = []) {
@@ -423,19 +499,29 @@ async function inviaEmailHelper(dest, subject, body, attachments = []) {
 // Helper to write to historical activities log
 async function logActivity(tipoSoggetto, idSoggetto, nomeSoggetto, tipoAttivita, dettagli, idRicerca = "", soggettoCorrelato = "") {
   try {
-    const id = `LOG-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const id = 'LOG-' + crypto.randomUUID();
     await db.run(`
       INSERT INTO storico (id, tipo_soggetto, id_soggetto, nome_soggetto, data_attivita, tipo_attivita, dettagli, id_ricerca_associata, soggetto_correlato)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [id, tipoSoggetto, idSoggetto, nomeSoggetto, new Date().toISOString(), tipoAttivita, dettagli, idRicerca, soggettoCorrelato]);
   } catch (err) {
     console.error("Errore nel salvataggio del log storico:", err);
+    throw err;
   }
 }
 
 // Helper to generate IDs
-function generateID(prefix) {
-  return `${prefix}-${Math.floor(100000 + Math.random() * 900000)}`;
+const allocatedIds = new Set();
+async function generateID(prefix) {
+  const table = { R: 'ricerche', C: 'candidati', A: 'pipeline_assunzioni', AP: 'appuntamenti', ANN: 'annunci', PC: 'clienti', CL: 'clienti', COM: 'commerciali', CP: 'clienti_portale', EM: 'emails' }[prefix];
+  if (!table) throw new Error('Prefisso identificativo sconosciuto');
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const id = prefix + '-' + crypto.randomInt(100000, 1000000);
+    if (allocatedIds.has(id)) continue;
+    allocatedIds.add(id);
+    if (!await db.get('SELECT id FROM ' + table + ' WHERE id = ?', [id])) return id;
+  }
+  throw new Error('Impossibile generare un identificativo univoco');
 }
 
 // ----------------- API ENDPOINTS -----------------
@@ -454,7 +540,7 @@ app.get('/api/ricerche', async (req, res) => {
         SELECT 
           COUNT(CASE WHEN stato_avanzamento = 'CV Ricevuto' THEN 1 END) as cv_ricevuti,
           COUNT(CASE WHEN stato_avanzamento = 'In Prova' THEN 1 END) as in_prova,
-          COUNT(CASE WHEN stato_avanzamento = 'Approvato/Assunto' THEN 1 END) as assunti
+          COUNT(CASE WHEN stato_avanzamento IN ('Approvato/Assunto', 'Assunto') THEN 1 END) as assunti
         FROM pipeline_assunzioni
         WHERE id_ricerca = ?
       `, [r.id]);
@@ -509,7 +595,9 @@ app.get('/api/ricerche/:id', async (req, res) => {
           nomeCompleto: `${p.cognome} ${p.nome}`,
           telefono: p.telefono,
           email: p.email,
-          linkCV: p.link_cv,
+          linkCV: sharedCv(p.link_cv),
+          hiringSheet: p.hiring_sheet ? JSON.parse(p.hiring_sheet) : null,
+          hiringSentAt: p.hiring_sent_at,
           statoAvanzamento: p.stato_avanzamento,
           statoProva: p.stato_prova,
           noteAmministrazione: p.note_amministrazione,
@@ -580,7 +668,7 @@ app.post('/api/annunci', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Mansione e Zona sono campi obbligatori' });
     }
     
-    const id = generateID('ANN');
+    const id = await generateID('ANN');
     
     await db.run(`
       INSERT INTO annunci (id, id_ricerca, testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, data_scadenza_annuncio, stato_annuncio, note, mansione, zona)
@@ -658,7 +746,7 @@ app.post('/api/ricerche/:id/annunci', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Mansione e Zona sono campi obbligatori' });
     }
     
-    const id = generateID('ANN');
+    const id = await generateID('ANN');
     
     // Crea l'annuncio globale
     await db.run(`
@@ -840,8 +928,10 @@ app.delete('/api/annunci/:id', async (req, res) => {
   }
 });
 
-app.post('/api/ricerche', async (req, res) => {
+app.post('/api/ricerche', atomicRoute(async (req, res) => {
   try {
+    const validationError = validateResearch(req.body);
+    if (validationError) return res.status(400).json({ success: false, error: validationError });
     const { 
       azienda, ruolo, referente, telefono_mobile, telefono_fisso, email, sede_lavoro, 
       nr_risorse, ccnl_livello, retribuzione, competenze_tecniche, note, 
@@ -852,7 +942,7 @@ app.post('/api/ricerche', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Azienda e Ruolo sono obbligatori' });
     }
     
-    const id = generateID('R');
+    const id = await generateID('R');
     const daApprovare = req.body.da_approvare === true || req.body.da_approvare === 'true';
     const approvazione = daApprovare ? 'In attesa di approvazione' : 'Approvata';
     const statoRic = daApprovare ? '' : 'Ricerca Inserita';
@@ -902,7 +992,7 @@ app.post('/api/ricerche', async (req, res) => {
       }
       
       if (!clientExists) {
-        const clId = generateID('PC');
+        const clId = await generateID('PC');
         await db.run(`
           INSERT INTO clienti (id, data_inserimento, nome_locale, piva, sede_legale, sede_lavoro, referente, email, telefono_mobile, preventivo)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -931,10 +1021,12 @@ app.post('/api/ricerche', async (req, res) => {
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
-});
+}));
 
-app.put('/api/ricerche/:id', async (req, res) => {
+app.put('/api/ricerche/:id', atomicRoute(async (req, res) => {
   try {
+    const validationError = validateResearch(req.body);
+    if (validationError) return res.status(400).json({ success: false, error: validationError });
     const { 
       testo_annuncio, portali_annuncio, link_annuncio, data_inserimento_annuncio, 
       facilita, stato_ricerca, stato_approvazione_tl, motivazione,
@@ -989,6 +1081,11 @@ app.put('/api/ricerche/:id', async (req, res) => {
     }
     
     const updateData = { ...req.body };
+    // Definitive approval changes the approval, not the progress already reached.
+    // Enforce this here too for older clients that still send the initial phase.
+    if (ricerca.stato_approvazione_tl === 'Approvata con Riserva' && stato_approvazione_tl === 'Approvata') {
+      delete updateData.stato_ricerca;
+    }
     if (updateData.hasOwnProperty('facilita')) {
       updateData.valutazione_facilita = updateData.facilita ? parseInt(updateData.facilita) : null;
     }
@@ -1027,7 +1124,7 @@ app.put('/api/ricerche/:id', async (req, res) => {
       }
       
       if (!clientExists) {
-        const clId = generateID('PC');
+        const clId = await generateID('PC');
         await db.run(`
           INSERT INTO clienti (id, data_inserimento, nome_locale, piva, sede_legale, sede_lavoro, referente, email, telefono_mobile, preventivo)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -1065,13 +1162,11 @@ app.put('/api/ricerche/:id', async (req, res) => {
       const hash = crypto.scryptSync(viewerPassword, salt, 64).toString('hex');
       const publicUrl = process.env.RESEARCH_PUBLIC_URL || 'https://gestionale-backend-mfph.onrender.com';
       const viewerUrl = `${publicUrl.replace(/\/$/, '')}/mandato/${crmLink.viewer_token}`;
-      await db.exec('BEGIN IMMEDIATE');
-      try {
+      await db.transaction(async () => {
         await db.run('UPDATE crm_precontracts SET viewer_salt = ?, viewer_hash = ?, accepted_at = ? WHERE precontract_id = ? AND accepted_at IS NULL', [salt, hash, new Date().toISOString(), crmLink.precontract_id]);
         await enqueueCrmMessage(crmLink.precontract_id, req.params.id, 'reserved', { type: 'reserved', note: motivazione.trim(), viewerUrl, viewerPassword }, `reserved-${crmLink.precontract_id}`, false);
-        await db.exec('COMMIT');
-      } catch (error) { await db.exec('ROLLBACK'); throw error; }
-      void deliverCrmOutbox().catch(error => console.error('Invio riserva CRM:', error));
+      });
+      db.afterCommit(() => void deliverCrmOutbox().catch(error => console.error('Invio riserva CRM:', error)));
     }
     if (crmLink && stato_approvazione_tl === 'Approvata' && ricerca.stato_approvazione_tl !== 'Approvata' && !crmLink.accepted_at) {
       const viewerPassword = crypto.randomBytes(18).toString('base64url');
@@ -1079,13 +1174,11 @@ app.put('/api/ricerche/:id', async (req, res) => {
       const hash = crypto.scryptSync(viewerPassword, salt, 64).toString('hex');
       const publicUrl = process.env.RESEARCH_PUBLIC_URL || 'https://gestionale-backend-mfph.onrender.com';
       const viewerUrl = `${publicUrl.replace(/\/$/, '')}/mandato/${crmLink.viewer_token}`;
-      await db.exec('BEGIN IMMEDIATE');
-      try {
+      await db.transaction(async () => {
         await db.run('UPDATE crm_precontracts SET viewer_salt = ?, viewer_hash = ?, accepted_at = ? WHERE precontract_id = ? AND accepted_at IS NULL', [salt, hash, new Date().toISOString(), crmLink.precontract_id]);
         await enqueueCrmMessage(crmLink.precontract_id, req.params.id, 'accepted', { type: 'accepted', viewerUrl, viewerPassword }, `accepted-${crmLink.precontract_id}`, false);
-        await db.exec('COMMIT');
-      } catch (error) { await db.exec('ROLLBACK'); throw error; }
-      void deliverCrmOutbox().catch(error => console.error('Invio accettazione CRM:', error));
+      });
+      db.afterCommit(() => void deliverCrmOutbox().catch(error => console.error('Invio accettazione CRM:', error)));
     }
     if (crmLink && stato_approvazione_tl === 'Approvata' && ricerca.stato_approvazione_tl === 'Approvata con Riserva' && crmLink.accepted_at) {
       await enqueueCrmMessage(crmLink.precontract_id, req.params.id, 'accepted', { type: 'accepted' }, `accepted-${crmLink.precontract_id}`);
@@ -1097,7 +1190,7 @@ app.put('/api/ricerche/:id', async (req, res) => {
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
-});
+}));
 
 app.post('/api/ricerche/:id/note', async (req, res) => {
   try {
@@ -1153,6 +1246,7 @@ app.get('/api/candidati', async (req, res) => {
     query += ' ORDER BY c.cognome ASC, c.nome ASC';
     
     const list = await db.all(query, params);
+    for (const candidate of list) candidate.link_cv = sharedCv(candidate.link_cv);
     res.json({ success: true, data: list });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
@@ -1414,14 +1508,15 @@ app.delete('/api/candidati/:id/files/:tipo', async (req, res) => {
 });
 
 // Create candidate with CV and doc upload
-app.post('/api/candidati', upload.fields([{ name: 'cvFile', maxCount: 1 }, { name: 'docIdFile', maxCount: 1 }]), async (req, res) => {
+app.post('/api/candidati', upload.fields([{ name: 'cvFile', maxCount: 1 }, { name: 'docIdFile', maxCount: 1 }]), atomicRoute(async (req, res) => {
   try {
     const { cognome, nome, telefono, email, residenza, competenze_chiave, disponibilita, note_generali, id_ricerca, iban, settore, codice_fiscale } = req.body;
     if (!cognome || !nome) {
       return res.status(400).json({ success: false, error: 'Cognome e Nome sono obbligatori' });
     }
     
-    const id = generateID('C');
+    if (id_ricerca && !await db.get('SELECT id FROM ricerche WHERE id = ?', [id_ricerca])) return res.status(404).json({ success: false, error: 'Ricerca non trovata' });
+    const id = await generateID('C');
     let linkCV = '';
     let linkDocumenti = '';
     
@@ -1459,7 +1554,7 @@ app.post('/api/candidati', upload.fields([{ name: 'cvFile', maxCount: 1 }, { nam
     
     // If id_ricerca was provided, link immediately in pipeline
     if (id_ricerca) {
-      const idAssunzione = generateID('A');
+      const idAssunzione = await generateID('A');
       await db.run(`
         INSERT INTO pipeline_assunzioni (id, id_ricerca, id_candidato, stato_avanzamento)
         VALUES (?, ?, ?, 'CV Ricevuto')
@@ -1475,7 +1570,7 @@ app.post('/api/candidati', upload.fields([{ name: 'cvFile', maxCount: 1 }, { nam
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
-});
+}));
 
 app.get('/api/candidati/:id', async (req, res) => {
   try {
@@ -1487,7 +1582,7 @@ app.get('/api/candidati/:id', async (req, res) => {
   }
 });
 
-app.put('/api/candidati/:id', upload.fields([{ name: 'cvFile', maxCount: 1 }, { name: 'docIdFile', maxCount: 1 }]), async (req, res) => {
+app.put('/api/candidati/:id', upload.fields([{ name: 'cvFile', maxCount: 1 }, { name: 'docIdFile', maxCount: 1 }]), atomicRoute(async (req, res) => {
   try {
     const { cognome, nome, telefono, email, residenza, competenze_chiave, disponibilita, note_generali, valutazione_serieta, valutazione_disponibilita, valutazione_professionalita, iban, settore, codice_fiscale } = req.body;
     
@@ -1502,7 +1597,7 @@ app.put('/api/candidati/:id', upload.fields([{ name: 'cvFile', maxCount: 1 }, { 
         linkCV = `/uploads/cv/${req.files.cvFile[0].filename}`;
         if (cand.link_cv && cand.link_cv.startsWith('/uploads')) {
           const oldPath = path.join(dataDir, cand.link_cv);
-          if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+          removeUploadAfterCommit(oldPath);
         }
       }
       if (req.files.docIdFile && req.files.docIdFile[0]) {
@@ -1531,7 +1626,7 @@ app.put('/api/candidati/:id', upload.fields([{ name: 'cvFile', maxCount: 1 }, { 
       if (cand.link_cv && cand.link_cv.startsWith('/uploads')) {
         const oldPath = path.join(dataDir, cand.link_cv);
         try {
-          if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+          removeUploadAfterCommit(oldPath);
         } catch (err) {
           console.error("Errore eliminazione CV rimosso:", err);
         }
@@ -1544,7 +1639,7 @@ app.put('/api/candidati/:id', upload.fields([{ name: 'cvFile', maxCount: 1 }, { 
           if (docPath.startsWith('/uploads')) {
             const oldPath = path.join(dataDir, docPath);
             try {
-              if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+              removeUploadAfterCommit(oldPath);
             } catch (err) {
               console.error("Errore eliminazione documento rimosso:", err);
             }
@@ -1576,7 +1671,7 @@ app.put('/api/candidati/:id', upload.fields([{ name: 'cvFile', maxCount: 1 }, { 
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
-});
+}));
 
 app.get('/api/candidati/:id/valutazione', async (req, res) => {
   try {
@@ -1765,8 +1860,11 @@ app.get('/api/candidati/:id/storico', async (req, res) => {
 });
 
 // 3. PIPELINE ASSUNZIONI (LINK CANDIDATE TO RESEARCH)
-app.post('/api/pipeline', async (req, res) => {
+app.post('/api/pipeline', atomicRoute(async (req, res) => {
   try {
+    if (['Assunto', 'Approvato/Assunto'].includes(req.body.stato_avanzamento)) return res.status(400).json({ success: false, error: 'Invia la scheda all’amministrazione per confermare l’assunzione.' });
+    const validationError = validatePipeline(req.body);
+    if (validationError) return res.status(400).json({ success: false, error: validationError });
     const { id_ricerca, id_candidato, inviato_cliente, feedback_stato, feedback_note, stato_avanzamento } = req.body;
     if (!id_ricerca || !id_candidato) {
       return res.status(400).json({ success: false, error: 'Dati incompleti' });
@@ -1777,7 +1875,7 @@ app.post('/api/pipeline', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Candidato già associato a questa ricerca' });
     }
     
-    const id = generateID('A');
+    const id = await generateID('A');
     const invCliente = (inviato_cliente === true || inviato_cliente === 'true' || inviato_cliente === 1 || String(inviato_cliente) === '1') ? 1 : 0;
     const feedStato = feedback_stato || 'In attesa di feedback';
     const feedNote = feedback_note || '';
@@ -1802,9 +1900,18 @@ app.post('/api/pipeline', async (req, res) => {
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
-});
+}));
 
-app.put('/api/pipeline/:id', async (req, res) => {
+app.put('/api/pipeline/:id/hiring-sheet', atomicRoute(async (req, res) => {
+  const pipe = await db.get('SELECT id FROM pipeline_assunzioni WHERE id = ?', [req.params.id]);
+  if (!pipe) return res.status(404).json({ success: false, error: 'Pratica non trovata' });
+  const sheet = req.body.sheet;
+  if (!sheet || typeof sheet !== 'object' || Array.isArray(sheet) || JSON.stringify(sheet).length > 30000) return res.status(400).json({ success: false, error: 'Scheda non valida' });
+  await db.run('UPDATE pipeline_assunzioni SET hiring_sheet = ? WHERE id = ?', [JSON.stringify(sheet), pipe.id]);
+  res.json({ success: true });
+}));
+
+app.put('/api/pipeline/:id', atomicRoute(async (req, res) => {
   try {
     const { 
       stato_avanzamento, stato_prova, note_amministrazione, data_invio_cv, data_inizio_prova, data_scadenza_prova,
@@ -1814,6 +1921,9 @@ app.put('/api/pipeline/:id', async (req, res) => {
     
     const pipe = await db.get('SELECT * FROM pipeline_assunzioni WHERE id = ?', [req.params.id]);
     if (!pipe) return res.status(404).json({ success: false, error: 'Record pipeline non trovato' });
+    const validationError = validatePipeline(req.body, pipe);
+    if (validationError) return res.status(400).json({ success: false, error: validationError });
+    if (['Assunto', 'Approvato/Assunto'].includes(req.body.stato_avanzamento) && req.body.stato_avanzamento !== pipe.stato_avanzamento && !pipe.hiring_sent_at) return res.status(400).json({ success: false, error: 'Invia la scheda all’amministrazione per confermare l’assunzione.' });
     
     let targetStatoAvanzamento = stato_avanzamento;
     if (escludi_ricerca === true || escludi_ricerca === 'true') {
@@ -1821,7 +1931,7 @@ app.put('/api/pipeline/:id', async (req, res) => {
     }
     
     const updateData = { ...req.body };
-    updateData.stato_avanzamento = targetStatoAvanzamento;
+    if (targetStatoAvanzamento !== undefined) updateData.stato_avanzamento = targetStatoAvanzamento;
     if (updateData.hasOwnProperty('prova_contrattualizzata')) {
       const pc = updateData.prova_contrattualizzata;
       updateData.prova_contrattualizzata = (pc === true || pc === 'true' || pc === 1 || String(pc) === '1') ? 1 : 0;
@@ -1874,12 +1984,15 @@ app.put('/api/pipeline/:id', async (req, res) => {
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
-});
+}));
 
-app.delete('/api/pipeline/:id', async (req, res) => {
+app.delete('/api/pipeline/:id', atomicRoute(async (req, res) => {
   try {
     const pipe = await db.get('SELECT * FROM pipeline_assunzioni WHERE id = ?', [req.params.id]);
     if (!pipe) return res.status(404).json({ success: false, error: 'Record pipeline non trovato' });
+    const appt = await db.get('SELECT id FROM appuntamenti WHERE id_ricerca = ? AND id_candidato = ? LIMIT 1', [pipe.id_ricerca, pipe.id_candidato]);
+    if (appt && req.body?.elimina_colloqui !== true) return res.status(409).json({ success: false, error: 'Conferma anche la rimozione dei colloqui prima di scollegare il candidato.' });
+    await db.run('DELETE FROM appuntamenti WHERE id_ricerca = ? AND id_candidato = ?', [pipe.id_ricerca, pipe.id_candidato]);
     
     await db.run('DELETE FROM pipeline_assunzioni WHERE id = ?', [req.params.id]);
     
@@ -1895,11 +2008,24 @@ app.delete('/api/pipeline/:id', async (req, res) => {
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
-});
+}));
 
 // 4. INTERVIEWS (APPUNTAMENTI)
-app.post('/api/appuntamenti', async (req, res) => {
+const interviewPipelineStates = new Set(['Colloquio Fissato', 'Colloquio Superato', 'Colloquio Assente', 'Colloquio Annullato']);
+async function syncInterviewPipeline(ricercaId, candidatoId) {
+  const pipe = await db.get('SELECT * FROM pipeline_assunzioni WHERE id_ricerca = ? AND id_candidato = ?', [ricercaId, candidatoId]);
+  if (!pipe || !interviewPipelineStates.has(pipe.stato_avanzamento)) return;
+  const appointments = await db.all('SELECT * FROM appuntamenti WHERE id_ricerca = ? AND id_candidato = ? ORDER BY data_colloquio DESC, ora_colloquio DESC, rowid DESC', [ricercaId, candidatoId]);
+  const active = appointments.find(item => item.stato_appuntamento === 'Programmato');
+  const outcome = { Eseguito: 'Colloquio Superato', 'Non Presentato': 'Colloquio Assente', Annullato: 'Colloquio Annullato' };
+  const nextState = active ? 'Colloquio Fissato' : appointments.length ? outcome[appointments[0].stato_appuntamento] : pipe.stato_pre_colloquio;
+  if (!nextState) return; // Historical records do not have a trustworthy previous phase.
+  await db.run('UPDATE pipeline_assunzioni SET stato_avanzamento = ?, stato_pre_colloquio = ? WHERE id = ?', [nextState, appointments.length ? pipe.stato_pre_colloquio : null, pipe.id]);
+}
+app.post('/api/appuntamenti', atomicRoute(async (req, res) => {
   try {
+    const validationError = validateAppointment(req.body);
+    if (validationError) return res.status(400).json({ success: false, error: validationError });
     const { id_ricerca, id_candidato, data, ora, tipo, luogo, note } = req.body;
     if (!id_ricerca || !id_candidato || !data || !ora) {
       return res.status(400).json({ success: false, error: 'Dati incompleti' });
@@ -1908,8 +2034,11 @@ app.post('/api/appuntamenti', async (req, res) => {
     const r = await db.get('SELECT azienda FROM ricerche WHERE id = ?', [id_ricerca]);
     const c = await db.get('SELECT cognome, nome FROM candidati WHERE id = ?', [id_candidato]);
     if (!r || !c) return res.status(404).json({ success: false, error: 'Ricerca o Candidato non trovati' });
+    if (!await db.get('SELECT id FROM pipeline_assunzioni WHERE id_ricerca = ? AND id_candidato = ?', [id_ricerca, id_candidato])) return res.status(409).json({ success: false, error: 'Collega prima il candidato alla ricerca.' });
     
-    const id = generateID('AP');
+    const id = await generateID('AP');
+    const pipe = await db.get('SELECT * FROM pipeline_assunzioni WHERE id_ricerca = ? AND id_candidato = ?', [id_ricerca, id_candidato]);
+    if (!interviewPipelineStates.has(pipe.stato_avanzamento)) await db.run('UPDATE pipeline_assunzioni SET stato_pre_colloquio = ? WHERE id = ?', [pipe.stato_avanzamento, pipe.id]);
     const nomeCompleto = `${c.cognome} ${c.nome}`;
     
     await db.run(`
@@ -1933,10 +2062,12 @@ app.post('/api/appuntamenti', async (req, res) => {
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
-});
+}));
 
-app.put('/api/appuntamenti/:id', async (req, res) => {
+app.put('/api/appuntamenti/:id', atomicRoute(async (req, res) => {
   try {
+    const validationError = validateAppointment(req.body);
+    if (validationError) return res.status(400).json({ success: false, error: validationError });
     const { data, ora, tipo, luogo, stato, note, motivazione_stato } = req.body;
     const appuntamento = await db.get('SELECT * FROM appuntamenti WHERE id = ?', [req.params.id]);
     if (!appuntamento) return res.status(404).json({ success: false, error: 'Appuntamento non trovato' });
@@ -1979,9 +2110,13 @@ app.put('/api/appuntamenti/:id', async (req, res) => {
 
       // Auto-update candidate pipeline status based on interview outcome
       let pipelineStatus = null;
-      if (stato === 'Eseguito') {
+      if (stato === 'Programmato') {
+        pipelineStatus = 'Colloquio Fissato';
+      } else if (stato === 'Eseguito') {
         pipelineStatus = 'Colloquio Superato';
-      } else if (stato === 'Non Presentato' || stato === 'Annullato') {
+      } else if (stato === 'Annullato') {
+        pipelineStatus = 'Colloquio Annullato';
+      } else if (stato === 'Non Presentato') {
         pipelineStatus = 'Colloquio Assente';
       }
       
@@ -1989,23 +2124,34 @@ app.put('/api/appuntamenti/:id', async (req, res) => {
         await db.run(`
           UPDATE pipeline_assunzioni 
           SET stato_avanzamento = ? 
-          WHERE id_ricerca = ? AND id_candidato = ?
+          WHERE id_ricerca = ? AND id_candidato = ? AND stato_avanzamento IN ('Colloquio Fissato', 'Colloquio Superato', 'Colloquio Assente', 'Colloquio Annullato')
         `, [pipelineStatus, appuntamento.id_ricerca, appuntamento.id_candidato]);
       }
     }
 
+    await syncInterviewPipeline(appuntamento.id_ricerca, appuntamento.id_candidato);
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
-});
+}));
 
-app.delete('/api/appuntamenti/:id', async (req, res) => {
+app.delete('/api/appuntamenti/:id', atomicRoute(async (req, res) => {
   try {
     const appuntamento = await db.get('SELECT * FROM appuntamenti WHERE id = ?', [req.params.id]);
     if (!appuntamento) return res.status(404).json({ success: false, error: 'Appuntamento non trovato' });
+    const pipe = await db.get('SELECT * FROM pipeline_assunzioni WHERE id_ricerca = ? AND id_candidato = ?', [appuntamento.id_ricerca, appuntamento.id_candidato]);
+    const other = await db.get('SELECT id FROM appuntamenti WHERE id_ricerca = ? AND id_candidato = ? AND id <> ? LIMIT 1', [appuntamento.id_ricerca, appuntamento.id_candidato, appuntamento.id]);
+    if (pipe && !other && interviewPipelineStates.has(pipe.stato_avanzamento) && !pipe.stato_pre_colloquio) {
+      const previous = req.body?.stato_precedente;
+      if (!previous) return res.status(409).json({ success: false, code: 'PREVIOUS_STATE_REQUIRED', error: 'Per questo colloquio storico manca la fase precedente. Scegli quale fase ripristinare.' });
+      const invalid = validatePipeline({ stato_avanzamento: previous });
+      if (invalid || interviewPipelineStates.has(previous) || previous === 'Assunto') return res.status(400).json({ success: false, error: 'Scegli una fase precedente valida, non una fase colloquio o Assunto.' });
+      await db.run('UPDATE pipeline_assunzioni SET stato_pre_colloquio = ? WHERE id = ?', [previous, pipe.id]);
+    }
 
     await db.run('DELETE FROM appuntamenti WHERE id = ?', [req.params.id]);
+    await syncInterviewPipeline(appuntamento.id_ricerca, appuntamento.id_candidato);
 
     // Log deletion
     const details = `Eliminato colloquio del ${appuntamento.data_colloquio} alle ${appuntamento.ora_colloquio} con ${appuntamento.candidato_nome}`;
@@ -2016,7 +2162,7 @@ app.delete('/api/appuntamenti/:id', async (req, res) => {
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
   }
-});
+}));
 
 // 5. TIMELINE TIMELINE HISTORICAL LOGS
 app.get('/api/timeline/:idRicerca', async (req, res) => {
@@ -2234,7 +2380,7 @@ app.get('/api/dashboard/pending', async (req, res) => {
       const dayBefore = new Date(expDate);
       dayBefore.setDate(dayBefore.getDate() - 1);
       
-      if (today >= dayBefore && today <= expDate) {
+      if (today >= dayBefore) {
         pendingList.push({
           id: `ad-scadenza-${ad.id}`,
           tipo: 'ANNUNCIO_SCADENZA',
@@ -2267,7 +2413,7 @@ app.post('/api/clienti', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Nome locale è obbligatorio' });
     }
     
-    const id = generateID('PC');
+    const id = await generateID('PC');
     await db.run(`
       INSERT INTO clienti (id, data_inserimento, nome_locale, piva, sede_legale, sede_lavoro, referente, email, telefono_mobile, telefono_fisso)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -2342,7 +2488,7 @@ app.post('/api/email', async (req, res) => {
     
     const emailResult = await inviaEmailHelper(dest_email, subject, body, attachments);
     const stato = emailResult.success ? 'Inviata' : (emailResult.simulated ? 'Simulata' : 'Fallita');
-    const id = generateID('EM');
+    const id = await generateID('EM');
     const dataInvio = new Date().toISOString();
     let mittente = 'HEMA Selezione';
     const configRow = await db.get("SELECT valore FROM configurazione_email WHERE chiave = 'smtp_config'");
@@ -2382,10 +2528,22 @@ app.post('/api/email/assunzione', async (req, res) => {
     if (!dest_email || !htmlBody) {
       return res.status(400).json({ success: false, error: 'Dati incompleti per invio scheda assunzione' });
     }
+    const pipe = await db.get('SELECT * FROM pipeline_assunzioni WHERE id_ricerca = ? AND id_candidato = ?', [id_ricerca, id_candidato]);
+    if (!pipe) return res.status(404).json({ success: false, error: 'Collega il candidato alla ricerca prima di inviare la scheda' });
+    const sheet = req.body.sheet;
+    if (!sheet || typeof sheet !== 'object' || !String(sheet.nome || '').trim() || !String(sheet.cognome || '').trim() || JSON.stringify(sheet).length > 30000) return res.status(400).json({ success: false, error: 'Scheda di assunzione incompleta' });
+    const validationError = validatePipeline({ ore_contratto: sheet.oreContratto });
+    if (validationError) return res.status(400).json({ success: false, error: validationError });
+    await db.run('UPDATE pipeline_assunzioni SET hiring_sheet = ? WHERE id = ?', [JSON.stringify(sheet), pipe.id]);
     
     // Look up preventivo file path to attach
     const attachments = [];
     let preventivoPath = null;
+    const candidate = await db.get('SELECT link_documenti FROM candidati WHERE id = ?', [id_candidato]);
+    for (const document of (candidate?.link_documenti || '').split(',').filter(Boolean)) {
+      const filePath = path.resolve(dataDir, document.replace(/^\//, ''));
+      if (filePath.startsWith(path.resolve(uploadsDir) + path.sep) && fs.existsSync(filePath)) attachments.push({ filename: path.basename(filePath), path: filePath });
+    }
     if (id_ricerca) {
       const research = await db.get('SELECT preventivo, azienda, piva FROM ricerche WHERE id = ?', [id_ricerca]);
       if (research) {
@@ -2416,7 +2574,7 @@ app.post('/api/email/assunzione', async (req, res) => {
     
     const emailResult = await inviaEmailHelper(dest_email, subject || 'Nuova Scheda Assunzione - HEMA FOOD', htmlBody, attachments);
     const stato = emailResult.success ? 'Inviata' : (emailResult.simulated ? 'Simulata' : 'Fallita');
-    const id = generateID('EM');
+    const id = await generateID('EM');
     const dataInvio = new Date().toISOString();
     let mittente = 'HEMA Selezione';
     const configRow = await db.get("SELECT valore FROM configurazione_email WHERE chiave = 'smtp_config'");
@@ -2433,8 +2591,11 @@ app.post('/api/email/assunzione', async (req, res) => {
       return res.status(500).json({ success: false, error: emailResult.error || 'Errore durante l\'invio dell\'email.' });
     }
     
-    if (id_candidato) {
+    if (emailResult.success && id_candidato) {
+      await db.transaction(async () => {
+        await db.run("UPDATE pipeline_assunzioni SET stato_avanzamento = 'Assunto', hiring_sent_at = ?, inquadramento_proposto = ?, mansione_effettiva = ?, contratto_tipo = ?, ore_contratto = ?, durata_contratto = ?, retribuzione_accordata = ?, costo_servizio_finale = ? WHERE id = ?", [dataInvio, sheet.livello || '', sheet.mansione || '', sheet.contrattoTipo || '', Number(sheet.oreContratto), sheet.durata || '', sheet.retribuzione || '', sheet.costoServizio || '', pipe.id]);
       await logActivity('CANDIDATO', id_candidato, candidato_nome, 'Scheda Assunzione Trasmessa', `Trasmessa scheda assunzione all'amministrazione (${dest_email}) per la ricerca ${id_ricerca || ''}`, id_ricerca || '');
+      });
     }
     
     res.json({ 
@@ -2487,10 +2648,10 @@ app.get('/api/commerciali/ricerche', async (req, res) => {
     const list = await db.all(
       `SELECT * FROM ricerche 
        WHERE consulente_commerciale = ? 
-          OR consulente_commerciale LIKE ? 
-          OR ? LIKE '%' || consulente_commerciale || '%' 
+          OR (? = 1 AND consulente_commerciale LIKE ?)
+          OR (? = 1 AND ? LIKE '%' || consulente_commerciale || '%')
        ORDER BY data_inserimento DESC`, 
-      [nome, `%${nome}%`, nome]
+      [nome, req.auth?.role === 'admin' ? 1 : 0, '%' + nome + '%', req.auth?.role === 'admin' ? 1 : 0, nome]
     );
     
     // For each search, count candidates in pipeline
@@ -2499,7 +2660,7 @@ app.get('/api/commerciali/ricerche', async (req, res) => {
         SELECT 
           COUNT(CASE WHEN stato_avanzamento = 'CV Ricevuto' THEN 1 END) as cv_ricevuti,
           COUNT(CASE WHEN stato_avanzamento = 'In Prova' THEN 1 END) as in_prova,
-          COUNT(CASE WHEN stato_avanzamento = 'Approvato/Assunto' THEN 1 END) as assunti
+          COUNT(CASE WHEN stato_avanzamento IN ('Approvato/Assunto', 'Assunto') THEN 1 END) as assunti
         FROM pipeline_assunzioni
         WHERE id_ricerca = ?
       `, [r.id]);
@@ -2525,13 +2686,13 @@ app.post('/api/commerciali', async (req, res) => {
     if (existing) {
       return res.status(400).json({ success: false, error: 'Questa e-mail è già registrata' });
     }
-    const id = generateID('COM');
+    const id = await generateID('COM');
     const status = stato_approvazione || 'Approvato';
     await db.run(`
       INSERT INTO commerciali (id, nome, cognome, email, data_nascita, telefono, password, stato_approvazione, data_registrazione)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
-      id, nome, cognome, email.toLowerCase(), data_nascita || '', telefono || '', password, status, new Date().toISOString()
+      id, nome, cognome, email.toLowerCase(), data_nascita || '', telefono || '', await hashPassword(password), status, new Date().toISOString()
     ]);
     
     res.json({ success: true, message: 'Commerciale creato con successo' });
@@ -2553,12 +2714,12 @@ app.post('/api/commerciali/registra', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Questa e-mail è già stata registrata' });
     }
     
-    const id = generateID('COM');
+    const id = await generateID('COM');
     await db.run(`
       INSERT INTO commerciali (id, nome, cognome, email, data_nascita, telefono, password, stato_approvazione, data_registrazione)
       VALUES (?, ?, ?, ?, ?, ?, ?, 'Da Approvare', ?)
     `, [
-      id, nome, cognome, email.toLowerCase(), data_nascita || '', telefono || '', password, new Date().toISOString()
+      id, nome, cognome, email.toLowerCase(), data_nascita || '', telefono || '', await hashPassword(password), new Date().toISOString()
     ]);
     
     res.json({ success: true, message: 'Registrazione completata. Il Team Leader esaminerà la tua richiesta.' });
@@ -2579,7 +2740,7 @@ app.post('/api/commerciali/login', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Credenziali non valide o utente non trovato' });
     }
     
-    if (user.password !== password) {
+    if (!await verifyPassword(password, user.password)) {
       return res.status(400).json({ success: false, error: 'Password errata' });
     }
     
@@ -2591,8 +2752,11 @@ app.post('/api/commerciali/login', async (req, res) => {
       return res.status(400).json({ success: false, error: 'La tua richiesta di registrazione è stata rifiutata dal Team Leader.' });
     }
     
+    if (!isHashed(user.password)) await db.run('UPDATE commerciali SET password = ? WHERE id = ? AND password = ?', [await hashPassword(password), user.id, user.password]);
+    const token = await createSession(req, res, 'commerciale', user.id);
     res.json({ 
       success: true, 
+      token,
       user: {
         id: user.id,
         nome: user.nome,
@@ -2671,7 +2835,7 @@ app.post('/api/clienti/registra', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Esiste già un account registrato con questa e-mail.' });
     }
 
-    const id = generateID('CP');
+    const id = await generateID('CP');
     const dataReg = new Date().toISOString().substring(0, 10);
 
     await db.run(`
@@ -2682,7 +2846,7 @@ app.post('/api/clienti/registra', async (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Da Approvare', ?)
     `, [
       id, nome_locale, piva || '', sede_legale || '', sede_lavoro || '', referente || '',
-      email, telefono_mobile || '', telefono_fisso || '', password, dataReg
+      email.toLowerCase(), telefono_mobile || '', telefono_fisso || '', await hashPassword(password), dataReg
     ]);
 
     res.json({ success: true, message: 'Richiesta di registrazione inviata con successo. Verrà esaminata a breve.' });
@@ -2703,7 +2867,7 @@ app.post('/api/clienti/login', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Credenziali non valide o utente non trovato.' });
     }
 
-    if (user.password !== password) {
+    if (!await verifyPassword(password, user.password)) {
       return res.status(400).json({ success: false, error: 'Password errata' });
     }
 
@@ -2715,8 +2879,11 @@ app.post('/api/clienti/login', async (req, res) => {
       return res.status(400).json({ success: false, error: 'La tua richiesta di registrazione è stata rifiutata.' });
     }
 
+    if (!isHashed(user.password)) await db.run('UPDATE clienti_portale SET password = ? WHERE id = ? AND password = ?', [await hashPassword(password), user.id, user.password]);
+    const token = await createSession(req, res, 'cliente', user.id);
     res.json({
       success: true,
+      token,
       user: {
         id: user.id,
         nome_locale: user.nome_locale,
@@ -2747,8 +2914,8 @@ app.post('/api/clienti/portale', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Esiste già un account registrato con questa e-mail.' });
     }
 
-    const id = generateID('CP');
-    const idClienteInserito = generateID('CL');
+    const id = await generateID('CP');
+    const idClienteInserito = await generateID('CL');
     const dataReg = new Date().toISOString().substring(0, 10);
 
     // Insert into clienti_portale (approved status)
@@ -2760,7 +2927,7 @@ app.post('/api/clienti/portale', async (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Approvato', ?, ?)
     `, [
       id, nome_locale, piva || '', sede_legale || '', sede_lavoro || '', referente || '',
-      email.toLowerCase(), telefono_mobile || '', telefono_fisso || '', password, dataReg, idClienteInserito
+      email.toLowerCase(), telefono_mobile || '', telefono_fisso || '', await hashPassword(password), dataReg, idClienteInserito
     ]);
 
     // Insert into clienti
@@ -2786,6 +2953,7 @@ app.post('/api/clienti/portale', async (req, res) => {
 app.get('/api/clienti/portale', async (req, res) => {
   try {
     const list = await db.all('SELECT * FROM clienti_portale ORDER BY data_registrazione DESC');
+    for (const user of list) delete user.password;
     res.json({ success: true, data: list });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message });
@@ -2807,7 +2975,7 @@ app.put('/api/clienti/portale/:id/stato', async (req, res) => {
     let idClienteInserito = user.id_cliente_inserito;
 
     if (stato_approvazione === 'Approvato' && !idClienteInserito) {
-      idClienteInserito = generateID('CL');
+      idClienteInserito = await generateID('CL');
 
       const dataReg = new Date().toISOString().substring(0, 10);
       await db.run(`
@@ -2892,6 +3060,8 @@ app.get('/api/clienti/portale/ricerche', async (req, res) => {
 
 app.post('/api/clienti/portale/ricerche', async (req, res) => {
   try {
+    const validationError = validateResearch(req.body);
+    if (validationError) return res.status(400).json({ success: false, error: validationError });
     const {
       azienda, ruolo, referente, telefono_mobile, telefono_fisso, email, sede_lavoro,
       nr_risorse, ccnl_livello, retribuzione, competenze_tecniche, note,
@@ -2902,7 +3072,7 @@ app.post('/api/clienti/portale/ricerche', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Azienda e Ruolo sono obbligatori' });
     }
 
-    const id = generateID('R');
+    const id = await generateID('R');
     const approvazione = 'In attesa di approvazione';
     const dataReg = new Date().toISOString().substring(0, 10);
 
@@ -2986,7 +3156,8 @@ app.get('/api/configurazione-email', async (req, res) => {
   try {
     const row = await db.get("SELECT valore FROM configurazione_email WHERE chiave = 'smtp_config'");
     if (row) {
-      res.json({ success: true, data: JSON.parse(row.valore) });
+      const config = JSON.parse(row.valore);
+      res.json({ success: true, data: { ...config, pass: '', imap_pass: '', has_password: !!config.pass, has_imap_password: !!config.imap_pass } });
     } else {
       res.json({ 
         success: true, 
@@ -3021,17 +3192,19 @@ app.post('/api/configurazione-email', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Dati SMTP incompleti' });
     }
     
+    const stored = await db.get("SELECT valore FROM configurazione_email WHERE chiave = 'smtp_config'");
+    const previous = stored ? JSON.parse(stored.valore) : {};
     const valore = JSON.stringify({ 
       host, 
       port, 
       user, 
-      pass: pass || '', 
+      pass: pass || previous.pass || '',
       secure,
       imap_host: imap_host || 'imaps.aruba.it',
       imap_port: imap_port || '993',
       imap_secure: imap_secure !== undefined ? imap_secure : true,
       imap_user: imap_user || '',
-      imap_pass: imap_pass || '',
+      imap_pass: imap_pass || previous.imap_pass || '',
       use_smtp_creds: use_smtp_creds !== undefined ? use_smtp_creds : true
     });
     
@@ -3297,7 +3470,7 @@ app.post('/api/emails/send', async (req, res) => {
 
     const emailResult = await inviaEmailHelper(destinatario, oggetto, corpo);
     const stato = emailResult.success ? 'Inviata' : (emailResult.simulated ? 'Simulata' : 'Fallita');
-    const id = generateID('EM');
+    const id = await generateID('EM');
     const dataInvio = new Date().toISOString();
 
     await db.run(`
@@ -3425,11 +3598,23 @@ app.delete('/api/clienti/:id', async (req, res) => {
 });
 
 // Initialize database and start server
-initDatabase().then(() => {
+installFrontend(app);
+app.use((error, req, res, next) => {
+  console.error('Errore richiesta:', error.message);
+  if (res.headersSent) return next(error);
+  const status = error.code === 'LIMIT_FILE_SIZE' ? 413 : error.name === 'MulterError' || error.type === 'entity.parse.failed' ? 400 : 500;
+  res.status(status).json({ success: false, error: status === 413 ? 'Allegato troppo grande (massimo 20 MB)' : status === 400 ? 'Dati o allegati non validi' : 'Operazione non riuscita. Riprova.' });
+});
+initDatabase().then(async () => {
+  verifyFrontendBuild();
+  cvSigningKey = (await db.get("SELECT value FROM app_settings WHERE key = 'cv_signing_key'")).value;
   const retry = setInterval(() => void deliverCrmOutbox().catch(error => console.error('Retry CRM:', error)), 60_000);
   retry.unref();
   void deliverCrmOutbox().catch(error => console.error('Primo invio CRM:', error));
-  app.listen(PORT, () => {
+  app.listen(PORT, process.env.HOST || '0.0.0.0', () => {
     console.log(`Server Express attivo sulla porta ${PORT}`);
   });
+}).catch(error => {
+  console.error('Avvio interrotto: inizializzazione non riuscita.', error.message);
+  process.exit(1);
 });

@@ -662,6 +662,7 @@
   </div>
 </div>
 
+<script src="/portal-auth.js" data-role="commerciale"></script>
 <script>
   let roles = [];
   let currentUser = null;
@@ -673,7 +674,7 @@
     
     // Check localStorage session
     const savedUser = localStorage.getItem('commercialeUser');
-    if (savedUser) {
+    if (savedUser && localStorage.getItem('hema_token_commerciale')) {
       currentUser = JSON.parse(savedUser);
       showMandatesForm();
     } else {
@@ -910,6 +911,7 @@
       const json = await res.json();
       if (json.success) {
         currentUser = json.user;
+        localStorage.setItem('hema_token_commerciale', json.token);
         localStorage.setItem('commercialeUser', JSON.stringify(currentUser));
         showMandatesForm();
       } else {
@@ -953,6 +955,8 @@
   function handleLogout() {
     currentUser = null;
     localStorage.removeItem('commercialeUser');
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    localStorage.removeItem('hema_token_commerciale');
     showAuthScreen();
   }
 

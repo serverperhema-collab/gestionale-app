@@ -132,7 +132,7 @@ export default function ConfigurazioneEmail() {
 
           <div className="form-group" style={{ marginBottom: '8px' }}>
             <label>Password *</label>
-            <input type="password" name="pass" className="form-control" required defaultValue={emailConfig.pass} placeholder="Password dell'account e-mail" />
+            <input type="password" name="pass" className="form-control" required={!emailConfig.has_password} defaultValue="" placeholder={emailConfig.has_password ? 'Già salvata: lascia vuoto per mantenerla' : "Password dell'account e-mail"} />
           </div>
         </div>
 
@@ -188,7 +188,7 @@ export default function ConfigurazioneEmail() {
               </div>
               <div className="form-group">
                 <label>Password IMAP *</label>
-                <input type="password" name="imap_pass" className="form-control" defaultValue={emailConfig.imap_pass || emailConfig.pass} placeholder="Password per IMAP" />
+                <input type="password" name="imap_pass" className="form-control" defaultValue="" placeholder={emailConfig.has_imap_password ? 'Già salvata: lascia vuoto per mantenerla' : 'Password per IMAP'} />
               </div>
             </div>
           )}

@@ -1,8 +1,8 @@
 import React from 'react';
 
-export const API_BASE = import.meta.env.VITE_API_BASE || (window.location.port && window.location.port !== '3002'
-  ? `http://${window.location.hostname}:3002/api`
-  : '/api');
+// Production and local development both use the current site's API.
+// Vite proxies /api during development; an explicit override remains available for isolated tests.
+export const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
 export const PROV_COORDS = {
   'MI': { lat: 45.4642, lon: 9.1900 },

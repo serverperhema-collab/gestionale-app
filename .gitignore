@@ -1,6 +1,27 @@
 node_modules/
 dist/
 .env
+.locale/
+.checkup/
+BACKUP 27-09-2026/
+ARCHIVIO VECCHIO NON PUBBLICARE/
+.wwebjs_auth/
+.wwebjs_cache/
+.env.*
+!.env.example
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.log
+/GESTIONALE RICERCA DEFINITVO.bat
+/scripts/avvia-locale.cjs
+/AVVIO LOCALE.md
+/ISTRUZIONI GESTIONALE RICERCA.md
+/CHECKUP GENERALE 27-09-2026.md
+/CORREZIONI E COLLAUDO 27-09-2026.md
+/PASSAGGIO A RENDER UNIFICATO.md
+/PULIZIA FILE 27-09-2026.md
 backend/uploads/
 backend/private/
 backend/database.db

@@ -4,6 +4,12 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const net = require('node:net');
+let sessionToken;
+const fetch = (url, options = {}) => {
+  const headers = new Headers(options.headers);
+  if (sessionToken && String(url).includes('/api/') && !headers.has('Authorization')) headers.set('Authorization', 'Bearer ' + sessionToken);
+  return global.fetch(url, { ...options, headers });
+};
 
 async function freePort() {
   const server = net.createServer();
@@ -27,7 +33,7 @@ async function freePort() {
   await new Promise(resolve => callback.listen(callbackPort, '127.0.0.1', resolve));
   const child = spawn(process.execPath, ['server.js'], {
     cwd: __dirname,
-    env: { ...process.env, PORT: String(port), DATA_DIR: dir, PRECONTRACT_INGEST_TOKEN: 'test-ingest', HR_DOCUMENT_PASSWORD: 'test-admin', CALLS_CRM_CALLBACK_URL: `http://127.0.0.1:${callbackPort}/callback`, CALLS_CRM_CALLBACK_TOKEN: 'test-callback', RESEARCH_PUBLIC_URL: base },
+    env: { ...process.env, PORT: String(port), DATA_DIR: dir, HR_LOGIN_PASSWORD: 'test-login', PRECONTRACT_INGEST_TOKEN: 'test-ingest', HR_DOCUMENT_PASSWORD: 'test-admin', CALLS_CRM_CALLBACK_URL: `http://127.0.0.1:${callbackPort}/callback`, CALLS_CRM_CALLBACK_TOKEN: 'test-callback', RESEARCH_PUBLIC_URL: base },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let output = '';
@@ -36,6 +42,7 @@ async function freePort() {
   const waitFor = async predicate => { const deadline = Date.now() + 10000; while (!predicate() && Date.now() < deadline) await new Promise(resolve => setTimeout(resolve, 50)); assert.ok(predicate(), output); };
   try {
     await waitFor(() => output.includes('Server Express attivo'));
+    sessionToken = (await (await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: 'test-login' }) })).json()).token;
     const form = new FormData();
     form.set('precontractId', 'precontract-test-123');
     form.set('localName', 'Azienda Test');

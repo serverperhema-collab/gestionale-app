@@ -2,7 +2,11 @@
   "watch": [
     "server.js",
     "database.js",
-    "whatsapp-client.js"
+    "auth.js",
+    "passwords.js",
+    "validation.js",
+    "frontend-static.js",
+    "mandate-viewer.js"
   ],
   "ignore": [
     ".wwebjs_auth/**",

@@ -4,6 +4,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useGlobalState } from '../contexts/GlobalStateContext';
 import PrecontractDocument from '../components/PrecontractDocument';
 import WeeklyCrmReport from '../components/WeeklyCrmReport';
+import { useDialogs } from '../contexts/DialogContext';
 
 const formatTitleCase = (str) => {
   if (!str) return '';
@@ -93,6 +94,7 @@ export default function RicercaDetail({
   StarRating,
   handlePrintHiringSheet,
   handleEmailHiringSheet,
+  handleSaveHiringDraft,
   handlePrintExecutiveReport,
   handlePrintTechnicalReport,
   handlePrintTechnicalResearchReport,
@@ -127,6 +129,7 @@ export default function RicercaDetail({
 }) {
   const { annunci: annunciGlobali } = useGlobalState();
   const [isExpanded, setIsExpanded] = useState(false);
+  const { askConfirm } = useDialogs();
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -150,20 +153,7 @@ export default function RicercaDetail({
                   <button 
                     className="btn btn-success btn-sm"
                     onClick={async () => {
-                      try {
-                        const res = await fetch(`${API_BASE}/ricerche/${selectedRicercaId}`, {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ stato_approvazione_tl: 'Approvata' })
-                        });
-                        const json = await res.json();
-                        if (json.success) {
-                          showStatus('success', 'Mandato approvato!', 'La ricerca è stata approvata e attivata.');
-                          fetchRicercaDetail(selectedRicercaId);
-                        }
-                      } catch (err) {
-                        showStatus('error', 'Errore', err.message);
-                      }
+                      if (await handleApprovalAction(selectedRicercaId, 'Approvata')) await fetchRicercaDetail(selectedRicercaId);
                     }}
                   >
                     ✓ Approva Mandato
@@ -191,21 +181,7 @@ export default function RicercaDetail({
                   <button 
                     className="btn btn-success btn-sm"
                     onClick={async () => {
-                      try {
-                        const res = await fetch(`${API_BASE}/ricerche/${selectedRicercaId}`, {
-                          method: 'PUT',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ stato_approvazione_tl: 'Approvata' })
-                        });
-                        const json = await res.json();
-                        if (json.success) {
-                          showStatus('success', 'Riserva Rimossa!', 'Il mandato è ora approvato in via definitiva.');
-                          fetchRicercaDetail(selectedRicercaId);
-                          fetchRicerche();
-                        }
-                      } catch (err) {
-                        showStatus('error', 'Errore', err.message);
-                      }
+                      if (await handleApprovalAction(selectedRicercaId, 'Approvata')) await fetchRicercaDetail(selectedRicercaId);
                     }}
                   >
                     ✓ Accetta Definitivo
@@ -253,6 +229,18 @@ export default function RicercaDetail({
 
                   {/* Right Side: Star Rating & Actions */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={async () => {
+                      const closed = ricercaDetail.ricerca.stato_ricerca === 'Chiuso/Assunto';
+                      const hired = (ricercaDetail.candidatiCollegati || []).filter(c => c.statoAvanzamento === 'Assunto').length;
+                      if (!await askConfirm(closed ? 'Vuoi riaprire questa ricerca?' : 'Vuoi chiudere la ricerca? Assunzioni confermate: ' + hired + ' su ' + ricercaDetail.ricerca.nr_risorse + ' risorse richieste.')) return;
+                      try {
+                        const response = await fetch(API_BASE + '/ricerche/' + selectedRicercaId, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stato_ricerca: closed ? 'Avviata' : 'Chiuso/Assunto' }) });
+                        const result = await response.json();
+                        if (!response.ok || !result.success) throw new Error(result.error || 'Stato non aggiornato');
+                        await fetchRicercaDetail(selectedRicercaId);
+                        await fetchRicerche();
+                      } catch (error) { showStatus('error', 'Errore', error.message); }
+                    }}>{ricercaDetail.ricerca.stato_ricerca === 'Chiuso/Assunto' ? 'Riapri ricerca' : 'Chiudi ricerca'}</button>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.02)', padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--border)' }}>
                       <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Facilità:</span>
                       <StarRating 
@@ -318,30 +306,7 @@ export default function RicercaDetail({
                           className="btn btn-warning btn-sm" 
                           style={{ backgroundColor: '#D97706', color: '#fff', fontWeight: 'bold', height: '36px' }}
                           onClick={async () => {
-                            const reason = window.prompt("Inserisci la motivazione obbligatoria per mettere in pausa questo mandato:");
-                            if (reason === null) return;
-                            if (!reason.trim()) {
-                              showStatus("error", "Errore", "La motivazione è obbligatoria per mettere in pausa il mandato.");
-                              return;
-                            }
-                            try {
-                              const res = await fetch(`${API_BASE}/ricerche/${selectedRicercaId}`, {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ 
-                                  stato_approvazione_tl: 'In Pausa',
-                                  motivazione: reason
-                                })
-                              });
-                              const json = await res.json();
-                              if (json.success) {
-                                showStatus('success', 'Mandato in Pausa!', 'Il mandato è stato temporaneamente messo in pausa.');
-                                fetchRicercaDetail(selectedRicercaId);
-                                fetchRicerche();
-                              }
-                            } catch (err) {
-                              showStatus('error', 'Errore', err.message);
-                            }
+                            if (await handleApprovalAction(selectedRicercaId, 'In Pausa')) await fetchRicercaDetail(selectedRicercaId);
                           }}
                         >
                           ⏸️ Metti in Pausa
@@ -353,30 +318,7 @@ export default function RicercaDetail({
                         className="btn btn-danger btn-sm" 
                         style={{ backgroundColor: '#EF4444', fontWeight: 'bold', height: '36px' }}
                         onClick={async () => {
-                          const reason = window.prompt("Inserisci la motivazione obbligatoria per il cestinamento di questa ricerca:");
-                          if (reason === null) return;
-                          if (!reason.trim()) {
-                            showStatus("error", "Errore", "La motivazione è obbligatoria per cestinare la ricerca.");
-                            return;
-                          }
-                          try {
-                            const res = await fetch(`${API_BASE}/ricerche/${selectedRicercaId}`, {
-                              method: 'PUT',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ 
-                                stato_approvazione_tl: 'Cestinato',
-                                motivazione: reason
-                              })
-                            });
-                            const json = await res.json();
-                            if (json.success) {
-                              showStatus('success', 'Ricerca Cestinata!', 'La ricerca è stata spostata nei mandati Cestinati.');
-                              setSelectedRicercaId(null);
-                              setCurrentPage('cestinati');
-                            }
-                          } catch (err) {
-                            showStatus('error', 'Errore', err.message);
-                          }
+                          if (await handleApprovalAction(selectedRicercaId, 'Cestinato')) { setSelectedRicercaId(null); setCurrentPage('cestinati'); }
                         }}
                       >
                         🗑️ Cestina Mandato
@@ -1617,7 +1559,7 @@ export default function RicercaDetail({
                                     <option value="">-- Seleziona candidato --</option>
                                     <optgroup label="Candidati collegati a questa ricerca">
                                       {(ricercaDetail.candidatiCollegati || [])
-                                        .filter(cc => cc.statoAvanzamento !== 'Approvato/Assunto')
+                                        .filter(cc => !['Approvato/Assunto', 'Assunto'].includes(cc.statoAvanzamento))
                                         .map(cc => (
                                           <option key={cc.idCandidato} value={`${cc.idCandidato}|${cc.nomeCompleto}`}>
                                             {cc.nomeCompleto} ({cc.statoAvanzamento})
@@ -1676,7 +1618,7 @@ export default function RicercaDetail({
                               </tr>
                             </thead>
                             <tbody>
-                              {(ricercaDetail.candidatiCollegati || []).filter(c => c.statoAvanzamento === 'Approvato/Assunto').map(c => (
+                              {(ricercaDetail.candidatiCollegati || []).filter(c => ['Idoneo', 'Approvato/Assunto', 'Assunto'].includes(c.statoAvanzamento)).map(c => (
                                 <tr key={c.idCandidato} onClick={() => handleOpenHiringForm(c)} style={{ cursor: 'pointer' }}>
                                        <td>
                                          <strong 
@@ -1697,7 +1639,7 @@ export default function RicercaDetail({
                                   </td>
                                 </tr>
                               ))}
-                              {(ricercaDetail.candidatiCollegati || []).filter(c => c.statoAvanzamento === 'Approvato/Assunto').length === 0 && (
+                              {(ricercaDetail.candidatiCollegati || []).filter(c => ['Idoneo', 'Approvato/Assunto', 'Assunto'].includes(c.statoAvanzamento)).length === 0 && (
                                 <tr>
                                   <td colSpan="3" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
                                     Nessun dipendente approvato pronto per l'assunzione. Clicca su "Nuova Assunzione" per avviare una procedura.
@@ -1917,6 +1859,7 @@ export default function RicercaDetail({
                           </div>
 
                           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '16px' }}>
+                            <button type="button" className="btn btn-secondary" onClick={handleSaveHiringDraft}>Salva bozza</button>
                             <button type="button" className="btn btn-secondary" onClick={handlePrintHiringSheet}>
                               🖨️ Manda in Stampa
                             </button>
