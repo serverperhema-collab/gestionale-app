@@ -10,7 +10,15 @@ function npm(directory, args, env = process.env) {
   if (result.error) throw result.error;
   if (result.status !== 0) process.exit(result.status || 1);
 }
-npm('backend', ['ci']);
+// Build native dependencies against the Linux system used by Render rather
+// than downloading a binary that may require a newer glibc at runtime.
+const backendInstallEnv = process.platform === 'linux'
+  ? { ...process.env, npm_config_build_from_source: 'true' }
+  : process.env;
+npm('backend', ['ci'], backendInstallEnv);
+// Fail during the build, before deployment, if the SQLite driver cannot load.
+// This does not open or change any database.
+require('../backend/node_modules/sqlite3');
 npm('frontend', ['ci', '--include=dev']);
 // Force a same-origin build even if a former Vercel API override is still configured.
 npm('frontend', ['run', 'build'], { ...process.env, VITE_API_BASE: '/api' });

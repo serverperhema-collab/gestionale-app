@@ -68,6 +68,7 @@ export const aggiornamenti = [
           'La nuova versione fa funzionare pagina e server insieme su Render. Non serve una pubblicazione separata su Vercel: per entrare basta usare l’indirizzo del gestionale su Render.',
           'Nella copia locale c’è un file da aprire con un doppio clic per avviare il gestionale.',
           'Le prove usano dati locali separati: non sostituiscono il database online.',
+          'Durante la preparazione controlliamo anche che il componente che legge il database riesca ad avviarsi. Questo controllo non apre né modifica i dati.',
           'I vecchi strumenti, le vecchie configurazioni di Vercel e le vecchie sessioni WhatsApp sono stati tolti dalla pubblicazione. Il materiale da conservare è nell’archivio locale.',
           'Il backup rimane separato dalla cartella di lavoro e non viene pubblicato.',
           'Abbiamo aggiornato i componenti del programma e aggiunto prove automatiche. I test aiutano a trovare errori, ma non possono garantire che non esista mai un problema.',
