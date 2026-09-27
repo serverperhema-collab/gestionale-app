@@ -65,6 +65,7 @@ export const aggiornamenti = [
       {
         titolo: 'Preparazione per lavorare e pubblicare',
         modifiche: [
+          'Su Render il servizio si chiama “Gestionale Ricerca Personale”. L’indirizzo per entrare e il servizio che riceve i precontratti restano gli stessi.',
           'La nuova versione fa funzionare pagina e server insieme su Render. Non serve una pubblicazione separata su Vercel: per entrare basta usare l’indirizzo del gestionale su Render.',
           'Nella copia locale c’è un file da aprire con un doppio clic per avviare il gestionale.',
           'Le prove usano dati locali separati: non sostituiscono il database online.',

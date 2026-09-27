@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: gestionale-backend
+    name: Gestionale Ricerca Personale
     env: node
     plan: starter
     rootDir: .
