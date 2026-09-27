@@ -2,6 +2,22 @@
 // Describe only implemented changes, in simple Italian, without secrets or personal data.
 export const aggiornamenti = [
   {
+    id: '2026-09-28-aggiornamenti-manuali',
+    data: '2026-09-28',
+    titolo: 'Puoi scrivere anche tu gli aggiornamenti',
+    descrizione: 'La pagina delle novità ora ti permette di aggiungere una voce senza modificare il programma.',
+    sezioni: [
+      {
+        titolo: 'Aggiornamenti',
+        modifiche: [
+          'Scrivi la data, un titolo e una breve spiegazione.',
+          'Aggiungi i punti che vuoi raccontare, uno per riga. La tua voce apparirà come le altre.',
+          'Le voci che aggiungi vengono salvate nel database del gestionale e restano anche dopo un riavvio.'
+        ]
+      }
+    ]
+  },
+  {
     id: '2026-09-27',
     data: '2026-09-27',
     titolo: 'Un gestionale più chiaro e più sicuro',

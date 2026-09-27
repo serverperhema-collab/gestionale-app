@@ -14,4 +14,19 @@
 .updates-card li { padding-left: 4px; margin-bottom: 12px; color: var(--text-secondary); font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
 .updates-card li:last-child { margin-bottom: 0; }
 .updates-card li::marker { color: #818cf8; }
+.updates-form { margin-bottom: 32px; padding: 24px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.updates-form h2 { margin: 0 0 8px; font-size: 21px; }
+.updates-form > p { margin: 0 0 18px; }
+.updates-form-grid { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(260px, 3fr); gap: 16px; }
+.updates-form label { display: block; margin-bottom: 16px; color: var(--text-primary); font-weight: 600; font-size: 14px; }
+.updates-form input, .updates-form textarea { display: block; box-sizing: border-box; width: 100%; margin-top: 7px; padding: 11px 13px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font: inherit; font-weight: 400; }
+.updates-form input:focus, .updates-form textarea:focus { outline: 2px solid #818cf8; outline-offset: 1px; }
+.updates-form textarea { resize: vertical; }
+.updates-form-footer { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; }
+.updates-form-footer button { padding: 11px 18px; border: 0; border-radius: 8px; background: #6366f1; color: white; font: inherit; font-weight: 700; cursor: pointer; }
+.updates-form-footer button:disabled { opacity: .6; cursor: wait; }
+.updates-form-footer p { margin: 0; }
+.updates-load-error { margin-bottom: 20px; color: #fca5a5; }
+.updates-load-error button { margin-left: 8px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); cursor: pointer; }
 @media (max-width: 600px) { .updates-intro, .updates-card { padding: 18px; } .updates-intro h2 { font-size: 22px; } }
+@media (max-width: 600px) { .updates-form { padding: 18px; } .updates-form-grid { grid-template-columns: 1fr; gap: 0; } }

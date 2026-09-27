@@ -95,6 +95,15 @@ async function initDatabase() {
     // 1. Table Candidati
     await db.exec('CREATE TABLE IF NOT EXISTS app_sessions (token_hash TEXT PRIMARY KEY, role TEXT NOT NULL, user_id TEXT NOT NULL, expires_at INTEGER NOT NULL)');
     await db.exec('CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+    await db.exec(`CREATE TABLE IF NOT EXISTS aggiornamenti_manuali (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      data TEXT NOT NULL,
+      titolo TEXT NOT NULL,
+      descrizione TEXT NOT NULL,
+      sezione_titolo TEXT NOT NULL,
+      modifiche_json TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`);
     await db.run("INSERT OR IGNORE INTO app_settings (key, value) VALUES ('cv_signing_key', ?)", [crypto.randomBytes(32).toString('hex')]);
     await db.exec(`
       CREATE TABLE IF NOT EXISTS candidati (

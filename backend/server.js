@@ -526,6 +526,38 @@ async function generateID(prefix) {
 
 // ----------------- API ENDPOINTS -----------------
 
+// Le voci scritte dalla pagina Aggiornamenti restano nel database persistente.
+const toManualUpdate = row => ({
+  id: `manual-${row.id}`,
+  data: row.data,
+  titolo: row.titolo,
+  descrizione: row.descrizione,
+  sezioni: [{ titolo: row.sezione_titolo, modifiche: JSON.parse(row.modifiche_json) }],
+  createdAt: row.created_at
+});
+app.get('/api/aggiornamenti', async (req, res) => {
+  const rows = await db.all('SELECT * FROM aggiornamenti_manuali ORDER BY data DESC, id DESC');
+  res.json({ success: true, data: rows.map(toManualUpdate) });
+});
+app.post('/api/aggiornamenti', async (req, res) => {
+  const clean = (value, max) => typeof value === 'string' && value.trim().length > 0 && value.trim().length <= max ? value.trim() : null;
+  const data = clean(req.body.data, 10);
+  const titolo = clean(req.body.titolo, 160);
+  const descrizione = clean(req.body.descrizione, 1000);
+  const sezioneTitolo = clean(req.body.sezioneTitolo, 120);
+  const modifiche = req.body.modifiche;
+  const validDate = /^\d{4}-\d{2}-\d{2}$/.test(data || '') && !Number.isNaN(Date.parse(`${data}T12:00:00Z`)) && new Date(`${data}T12:00:00Z`).toISOString().slice(0, 10) === data;
+  if (!validDate || !titolo || !descrizione || !sezioneTitolo || !Array.isArray(modifiche) || modifiche.length < 1 || modifiche.length > 20 || !modifiche.every(item => clean(item, 500) !== null)) {
+    return res.status(400).json({ success: false, error: 'Controlla la data e compila tutti i campi. Inserisci da 1 a 20 punti (massimo 500 caratteri ciascuno).' });
+  }
+  const createdAt = new Date().toISOString();
+  const result = await db.run('INSERT INTO aggiornamenti_manuali (data, titolo, descrizione, sezione_titolo, modifiche_json, created_at) VALUES (?, ?, ?, ?, ?, ?)', [data, titolo, descrizione, sezioneTitolo, JSON.stringify(modifiche.map(item => item.trim())), createdAt]);
+  res.status(201).json({ success: true, data: {
+    id: `manual-${result.lastID}`, data, titolo, descrizione,
+    sezioni: [{ titolo: sezioneTitolo, modifiche: modifiche.map(item => item.trim()) }], createdAt
+  } });
+});
+
 // 1. RICERCHE (MANDATI)
 app.get('/api/ricerche', async (req, res) => {
   try {

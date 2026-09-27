@@ -59,6 +59,24 @@ async function freePort() {
       assert.ok(token);
       assert.equal((await api('/auth/session')).json.role, 'admin');
     });
+    await check('Aggiornamenti manuali salvati e protetti', async () => {
+      assert.equal((await api('/aggiornamenti', 'GET', undefined, null)).status, 401);
+      assert.deepEqual((await api('/aggiornamenti')).json.data, []);
+      assert.equal((await api('/aggiornamenti', 'POST', { data: '2026-02-30', titolo: 'Test', descrizione: 'Test', sezioneTitolo: 'Test', modifiche: ['Uno'] })).status, 400);
+      assert.equal((await api('/aggiornamenti', 'POST', { data: '2026-09-28', titolo: 'Test', descrizione: 'Test', sezioneTitolo: 'Test', modifiche: [] })).status, 400);
+      const payload = { data: '2026-09-28', titolo: 'Una novità', descrizione: 'Spiegazione semplice', sezioneTitolo: 'Candidati', modifiche: ['Primo punto', 'Secondo punto'] };
+      const saved = await api('/aggiornamenti', 'POST', payload);
+      assert.equal(saved.status, 201, saved.text);
+      assert.equal(saved.json.data.id, 'manual-1');
+      const listed = await api('/aggiornamenti');
+      assert.equal(listed.json.data.length, 1);
+      assert.deepEqual(listed.json.data[0].sezioni[0].modifiche, payload.modifiche);
+      await stop();
+      await start();
+      const afterRestart = await api('/aggiornamenti');
+      assert.equal(afterRestart.status, 200, afterRestart.text);
+      assert.equal(afterRestart.json.data[0].titolo, payload.titolo);
+    });
     const r = (await api('/ricerche', 'POST', { azienda: 'REGRESSIONE', ruolo: 'Addetto', nr_risorse: 2 })).json.id;
     const c = (await api('/candidati', 'POST', { nome: 'Persona', cognome: 'Test', id_ricerca: r })).json.id;
     const detail = async () => (await api('/ricerche/' + r)).json.data;
