@@ -2,6 +2,24 @@
 // Describe only implemented changes, in simple Italian, without secrets or personal data.
 export const aggiornamenti = [
   {
+    id: '2026-10-01-collegamento-precontratto',
+    data: '2026-10-01',
+    titolo: 'Una richiesta di Chiamate può essere collegata a una ricerca già aperta',
+    descrizione: 'Se una ricerca è già aperta, puoi collegarle il precontratto ricevuto da Chiamate.',
+    sezioni: [
+      {
+        titolo: 'Precontratti e ricerche',
+        modifiche: [
+          'Nelle richieste arrivate da Chiamate c’è un pulsante per scegliere una ricerca già avviata.',
+          'Prima di collegarla, il gestionale chiede conferma e la password autorizzativa.',
+          'La ricerca scelta mantiene la sua fase, i candidati e l’approvazione. Il precontratto e i documenti ricevuti vengono collegati lì.',
+          'Se la ricerca ha già documenti di precontratto, il gestionale si ferma: non sostituisce nessun file.',
+          'I successivi messaggi di Chiamate vengono indirizzati alla ricerca scelta anche se usano il vecchio codice.'
+        ]
+      }
+    ]
+  },
+  {
     id: '2026-09-28-aggiornamenti-manuali',
     data: '2026-09-28',
     titolo: 'Puoi scrivere anche tu gli aggiornamenti',

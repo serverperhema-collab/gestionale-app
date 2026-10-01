@@ -99,6 +99,60 @@ async function freePort() {
     await waitFor(() => calls.some(item => item.type === 'report'));
     assert.equal((await report('test-admin')).status, 409);
     assert.match(await (await openAuthenticatedViewer()).text(), /Due colloqui effettuati/);
+    // Una richiesta nuova può riferirsi a una ricerca avviata prima dell'invio dal CRM.
+    const existingResearchResponse = await fetch(`${base}/api/ricerche`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ azienda: 'Azienda Test', ruolo: 'Addetto', referente: 'Referente', nr_risorse: 2 }) });
+    assert.equal(existingResearchResponse.status, 200);
+    const existingResearchId = (await existingResearchResponse.json()).id;
+    assert.equal((await fetch(`${base}/api/ricerche/${existingResearchId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stato_ricerca: 'Avviata' }) })).status, 200);
+    const existingCandidate = await fetch(`${base}/api/candidati`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome: 'Persona', cognome: 'Test', id_ricerca: existingResearchId }) });
+    assert.equal(existingCandidate.status, 200);
+    form.set('precontractId', 'precontract-link-123');
+    const provisionalResponse = await ingest('test-ingest');
+    assert.equal(provisionalResponse.status, 201);
+    const provisionalId = (await provisionalResponse.json()).ricercaId;
+    assert.notEqual(provisionalId, existingResearchId);
+    const connect = (targetId, password = 'test-admin', confirm = true) => fetch(`${base}/api/ricerche/${provisionalId}/collega-precontratto`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ targetId, adminPassword: password, confirm }) });
+    assert.equal((await connect(existingResearchId, 'wrong')).status, 401);
+    assert.equal((await connect(existingResearchId, 'test-admin', false)).status, 400);
+    assert.equal((await connect(ricercaId)).status, 409); // Il primo mandato ha già un precontratto.
+    const linked = await connect(existingResearchId);
+    assert.equal(linked.status, 200, await linked.text());
+    assert.equal((await connect(existingResearchId)).status, 200); // Un secondo clic non sposta nulla.
+    const linkedDetail = (await (await fetch(`${base}/api/ricerche/${existingResearchId}`)).json()).data.ricerca;
+    assert.equal(linkedDetail.stato_ricerca, 'Avviata');
+    assert.equal(linkedDetail.stato_approvazione_tl, 'Approvata');
+    assert.equal(linkedDetail.crm_precontract_id, 'precontract-link-123');
+    assert.equal(linkedDetail.precontract_document_name, 'precontratto-precontract-link-123.pdf');
+    assert.equal(linkedDetail.signed_precontract_document_name, 'firmato.pdf');
+    assert.equal((await (await fetch(`${base}/api/ricerche/${existingResearchId}`)).json()).data.candidatiCollegati.length, 1);
+    assert.equal((await fetch(`${base}/api/ricerche/${provisionalId}`)).status, 404);
+    assert.equal((await (await ingest('test-ingest')).json()).ricercaId, existingResearchId);
+    await waitFor(() => calls.some(item => item.precontractId === 'precontract-link-123' && item.type === 'accepted'));
+    assert.equal(calls.find(item => item.precontractId === 'precontract-link-123').mandateId, existingResearchId);
+    const oldIdForm = new FormData();
+    oldIdForm.set('precontractId', 'precontract-link-123');
+    oldIdForm.set('file', new Blob([Buffer.from('%PDF-1.4\n%%EOF')], { type: 'application/pdf' }), 'scheda.pdf');
+    const oldIdUpload = await fetch(`${base}/api/integrations/ricerche/${provisionalId}/precontract-document`, { method: 'POST', headers: { Authorization: 'Bearer test-ingest' }, body: oldIdForm });
+    assert.equal(oldIdUpload.status, 200);
+    assert.equal((await oldIdUpload.json()).ricercaId, existingResearchId);
+    const documentTarget = (await (await fetch(`${base}/api/ricerche`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ azienda: 'Altra Azienda', ruolo: 'Addetto' }) })).json()).id;
+    const documentForm = new FormData();
+    documentForm.set('precontractId', 'manual-document-123');
+    documentForm.set('file', new Blob([Buffer.from('%PDF-1.4\n%%EOF')], { type: 'application/pdf' }), 'manuale.pdf');
+    assert.equal((await fetch(`${base}/api/integrations/ricerche/${documentTarget}/precontract-document`, { method: 'POST', headers: { Authorization: 'Bearer test-ingest' }, body: documentForm })).status, 201);
+    form.set('precontractId', 'precontract-conflict-123');
+    const conflictSourceId = (await (await ingest('test-ingest')).json()).ricercaId;
+    const conflictLink = await fetch(`${base}/api/ricerche/${conflictSourceId}/collega-precontratto`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ targetId: documentTarget, adminPassword: 'test-admin', confirm: true }) });
+    assert.equal(conflictLink.status, 409);
+    assert.match((await conflictLink.json()).error, /documenti/);
+    assert.equal((await fetch(`${base}/api/ricerche/${conflictSourceId}`)).status, 200);
+    assert.equal((await (await fetch(`${base}/api/ricerche/${documentTarget}`)).json()).data.ricerca.precontract_document_name, 'manuale.pdf');
+    const workedTargetId = (await (await fetch(`${base}/api/ricerche`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ azienda: 'Mandato già lavorato', ruolo: 'Addetto' }) })).json()).id;
+    form.set('precontractId', 'precontract-worked-123');
+    const workedSourceId = (await (await ingest('test-ingest')).json()).ricercaId;
+    assert.equal((await fetch(`${base}/api/candidati`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome: 'Persona', cognome: 'Collegata', id_ricerca: workedSourceId }) })).status, 200);
+    assert.equal((await fetch(`${base}/api/ricerche/${workedSourceId}/collega-precontratto`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ targetId: workedTargetId, adminPassword: 'test-admin', confirm: true }) })).status, 409);
+    assert.equal((await fetch(`${base}/api/ricerche/${workedSourceId}`)).status, 200);
     form.set('precontractId', 'precontract-reserve-123');
     form.delete('signedFile');
     const reservedMandate = await (await ingest('test-ingest')).json();
@@ -141,6 +195,16 @@ async function freePort() {
     assert.equal(rejectResponse.status, 200);
     await waitFor(() => calls.some(item => item.type === 'rejected'));
     assert.equal(calls.find(item => item.type === 'rejected').reason, 'Mandato incompleto');
+    const reserveTargetId = (await (await fetch(`${base}/api/ricerche`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ azienda: 'Riserva già attiva', ruolo: 'Addetto' }) })).json()).id;
+    assert.equal((await fetch(`${base}/api/ricerche/${reserveTargetId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stato_approvazione_tl: 'Approvata con Riserva', motivazione: 'Chiarire la sede' }) })).status, 200);
+    form.set('precontractId', 'precontract-link-reserve-123');
+    const reserveSourceId = (await (await ingest('test-ingest')).json()).ricercaId;
+    assert.equal((await fetch(`${base}/api/ricerche/${reserveSourceId}/collega-precontratto`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ targetId: reserveTargetId, adminPassword: 'test-admin', confirm: true }) })).status, 200);
+    await waitFor(() => calls.some(item => item.precontractId === 'precontract-link-reserve-123' && item.type === 'reserved'));
+    const movedReply = new FormData();
+    movedReply.set('precontractId', 'precontract-link-reserve-123'); movedReply.set('messageId', 'reply-after-link-123'); movedReply.set('note', 'Aggiornamento dopo il collegamento');
+    assert.equal((await fetch(`${base}/api/integrations/ricerche/${reserveSourceId}/reserve-updates`, { method: 'POST', headers: { Authorization: 'Bearer test-ingest' }, body: movedReply })).status, 201);
+    assert.equal((await (await fetch(`${base}/api/ricerche/${reserveTargetId}/reserve-updates`)).json()).data.length, 1);
     console.log('PASS importazione, approvazione/riserva/rifiuto, aggiornamenti con allegato, callback, viewer live protetto e report settimanale');
   } finally {
     if (child.exitCode === null && child.signalCode === null) { child.kill(); await new Promise(resolve => child.once('exit', resolve)); }

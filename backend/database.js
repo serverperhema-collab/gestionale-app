@@ -222,6 +222,14 @@ async function initDatabase() {
         accepted_at TEXT,
         FOREIGN KEY (ricerca_id) REFERENCES ricerche(id) ON DELETE CASCADE
       );
+      CREATE TABLE IF NOT EXISTS crm_reconciliations (
+        precontract_id TEXT PRIMARY KEY,
+        source_ricerca_id TEXT NOT NULL UNIQUE,
+        target_ricerca_id TEXT NOT NULL,
+        source_snapshot TEXT NOT NULL,
+        linked_at TEXT NOT NULL,
+        FOREIGN KEY (target_ricerca_id) REFERENCES ricerche(id)
+      );
       CREATE TABLE IF NOT EXISTS crm_outbox (
         id TEXT PRIMARY KEY,
         precontract_id TEXT NOT NULL,
