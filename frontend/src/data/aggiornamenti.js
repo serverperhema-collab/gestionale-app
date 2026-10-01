@@ -14,7 +14,9 @@ export const aggiornamenti = [
           'Prima di collegarla, il gestionale chiede conferma e la password autorizzativa.',
           'La ricerca scelta mantiene la sua fase, i candidati e l’approvazione. Il precontratto e i documenti ricevuti vengono collegati lì.',
           'Se la ricerca ha già documenti di precontratto, il gestionale si ferma: non sostituisce nessun file.',
-          'I successivi messaggi di Chiamate vengono indirizzati alla ricerca scelta anche se usano il vecchio codice.'
+          'I successivi messaggi di Chiamate vengono indirizzati alla ricerca scelta anche se usano il vecchio codice.',
+          'La finestra per scegliere la ricerca è più leggibile. Se lasci vuota la ricerca, vedi tutte le altre ricerche; quelle non collegabili mostrano il motivo.',
+          'Il campo di ricerca è separato da quello della password, così il browser non dovrebbe riempirlo con l’indirizzo del gestionale.'
         ]
       }
     ]

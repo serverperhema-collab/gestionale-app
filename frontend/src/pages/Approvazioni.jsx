@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useGlobalState } from '../contexts/GlobalStateContext';
 import PrecontractDocument from '../components/PrecontractDocument';
 import { API_BASE } from '../utils';
+import './Approvazioni.css';
 
 const PASSWORD_STORAGE_KEY = 'ricerca_document_password';
 
@@ -32,16 +33,23 @@ export default function Approvazioni({ handleApprovalAction }) {
   const [linkError, setLinkError] = useState('');
 
   const normalize = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  const linkCandidates = ricerche.filter(r => r.id !== linkSource?.id &&
-    ['Approvata', 'Approvata con Riserva'].includes(r.stato_approvazione_tl) &&
-    !['Chiuso/Assunto', 'Cestinato'].includes(r.stato_ricerca) && !r.crm_precontract_id &&
-    !r.precontract_document_name && !r.signed_precontract_document_name
-  ).filter(r => `${r.id} ${r.azienda} ${r.ruolo} ${r.sede_lavoro || ''}`.toLowerCase().includes(linkSearch.toLowerCase()))
+  const unavailableReason = r => {
+    if (!['Approvata', 'Approvata con Riserva'].includes(r.stato_approvazione_tl)) return 'Non ancora approvata';
+    if (['Chiuso/Assunto', 'Cestinato'].includes(r.stato_ricerca)) return 'Ricerca chiusa';
+    if (r.crm_precontract_id) return 'Già collegata a Chiamate';
+    if (r.precontract_document_name || r.signed_precontract_document_name) return 'Ha già documenti di precontratto';
+    return '';
+  };
+  const otherRicerche = ricerche.filter(r => r.id !== linkSource?.id);
+  const query = linkSearch.trim().toLocaleLowerCase('it-IT');
+  const linkCandidates = otherRicerche.filter(r =>
+    !query || `${r.id} ${r.azienda} ${r.ruolo} ${r.sede_lavoro || ''}`.toLocaleLowerCase('it-IT').includes(query)
+  )
     .sort((a, b) => {
       const score = r => Number(normalize(r.azienda) === normalize(linkSource?.azienda)) * 2 + Number(normalize(r.ruolo) === normalize(linkSource?.ruolo));
-      return score(b) - score(a) || a.azienda.localeCompare(b.azienda);
+      return Number(Boolean(unavailableReason(a))) - Number(Boolean(unavailableReason(b))) || score(b) - score(a) || a.azienda.localeCompare(b.azienda);
     });
-  const selectedTarget = ricerche.find(r => r.id === linkTargetId);
+  const selectedTarget = ricerche.find(r => r.id === linkTargetId && !unavailableReason(r));
 
   const connectExisting = async event => {
     event.preventDefault();
@@ -176,34 +184,59 @@ export default function Approvazioni({ handleApprovalAction }) {
           </tbody>
         </table>
       </div>
-      {linkSource && <div role="presentation" style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.75)', display: 'grid', placeItems: 'center', padding: 16 }} onClick={() => !linkBusy && setLinkSource(null)}>
-        <form role="dialog" aria-modal="true" aria-label="Collega a ricerca esistente" onClick={event => event.stopPropagation()} onSubmit={connectExisting} style={{ width: 'min(100%, 700px)', maxHeight: '90vh', overflow: 'auto', background: 'var(--bg-secondary)', padding: 24, borderRadius: 12, border: '1px solid var(--border)' }}>
-          <h3>Collega a ricerca esistente</h3>
-          <p>La richiesta di Chiamate riguarda <strong>{linkSource.azienda}</strong> — {linkSource.ruolo} ({linkSource.id}). Scegli la ricerca già avviata. La sua fase, i candidati e l’approvazione non cambieranno.</p>
-          <label htmlFor="link-search">Cerca per azienda, ruolo o codice</label>
-          <input id="link-search" className="form-control" value={linkSearch} onChange={event => { setLinkSearch(event.target.value); setLinkTargetId(''); setLinkConfirmed(false); }} placeholder="Cerca una ricerca attiva" autoFocus />
-          <div style={{ maxHeight: 230, overflow: 'auto', margin: '12px 0' }}>
-            {linkCandidates.map(r => <label key={r.id} style={{ display: 'block', padding: 10, border: '1px solid var(--border)', borderRadius: 8, marginBottom: 6, cursor: 'pointer' }}>
-              <input type="radio" name="link-target" value={r.id} checked={linkTargetId === r.id} onChange={() => { setLinkTargetId(r.id); setLinkConfirmed(false); }} style={{ marginRight: 10 }} />
-              <strong>{r.azienda}</strong> — {r.ruolo} · {r.id} · {r.stato_ricerca || 'Ricerca Inserita'}
-            </label>)}
-            {linkCandidates.length === 0 && <p>Nessuna ricerca collegabile. Quelle con un altro precontratto o documento già presente richiedono una verifica separata.</p>}
+      {linkSource && <div role="presentation" className="crm-link-overlay" onClick={() => !linkBusy && setLinkSource(null)}>
+        <div role="dialog" aria-modal="true" aria-labelledby="crm-link-title" className="crm-link-dialog" onClick={event => event.stopPropagation()}>
+          <header className="crm-link-header">
+            <div>
+              <span className="crm-link-eyebrow">PRECONTRATTO DA CHIAMATE</span>
+              <h3 id="crm-link-title">Collega a ricerca esistente</h3>
+            </div>
+            <button type="button" className="crm-link-close" aria-label="Chiudi finestra" disabled={linkBusy} onClick={() => setLinkSource(null)}>×</button>
+          </header>
+          <div className="crm-link-content">
+            <div className="crm-link-source">
+              <span>Richiesta ricevuta</span>
+              <strong>{linkSource.azienda} · {linkSource.ruolo}</strong>
+              <small>Codice {linkSource.id}</small>
+            </div>
+            <p className="crm-link-explain">Scegli la ricerca già aperta. La sua fase, i candidati e l’approvazione non cambieranno.</p>
+            <div className="crm-link-search-block">
+              <label htmlFor="link-search">Cerca per azienda, ruolo, sede o codice</label>
+              <input id="link-search" type="search" name="crmLinkLookup" autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} className="form-control" value={linkSearch} onChange={event => { setLinkSearch(event.target.value); setLinkTargetId(''); setLinkConfirmed(false); }} placeholder="Lascia vuoto per vedere tutte le ricerche" />
+              <small>{query ? `${linkCandidates.length} ${linkCandidates.length === 1 ? 'ricerca trovata' : 'ricerche trovate'}` : `Tutte le ricerche: ${otherRicerche.length}`}</small>
+            </div>
+            <div className="crm-link-list" role="radiogroup" aria-label="Ricerca da collegare">
+              {linkCandidates.map(r => {
+                const reason = unavailableReason(r);
+                return <label key={r.id} className={`crm-link-option${reason ? ' is-unavailable' : ''}${linkTargetId === r.id ? ' is-selected' : ''}`}>
+                  <input type="radio" name="link-target" value={r.id} checked={linkTargetId === r.id} disabled={Boolean(reason)} onChange={() => { setLinkTargetId(r.id); setLinkConfirmed(false); }} />
+                  <span className="crm-link-option-details">
+                    <strong>{r.azienda} · {r.ruolo}</strong>
+                    <small>{r.id} · {r.stato_ricerca || 'Ricerca Inserita'}{r.sede_lavoro ? ` · ${r.sede_lavoro}` : ''}</small>
+                  </span>
+                  {reason && <span className="crm-link-unavailable">{reason}</span>}
+                </label>;
+              })}
+              {linkCandidates.length === 0 && <div className="crm-link-empty">{query ? 'Nessuna ricerca corrisponde a questa ricerca.' : 'Non ci sono altre ricerche da mostrare.'}</div>}
+            </div>
+            {selectedTarget && <div className="crm-link-comparison">
+              <strong>Prima di collegare, confronta i dati</strong>
+              <div><span>Da Chiamate</span><p>{linkSource.azienda} · {linkSource.ruolo}<br />Sede: {linkSource.sede_lavoro || 'non indicata'} · Risorse: {linkSource.nr_risorse || 'non indicate'}</p></div>
+              <div><span>Ricerca scelta</span><p>{selectedTarget.azienda} · {selectedTarget.ruolo}<br />Sede: {selectedTarget.sede_lavoro || 'non indicata'} · Risorse: {selectedTarget.nr_risorse || 'non indicate'}</p></div>
+              <small>Il PDF verrà collegato alla ricerca scelta. La richiesta provvisoria sarà registrata e tolta dall’elenco.</small>
+            </div>}
+            <form id="crm-link-confirm-form" onSubmit={connectExisting} autoComplete="off" className="crm-link-confirm-form">
+              <label className="crm-link-check"><input type="checkbox" checked={linkConfirmed} onChange={event => setLinkConfirmed(event.target.checked)} disabled={!selectedTarget} /> Ho verificato che è la stessa ricerca.</label>
+              <label htmlFor="link-password">Password autorizzativa</label>
+              <input id="link-password" type="password" name="crmLinkAuthorization" className="form-control" value={linkPassword} onChange={event => setLinkPassword(event.target.value)} autoComplete="off" required />
+              {linkError && <p role="alert" className="crm-link-error">{linkError}</p>}
+            </form>
           </div>
-          {selectedTarget && <div style={{ margin: '12px 0', padding: 12, border: '1px solid var(--border)', borderRadius: 8 }}>
-            <strong>Controlla prima di confermare</strong>
-            <p>Da Chiamate: {linkSource.azienda} — {linkSource.ruolo}; sede: {linkSource.sede_lavoro || 'non indicata'}; risorse: {linkSource.nr_risorse || 'non indicate'}.</p>
-            <p>Ricerca scelta: {selectedTarget.azienda} — {selectedTarget.ruolo}; sede: {selectedTarget.sede_lavoro || 'non indicata'}; risorse: {selectedTarget.nr_risorse || 'non indicate'}.</p>
-            <p>Il PDF ricevuto da Chiamate sarà collegato alla ricerca scelta. La richiesta provvisoria sarà registrata e rimossa dall’elenco.</p>
-          </div>}
-          <label style={{ display: 'block', marginBottom: 12 }}><input type="checkbox" checked={linkConfirmed} onChange={event => setLinkConfirmed(event.target.checked)} disabled={!selectedTarget} /> Ho verificato che è la stessa ricerca.</label>
-          <label htmlFor="link-password">Password autorizzativa</label>
-          <input id="link-password" type="password" className="form-control" value={linkPassword} onChange={event => setLinkPassword(event.target.value)} autoComplete="off" required />
-          {linkError && <p role="alert" style={{ color: 'var(--danger)' }}>{linkError}</p>}
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+          <footer className="crm-link-footer">
             <button type="button" className="btn btn-secondary" disabled={linkBusy} onClick={() => setLinkSource(null)}>Annulla</button>
-            <button type="submit" className="btn btn-primary" disabled={!selectedTarget || !linkConfirmed || !linkPassword || linkBusy}>{linkBusy ? 'Collegamento...' : 'Conferma collegamento'}</button>
-          </div>
-        </form>
+            <button type="submit" form="crm-link-confirm-form" className="btn btn-primary" disabled={!selectedTarget || !linkConfirmed || !linkPassword || linkBusy}>{linkBusy ? 'Collegamento...' : 'Conferma collegamento'}</button>
+          </footer>
+        </div>
       </div>}
       {reserveMandateId && <div role="presentation" style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.75)', display: 'grid', placeItems: 'center', padding: 16 }} onClick={() => setReserveMandateId(null)}>
         <form role="dialog" aria-modal="true" aria-label="Approvazione con riserva" onClick={event => event.stopPropagation()} onSubmit={async event => { event.preventDefault(); if (!reserveNote.trim() || reserveBusy) return; setReserveBusy(true); try { if (await handleApprovalAction(reserveMandateId, 'Approvata con Riserva', reserveNote.trim())) setReserveMandateId(null); } finally { setReserveBusy(false); } }} style={{ width: 'min(100%, 560px)', background: 'var(--card-bg, #1f2937)', padding: 24, borderRadius: 12, border: '1px solid var(--border)' }}>
