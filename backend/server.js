@@ -165,12 +165,23 @@ app.post('/api/integrations/precontracts', (req, res, next) => {
 }, async (req, res) => {
   const field = key => typeof req.body[key] === 'string' ? req.body[key].trim().slice(0, 2000) : '';
   const precontractId = field('precontractId');
+  const parentId = field('parentPrecontractId') || precontractId;
+  const sheetPosition = Number(field('sheetPosition') || 1);
+  const sheetCount = Number(field('sheetCount') || 1);
   const sheetFile = req.files?.file?.[0];
   const signedFile = req.files?.signedFile?.[0];
   const signedType = signedPrecontractType(signedFile);
   if (!/^[a-zA-Z0-9_-]{8,128}$/.test(precontractId) || !field('localName') || !field('role') || !sheetFile?.buffer?.subarray(0, 5).equals(Buffer.from('%PDF-')) || (signedFile && !signedType)) return res.status(400).json({ success: false, error: 'Scheda o documento firmato non validi' });
-  const existing = await db.get('SELECT ricerca_id FROM crm_precontracts WHERE precontract_id = ?', [precontractId]);
-  if (existing) return res.json({ success: true, idempotent: true, ricercaId: existing.ricerca_id });
+  if (!/^[a-zA-Z0-9_-]{8,128}$/.test(parentId) || !Number.isInteger(sheetPosition) || !Number.isInteger(sheetCount) || sheetCount < 1 || sheetCount > 20 || sheetPosition < 1 || sheetPosition > sheetCount) return res.status(400).json({ success: false, error: 'Numero o riferimento della scheda non valido' });
+  const fingerprintFields = ['localName', 'role', 'referent', 'mobilePhone', 'landlinePhone', 'email', 'workplaceAddress', 'resourceCount', 'ccnlLevel', 'monthlySalary', 'recruitmentFor', 'serviceCost', 'commercialConsultant', 'outbound', 'registeredOffice'];
+  // Generated PDFs contain a timestamp, so idempotency compares business fields and the signed file.
+  const fingerprint = crypto.createHash('sha256').update(JSON.stringify([parentId, sheetPosition, sheetCount, ...fingerprintFields.map(field), signedFile ? crypto.createHash('sha256').update(signedFile.buffer).digest('hex') : null])).digest('hex');
+  const existing = await db.get('SELECT * FROM crm_precontracts WHERE precontract_id = ?', [precontractId]);
+  if (existing) return existing.request_fingerprint && existing.request_fingerprint !== fingerprint
+    ? res.status(409).json({ success: false, error: 'Questa scheda è già stata ricevuta con dati diversi; nessun dato è stato sostituito' })
+    : res.json({ success: true, idempotent: true, ricercaId: existing.ricerca_id });
+  const siblings = await db.all('SELECT sheet_position, sheet_count FROM crm_precontracts WHERE parent_precontract_id = ?', [parentId]);
+  if (siblings.some(row => row.sheet_position === sheetPosition || row.sheet_count !== sheetCount)) return res.status(409).json({ success: false, error: 'Scheda duplicata o numero di schede diverso per questo precontratto' });
   const ricercaId = await generateID('R');
   const storedName = `${crypto.randomUUID()}.pdf`;
   const filePath = path.join(privatePrecontractDir, storedName);
@@ -181,6 +192,8 @@ app.post('/api/integrations/precontracts', (req, res, next) => {
     await fs.promises.writeFile(filePath, sheetFile.buffer, { flag: 'wx', mode: 0o600 });
     if (signedFilePath) await fs.promises.writeFile(signedFilePath, signedFile.buffer, { flag: 'wx', mode: 0o600 });
     await db.transaction(async () => {
+    const currentSiblings = await db.all('SELECT sheet_position, sheet_count FROM crm_precontracts WHERE parent_precontract_id = ?', [parentId]);
+    if (currentSiblings.some(row => row.sheet_position === sheetPosition || row.sheet_count !== sheetCount)) throw Object.assign(new Error('Scheda duplicata o numero di schede non coerente'), { statusCode: 409 });
     await db.run(`INSERT INTO ricerche (id, data_inserimento, azienda, ruolo, referente, telefono_mobile, telefono_fisso, email, sede_lavoro, nr_risorse, ccnl_livello, retribuzione, note, stato_ricerca, stato_approvazione_tl, consulente_commerciale, outbound, sede_legale, preventivo)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [
       ricercaId, new Date().toISOString().slice(0, 10), field('localName'), field('role'), field('referent'), field('mobilePhone'), field('landlinePhone'), field('email'), field('workplaceAddress'),
@@ -188,17 +201,38 @@ app.post('/api/integrations/precontracts', (req, res, next) => {
     ]);
     await db.run('INSERT INTO precontract_documents (ricerca_id, precontract_id, stored_name, original_name, sha256, uploaded_at) VALUES (?, ?, ?, ?, ?, ?)', [ricercaId, precontractId, storedName, `precontratto-${precontractId}.pdf`, hash, new Date().toISOString()]);
     if (signedFilePath) await db.run('INSERT INTO signed_precontract_documents (ricerca_id, precontract_id, stored_name, original_name, mime_type, sha256, uploaded_at) VALUES (?, ?, ?, ?, ?, ?, ?)', [ricercaId, precontractId, signedStoredName, path.basename(signedFile.originalname || 'Precontratto firmato').slice(0, 180), signedType.mimeType, crypto.createHash('sha256').update(signedFile.buffer).digest('hex'), new Date().toISOString()]);
-    await db.run('INSERT INTO crm_precontracts (precontract_id, ricerca_id, viewer_token) VALUES (?, ?, ?)', [precontractId, ricercaId, crypto.randomBytes(24).toString('base64url')]);
+    await db.run('INSERT INTO crm_precontracts (precontract_id, ricerca_id, viewer_token, parent_precontract_id, sheet_position, sheet_count, request_fingerprint) VALUES (?, ?, ?, ?, ?, ?, ?)', [precontractId, ricercaId, crypto.randomBytes(24).toString('base64url'), parentId, sheetPosition, sheetCount, fingerprint]);
     });
     res.status(201).json({ success: true, ricercaId });
   } catch (error) {
     await fs.promises.unlink(filePath).catch(() => {});
     if (signedFilePath) await fs.promises.unlink(signedFilePath).catch(() => {});
-    const concurrent = await db.get('SELECT ricerca_id FROM crm_precontracts WHERE precontract_id = ?', [precontractId]);
-    if (concurrent) return res.json({ success: true, idempotent: true, ricercaId: concurrent.ricerca_id });
+    const concurrent = await db.get('SELECT * FROM crm_precontracts WHERE precontract_id = ?', [precontractId]);
+    if (concurrent) return concurrent.request_fingerprint && concurrent.request_fingerprint !== fingerprint
+      ? res.status(409).json({ success: false, error: 'Scheda ricevuta con dati diversi' })
+      : res.json({ success: true, idempotent: true, ricercaId: concurrent.ricerca_id });
+    if (error.statusCode === 409) return res.status(409).json({ success: false, error: error.message });
     console.error('Importazione precontratto:', error);
     res.status(500).json({ success: false, error: 'Importazione non riuscita' });
   }
+});
+
+app.post('/api/integrations/precontracts/:id/commercial-outcome', async (req, res) => {
+  if (!matchesSecret(req.headers.authorization?.replace(/^Bearer\s+/i, ''), process.env.PRECONTRACT_INGEST_TOKEN)) return res.status(401).json({ success: false, error: 'Non autorizzato' });
+  const { resolution, notes } = req.body || {};
+  if (!['CONTRACT', 'CANCELLED'].includes(resolution) || typeof notes !== 'string' || !notes.trim() || notes.length > 10000) return res.status(400).json({ success: false, error: 'Esito non valido' });
+  try {
+  const outcome = await db.transaction(async () => {
+    const link = await db.get('SELECT * FROM crm_precontracts WHERE precontract_id = ?', [req.params.id]);
+    if (!link) return { code: 404, body: { success: false, error: 'Richiesta non ancora ricevuta' } };
+    if (link.commercial_resolution === resolution) return { code: 200, body: { success: true, idempotent: true } };
+    if (link.commercial_resolution) return { code: 409, body: { success: false, error: 'Esito già registrato: serve una verifica' } };
+    await db.run('UPDATE crm_precontracts SET commercial_resolution = ?, commercial_notes = ?, commercial_updated_at = ? WHERE precontract_id = ?', [resolution, notes.trim(), new Date().toISOString(), req.params.id]);
+    await logActivity('CLIENTE', link.ricerca_id, '', 'Esito da Chiamate', `${resolution === 'CONTRACT' ? 'Contratto registrato' : 'Figura annullata'} in Chiamate. ${notes.trim()}`, link.ricerca_id, '');
+    return { code: 200, body: { success: true } };
+  });
+  res.status(outcome.code).json(outcome.body);
+  } catch (error) { console.error('Registrazione esito Chiamate non riuscita', error.message); res.status(500).json({ success: false, error: 'Esito non salvato. Riprovare.' }); }
 });
 
 app.post('/api/integrations/ricerche/:id/reserve-updates', (req, res, next) => {
@@ -582,6 +616,7 @@ app.post('/api/ricerche/:id/collega-precontratto', atomicRoute(async (req, res) 
 
   const source = await db.get('SELECT * FROM ricerche WHERE id = ?', [sourceId]);
   const link = await db.get('SELECT * FROM crm_precontracts WHERE ricerca_id = ?', [sourceId]);
+  if (link?.commercial_resolution === 'CANCELLED') return res.status(409).json({ success: false, error: 'La richiesta è stata annullata da Chiamate' });
   const target = await db.get('SELECT * FROM ricerche WHERE id = ?', [targetId]);
   if (!source || !link || source.stato_approvazione_tl !== 'In attesa di approvazione' || source.stato_ricerca) return res.status(409).json({ success: false, error: 'La richiesta CRM non è più in attesa: non può essere collegata automaticamente' });
   if (!target || !['Approvata', 'Approvata con Riserva'].includes(target.stato_approvazione_tl) || ['Chiuso/Assunto', 'Cestinato'].includes(target.stato_ricerca)) return res.status(409).json({ success: false, error: 'Scegli una ricerca attiva e già approvata' });
@@ -623,7 +658,7 @@ app.post('/api/ricerche/:id/collega-precontratto', atomicRoute(async (req, res) 
   await enqueueCrmMessage(link.precontract_id, targetId, reserved ? 'reserved' : 'accepted', {
     type: reserved ? 'reserved' : 'accepted',
     ...(reserved ? { note: target.note_team_leader || 'Mandato approvato con riserva' } : {}),
-    viewerUrl, viewerPassword
+    viewerUrl, viewerPassword, previousMandateId: sourceId
   }, `${reserved ? 'reserved' : 'accepted'}-${link.precontract_id}`, false);
   db.afterCommit(() => void deliverCrmOutbox().catch(error => console.error('Invio collegamento CRM:', error)));
   res.json({ success: true, ricercaId: targetId });
@@ -632,7 +667,7 @@ app.post('/api/ricerche/:id/collega-precontratto', atomicRoute(async (req, res) 
 // 1. RICERCHE (MANDATI)
 app.get('/api/ricerche', async (req, res) => {
   try {
-    const list = await db.all(`SELECT r.*, d.original_name AS precontract_document_name, d.uploaded_at AS precontract_document_uploaded_at, s.original_name AS signed_precontract_document_name, s.uploaded_at AS signed_precontract_document_uploaded_at, c.precontract_id AS crm_precontract_id, c.accepted_at AS crm_accepted_at,
+    const list = await db.all(`SELECT r.*, d.original_name AS precontract_document_name, d.uploaded_at AS precontract_document_uploaded_at, s.original_name AS signed_precontract_document_name, s.uploaded_at AS signed_precontract_document_uploaded_at, c.precontract_id AS crm_precontract_id, c.accepted_at AS crm_accepted_at, c.parent_precontract_id AS crm_parent_id, c.sheet_position AS crm_sheet_position, c.sheet_count AS crm_sheet_count, c.commercial_resolution AS crm_commercial_resolution, c.commercial_notes AS crm_commercial_notes,
       (SELECT MAX(week_start) FROM crm_weekly_reports WHERE ricerca_id = r.id) AS crm_last_report_week,
       (SELECT COUNT(*) FROM crm_reserve_updates WHERE ricerca_id = r.id) AS crm_reserve_update_count
       FROM ricerche r LEFT JOIN precontract_documents d ON d.ricerca_id = r.id LEFT JOIN signed_precontract_documents s ON s.ricerca_id = r.id LEFT JOIN crm_precontracts c ON c.ricerca_id = r.id ORDER BY r.data_inserimento DESC`);
@@ -663,7 +698,7 @@ app.get('/api/ricerche', async (req, res) => {
 // Single Research detail (with pipeline and interviews)
 app.get('/api/ricerche/:id', async (req, res) => {
   try {
-    const ricerca = await db.get(`SELECT r.*, d.original_name AS precontract_document_name, d.uploaded_at AS precontract_document_uploaded_at, s.original_name AS signed_precontract_document_name, s.uploaded_at AS signed_precontract_document_uploaded_at, c.precontract_id AS crm_precontract_id, c.accepted_at AS crm_accepted_at,
+    const ricerca = await db.get(`SELECT r.*, d.original_name AS precontract_document_name, d.uploaded_at AS precontract_document_uploaded_at, s.original_name AS signed_precontract_document_name, s.uploaded_at AS signed_precontract_document_uploaded_at, c.precontract_id AS crm_precontract_id, c.accepted_at AS crm_accepted_at, c.parent_precontract_id AS crm_parent_id, c.sheet_position AS crm_sheet_position, c.sheet_count AS crm_sheet_count, c.commercial_resolution AS crm_commercial_resolution, c.commercial_notes AS crm_commercial_notes,
       (SELECT MAX(week_start) FROM crm_weekly_reports WHERE ricerca_id = r.id) AS crm_last_report_week
       FROM ricerche r LEFT JOIN precontract_documents d ON d.ricerca_id = r.id LEFT JOIN signed_precontract_documents s ON s.ricerca_id = r.id LEFT JOIN crm_precontracts c ON c.ricerca_id = r.id WHERE r.id = ?`, [req.params.id]);
     if (!ricerca) {
@@ -1140,6 +1175,7 @@ app.put('/api/ricerche/:id', atomicRoute(async (req, res) => {
     const ricerca = await db.get('SELECT * FROM ricerche WHERE id = ?', [req.params.id]);
     if (!ricerca) return res.status(404).json({ success: false, error: 'Ricerca non trovata' });
     const crmLink = await db.get('SELECT * FROM crm_precontracts WHERE ricerca_id = ?', [req.params.id]);
+    if (crmLink?.commercial_resolution === 'CANCELLED' && ['Approvata', 'Approvata con Riserva'].includes(stato_approvazione_tl)) return res.status(409).json({ success: false, error: 'Questa figura è stata annullata da Chiamate: non può essere approvata' });
     if (stato_approvazione_tl === 'Approvata con Riserva' && ricerca.stato_approvazione_tl !== 'Approvata con Riserva' && (typeof motivazione !== 'string' || !motivazione.trim() || motivazione.length > 10000)) return res.status(400).json({ success: false, error: 'Nota della riserva obbligatoria (massimo 10000 caratteri)' });
     if (crmLink && stato_approvazione_tl && stato_approvazione_tl !== ricerca.stato_approvazione_tl && !matchesSecret(req.body.adminPassword, process.env.HR_DOCUMENT_PASSWORD)) {
       return res.status(401).json({ success: false, error: 'Password richiesta per approvare un mandato CRM' });

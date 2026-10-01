@@ -3,6 +3,7 @@ import { API_BASE, renderCandidateStars, getCapFromAddress, estimateDistanceByCa
 import { useToast } from '../contexts/ToastContext';
 import { useGlobalState } from '../contexts/GlobalStateContext';
 import PrecontractDocument from '../components/PrecontractDocument';
+import CrmRequestInfo from '../components/CrmRequestInfo';
 import WeeklyCrmReport from '../components/WeeklyCrmReport';
 import { useDialogs } from '../contexts/DialogContext';
 
@@ -383,6 +384,7 @@ export default function RicercaDetail({
                 </div>
               </div>
 
+              <CrmRequestInfo ricerca={ricercaDetail.ricerca} />
               {ricercaDetail.ricerca.precontract_document_name && (
                 <PrecontractDocument ricercaId={ricercaDetail.ricerca.id} filename={ricercaDetail.ricerca.precontract_document_name} />
               )}

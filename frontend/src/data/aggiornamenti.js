@@ -8,6 +8,19 @@ export const aggiornamenti = [
     descrizione: 'Se una ricerca è già aperta, puoi collegarle il precontratto ricevuto da Chiamate.',
     sezioni: [
       {
+        titolo: 'Più figure nello stesso precontratto',
+        modifiche: [
+          'In Chiamate scegli quante schede compilare: per esempio una per il cuoco e una per il cameriere.',
+          'Il documento firmato si carica una volta sola. Ogni scheda arriva alla Ricerca come richiesta distinta, con il suo documento.',
+          'Ogni figura ha la propria approvazione, il proprio mandato e il proprio link con password. Puoi anche collegarla a una ricerca già aperta.',
+          'Se una figura viene rifiutata o annullata, le altre restano aperte. Una risposta o un aggiornamento torna alla scheda giusta.',
+          'Registrare il contratto per una figura non chiude tutto. In Chiamate gestisci le figure rimaste e poi confermi la chiusura del precontratto e della trattativa.',
+          'Se almeno una figura ha un contratto, la chiusura complessiva risulta Contratto. Se tutte sono annullate o rifiutate, risulta KO.',
+          'La Ricerca mostra gli esiti comunicati da Chiamate. La fase della ricerca e le assunzioni non cambiano da sole.',
+          'Se la connessione si interrompe, il gestionale riprova l’invio senza creare schede doppie. I vecchi precontratti con una sola figura continuano a funzionare.'
+        ]
+      },
+      {
         titolo: 'Precontratti e ricerche',
         modifiche: [
           'Nelle richieste arrivate da Chiamate c’è un pulsante per scegliere una ricerca già avviata.',

@@ -267,6 +267,12 @@ async function initDatabase() {
       CREATE INDEX IF NOT EXISTS idx_crm_reserve_updates_ricerca ON crm_reserve_updates (ricerca_id, created_at);
     `);
 
+    const crmColumns = await db.all('PRAGMA table_info(crm_precontracts)');
+    for (const [name, type] of Object.entries({ parent_precontract_id: 'TEXT', sheet_position: 'INTEGER DEFAULT 1', sheet_count: 'INTEGER DEFAULT 1', request_fingerprint: 'TEXT', commercial_resolution: 'TEXT', commercial_notes: 'TEXT', commercial_updated_at: 'TEXT' })) {
+      if (!crmColumns.some(column => column.name === name)) await db.exec(`ALTER TABLE crm_precontracts ADD COLUMN ${name} ${type}`);
+    }
+    await db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_crm_parent_sheet ON crm_precontracts(parent_precontract_id, sheet_position) WHERE parent_precontract_id IS NOT NULL');
+
     // 3b. Table Annunci
     await db.exec(`
       CREATE TABLE IF NOT EXISTS annunci (

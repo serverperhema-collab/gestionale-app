@@ -3,6 +3,7 @@ import { useGlobalState } from '../contexts/GlobalStateContext';
 import PrecontractDocument from '../components/PrecontractDocument';
 import { API_BASE } from '../utils';
 import './Approvazioni.css';
+import CrmRequestInfo from '../components/CrmRequestInfo';
 
 const PASSWORD_STORAGE_KEY = 'ricerca_document_password';
 
@@ -137,6 +138,7 @@ export default function Approvazioni({ handleApprovalAction }) {
                 </td>
                 <td>
                   <strong>{r.ruolo}</strong>
+                  <CrmRequestInfo ricerca={r} compact />
                   <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Risorse: {r.nr_risorse} <br/> CCNL: {r.ccnl_livello || 'N/D'} <br/> Retr: {r.retribuzione || 'N/D'}</div>
                 </td>
                 <td>{r.sede_lavoro}</td>
@@ -152,12 +154,14 @@ export default function Approvazioni({ handleApprovalAction }) {
                   <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
                     <button 
                       className="btn btn-success btn-sm"
+                      disabled={r.crm_commercial_resolution === 'CANCELLED'}
                       onClick={() => handleApprovalAction(r.id, 'Approvata')}
                     >
                       ✓ Accetta
                     </button>
                     <button 
                       className="btn btn-warning btn-sm"
+                      disabled={r.crm_commercial_resolution === 'CANCELLED'}
                       onClick={() => { setReserveMandateId(r.id); setReserveNote(''); }}
                       style={{ backgroundColor: 'var(--warning)', color: '#000' }}
                     >
@@ -169,7 +173,7 @@ export default function Approvazioni({ handleApprovalAction }) {
                     >
                       🗑️ Cestina
                     </button>
-                    {r.crm_precontract_id && <button type="button" className="btn btn-secondary btn-sm" onClick={() => {
+                    {r.crm_precontract_id && <button type="button" disabled={r.crm_commercial_resolution === 'CANCELLED'} className="btn btn-secondary btn-sm" onClick={() => {
                       setLinkSource(r); setLinkTargetId(''); setLinkSearch(''); setLinkPassword(''); setLinkConfirmed(false); setLinkError('');
                     }}>Collega a ricerca esistente</button>}
                   </div>
